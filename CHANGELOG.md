@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.8.5] - 2026-11-17
 
 ### Phone app
 - **The phone app now has the same version number as the program.** An outdated phone app is shown
