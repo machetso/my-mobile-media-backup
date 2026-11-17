@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -220,8 +221,40 @@ def _copy_one(source, sf, cat, targets, hasher, cfg, prog, cancel=None, placemen
     return res
 
 
+class SourceSwitch:
+    """A faster connection for a RUNNING backup (user request 2026-11-17): e.g. the backup started
+    over Wi-Fi and the user plugs in the USB cable. Another thread offers the new source; the backup
+    takes it between two files and continues with the remaining files - same run, same report, the
+    change is written in the log and the report. Every phone connection names a file by its path on
+    the phone (SourceFile.rel), so the file list and the "already backed up" index stay valid."""
+
+    def __init__(self):
+        self._lock = threading.Lock()
+        self._offer = None
+        self.taken = 0
+
+    def offer(self, source, on_switch=None):
+        """on_switch(old, new) runs in the backup thread right before the new source is used."""
+        with self._lock:
+            if self._offer is not None:
+                return False
+            self._offer = (source, on_switch)
+            return True
+
+    def take(self):
+        with self._lock:
+            got, self._offer = self._offer, None
+        if got:
+            self.taken += 1
+        return got
+
+
+def _connection_text(source):
+    return f"{source.kind} - {source.description}"
+
+
 def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interactive=True, cancel=None,
-                   parent_name=None, mode="backup", source_label="", keep_structure=False):
+                   parent_name=None, mode="backup", source_label="", keep_structure=False, switch=None):
     """Run one backup (or, with mode="import", an import of a folder into an existing backup).
 
     Returns (status, report paths, file results, verdict text). status and verdict are English
@@ -234,6 +267,7 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
 
     from . import migrate, plans, setfolders  # backup plan per drive: simple or Grandfather-Father-Son
     parent_name = parent_name or setfolders.rel(phone_name, owner)       # 'Sam/Pixel 10 Pro'
+    _start_history(cfg, source, phone_name, mode, parent_name, started, dest_bases)
     dests = []
     for i, base in enumerate(dest_bases, 1):
         setfolders.relocate(base, cfg)                # old 'Phone - Owner' folders -> Owner/Phone
@@ -305,6 +339,8 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
     status = "COMPLETED"
     results = []
     hasher = None
+    switches = []                 # connection changes during the run (SourceSwitch)
+    first_connection = _connection_text(source)
     prog = ui.Progress(len(todo), total_bytes)
     if not any(d.alive for d in dests):
         status = "ABORTED (no usable destination)"
@@ -318,6 +354,29 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
         for i, (sf, cat, need) in enumerate(todo, 1):
             if cancel is not None and cancel.is_set():
                 raise Cancelled()
+            got = switch.take() if switch is not None else None
+            if got:                                   # faster connection: continue over it
+                new, on_switch = got
+                if hasher:
+                    hasher.stop()
+                    hasher = None
+                old = source
+                try:
+                    if on_switch:
+                        on_switch(old, new)
+                finally:
+                    old.close()
+                source = new
+                rest = todo[i - 1:]
+                if source.supports_phone_hash:
+                    hasher = PhoneHasher(source, [s.rel for s, _, _ in rest])
+                    hasher.start()
+                if hasattr(source, "prefetch"):
+                    source.prefetch([s for s, _, _ in rest])
+                switches.append(both.tr("%s: %s → %s (after %d of %d files)", f"{datetime.now():%H:%M:%S}",
+                                        old.kind, new.kind, i - 1, len(todo)))
+                ui.ok(tr("Connection switched to %s – the backup continues (%d of %d files were already done).",
+                         tr(new.kind), i - 1, len(todo)))
             targets = [d for d in need if d.alive]
             if not targets:
                 r = FileResult(sf=sf, category=cat)
@@ -359,16 +418,49 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
     duration = time.monotonic() - t0
     paths, verdict = _write_backup_reports(source, phone_name, owner, folders, missing, dests, results,
                                            unsupported, len(supported), already, status, started,
-                                           finished, duration, mode, source_label, parent_name)
+                                           finished, duration, mode, source_label, parent_name,
+                                           first_connection, switches)
     for d in dests:
         d.index.close()
         plans.close(d)
+    _record_history(cfg, source, phone_name, mode, parent_name, started, status, results, dests)
     return status, paths, results, verdict
+
+
+def _history_source(source, phone_name, mode):
+    from . import history
+    if mode == "import":
+        return history.IMPORT, getattr(source, "folders_text", "") or str(getattr(source, "root", "") or "")
+    what = phone_name or ""
+    if getattr(source, "kind", ""):
+        what = f"{what} ({source.kind})" if what else source.kind
+    return history.BACKUP, what
+
+
+def _start_history(cfg, source, phone_name, mode, parent_name, started, dest_bases):
+    from . import history, setfolders
+    kind, what = _history_source(source, phone_name, mode)
+    try:
+        history.start(cfg, setfolders.key_of_rel(parent_name), kind, started, what, dest_bases)
+    except Exception:  # noqa: BLE001 - never stop a backup because of the history
+        pass
+
+
+def _record_history(cfg, source, phone_name, mode, parent_name, started, status, results, dests):
+    """Backup history of the backup (Manage backups → Backup history, user request 2026-11-17)."""
+    from . import history, setfolders
+    new = [r for r in results if r.ok and r.newly_written]
+    kind, what = _history_source(source, phone_name, mode)
+    try:
+        history.record(cfg, setfolders.key_of_rel(parent_name), kind, started, what, len(new),
+                       sum(r.sf.size for r in new), status, [d.base for d in dests])
+    except Exception as e:  # noqa: BLE001 - the backup itself is done; never fail because of this
+        ui.warn(tr("Could not save the backup history: %s", e))
 
 
 def _write_backup_reports(source, phone_name, owner, folders, missing, dests, results,
                           unsupported, n_supported, already, status, started, finished, duration,
-                          mode="backup", source_label="", parent_name=""):
+                          mode="backup", source_label="", parent_name="", first_connection=None, switches=()):
     """Reports in the chosen language; the report FILE name, the status and the verdict's English
     value stay English (the verdict is a report.Shown)."""
     importing = mode == "import"
@@ -427,7 +519,9 @@ def _write_backup_reports(source, phone_name, owner, folders, missing, dests, re
         (tr("Duration"), ui.human_duration(duration)),
     ]
     if not importing:
-        general.append((tr("Connection"), f"{source.kind} - {source.description}"))
+        general.append((tr("Connection"), first_connection or _connection_text(source)))
+        if switches:
+            general.append((tr("Connection changes"), "; ".join(str(shown(s)) for s in switches)))
     if getattr(source, "fallback_reason", None):
         general.append((tr("ADB fallback"), tr("ADB did not work (%s); %s was used instead",
                                                source.fallback_reason, source.kind)))

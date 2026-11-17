@@ -18,10 +18,16 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
@@ -56,6 +62,20 @@ class MainActivity : ComponentActivity() {
     private var usbInfo by mutableStateOf("")
     private var usbOnInfo by mutableStateOf("")      // "… is on" – shown only while the guard runs
     private var connectInfo by mutableStateOf("")
+    private var askOn by mutableStateOf(false)
+    private var autoOn by mutableStateOf(false)
+
+    /** Automatic backup must start backup mode from the background: Android allows that only for
+     *  apps the user lets run unrestricted (battery). Asks once; without it the phone shows
+     *  "Allow backup?" instead. */
+    private fun askUnrestricted() {
+        val pm = getSystemService(android.os.PowerManager::class.java)
+        if (pm.isIgnoringBatteryOptimizations(packageName)) return
+        runCatching {
+            startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                android.net.Uri.parse("package:$packageName")))
+        }
+    }
 
     private val askMedia = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
         refresh()
@@ -65,6 +85,9 @@ class MainActivity : ComponentActivity() {
         hasAccess = MediaIndex.hasFullAccess(this)
         hasNetwork = MediaIndex.hasLocalNetwork(this)
         canSwitchUsb = UsbDebug.canSwitch(this)
+        askOn = AskService.enabled(this)
+        autoOn = AskService.autoEnabled(this)
+        AskService.startIfEnabled(this)          // e.g. after the app was updated or stopped
         UsbDebug.Guard.tick(this)?.let { AppState.status = it }   // saved countdown (after update/kill)
         if (hasNetwork) waitingPair?.let { startPairing(it) }
     }
@@ -84,7 +107,7 @@ class MainActivity : ComponentActivity() {
         if (!hasAccess || !hasNetwork) askAll()
         else if (Build.VERSION.SDK_INT >= 33) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
         handle(intent)
-        // no taps through an overlay of another app (tapjacking): "Allow backup over cable",
+        // no taps through an overlay of another app (tapjacking): "Allow fast connection (ADB)",
         // "Pair" … only count when this window is fully visible
         window.decorView.filterTouchesWhenObscured = true
         setContent {
@@ -272,32 +295,42 @@ class MainActivity : ComponentActivity() {
             if (canSwitchUsb) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(tr("Backup over cable (fastest)"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                        Text(tr("Switches USB debugging on for the backup. Then plug in the USB cable – " +
-                            "the computer switches USB debugging off again when the backup is done."),
+                        // one button for cable AND Wi-Fi ADB + "standard connection" (user request 2026-11-17)
+                        Text(tr("Enable fastest connection"), fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
+                        Text(tr("“Allow fast connection (ADB)” switches on USB debugging and Wireless debugging. The computer " +
+                            "uses the fastest: the USB cable if it is plugged in, otherwise the Wi-Fi. While " +
+                            "the cable stays plugged in, it stays on; it switches off by itself after the " +
+                            "backup and 5 minutes after the cable is unplugged."),
                             style = MaterialTheme.typography.bodyMedium)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Button(onClick = {
-                                val err = UsbDebug.switchOn(this@MainActivity)
-                                usbInfo = err ?: ""
-                                usbOnInfo = if (err == null) tr("USB debugging is on – plug in the cable now.") else ""
-                                if (err == null) BackupService.start(this@MainActivity)   // runs the 5-minute guard
-                            }) { Text(tr("Allow backup over cable")) }
-                            OutlinedButton(onClick = {
-                                usbOnInfo = ""
-                                usbInfo = UsbDebug.switchOff(this@MainActivity) ?: tr("USB debugging is off.")
-                            }) { Text(tr("Switch off")) }
-                        }
-                        Text(tr("No cable at hand? Wireless debugging works over Wi-Fi (the computer must have " +
-                            "been paired once with “Pair over Wi-Fi…”). It is switched off the same way."),
-                            style = MaterialTheme.typography.bodySmall)
-                        // same look as "Allow backup over cable" (user request 2026-11-10)
-                        Button(onClick = {
-                            val err = UsbDebug.switchOnWireless(this@MainActivity)
+                        // the button of the connection that is on shows it, in the desktop's colours
+                        // (user request 2026-11-17): fast = light green, standard = dark green
+                        val fastOn = UsbDebug.Guard.text.isNotEmpty()
+                        val fastColors = ButtonDefaults.buttonColors(containerColor = Color(0xFFA8E6A1),
+                            contentColor = Color(0xFF0D3B17))
+                        val standardColors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B5E20),
+                            contentColor = Color.White)
+                        Button(colors = if (fastOn) fastColors else ButtonDefaults.buttonColors(), onClick = {
+                            val err = UsbDebug.switchOnAdb(this@MainActivity)
+                            android.widget.Toast.makeText(this@MainActivity,
+                                err ?: tr("Fast connection (ADB) is on."), android.widget.Toast.LENGTH_SHORT).show()
                             usbInfo = err ?: ""
-                            usbOnInfo = if (err == null) tr("Wireless debugging is on – start the backup on the computer.") else ""
-                            if (err == null) BackupService.start(this@MainActivity)     // runs the 5-minute guard
-                        }) { Text(tr("Allow backup over Wireless debugging")) }
+                            usbOnInfo = if (err == null) tr("ADB is on – plug in the USB cable, or start the " +
+                                "backup on the computer over the Wi-Fi.") else ""
+                            if (err == null) BackupService.start(this@MainActivity)   // runs the guard
+                        }) { Text(if (fastOn) tr("Fast connection") else tr("Allow fast connection (ADB)")) }
+                        Text(tr("Standard connection: ADB off, the phone is reached over the USB cable with " +
+                            "“File transfer” – slower, but works without ADB."),
+                            style = MaterialTheme.typography.bodySmall)
+                        Button(colors = if (fastOn) ButtonDefaults.buttonColors() else standardColors, onClick = {
+                            usbOnInfo = ""
+                            usbInfo = UsbDebug.switchOff(this@MainActivity) ?: tr("ADB is off.")
+                            android.widget.Toast.makeText(this@MainActivity, tr("ADB is off."),
+                                android.widget.Toast.LENGTH_SHORT).show()
+                            // Android lets only the user choose "File transfer": open the USB settings
+                            if (!openUsbSettings()) usbInfo += " " + tr("Now choose “File transfer” in the " +
+                                "USB notification (pull down the notifications, tap “USB”).")
+                            else usbInfo += " " + tr("Choose “File transfer” here.")
+                        }) { Text(if (fastOn) tr("Enable standard connection") else tr("Standard connection")) }
                         if (usbInfo.isNotEmpty()) Text(usbInfo, style = MaterialTheme.typography.bodySmall)
                         // "is on" only while it really is on: the guard switches it off after 5 minutes
                         // without a backup (fix 2026-11-10: the text stayed after the switch-off)
@@ -308,35 +341,65 @@ class MainActivity : ComponentActivity() {
                 }
             }
 
+            // Simpler for everyone (user request 2026-11-17): what is happening now = ONE status line;
+            // the two switches "Backup requests" + "Automatic backup" = ONE choice with three answers.
             Card(Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(if (running) tr("Backup mode is ON") else tr("Backup mode is off"),
-                        fontWeight = FontWeight.SemiBold, fontSize = 18.sp)
-                    if (AppState.status.isNotEmpty()) Text(AppState.status)
-                    if (connectInfo.isNotEmpty()) Text(connectInfo, fontWeight = FontWeight.SemiBold)
-                    if (running) {
-                        Text(tr("Phone address: %s  ·  port %d",
-                            Announce.wifiAddress(this@MainActivity)?.hostAddress ?: tr("no network"), AppState.port),
-                            style = MaterialTheme.typography.bodySmall)
-                        Text(if (AppState.idleLeft.isNotEmpty())
-                                tr("Start the backup on the computer – it asks the phone for each file and copies it; " +
-                                    "the phone sends nothing by itself. Backup mode switches off by itself when the " +
-                                    "backup is done, or after 5 minutes without use (in %s).", AppState.idleLeft)
-                            else tr("Start the backup on the computer – it asks the phone for each file and copies it; " +
-                                    "the phone sends nothing by itself. Backup mode switches off by itself when the " +
-                                    "backup is done, or after 5 minutes without use."),
-                            style = MaterialTheme.typography.bodySmall)
-                        OutlinedButton(onClick = { BackupService.stop(this@MainActivity) }) { Text(tr("Switch off")) }
-                    } else {
-                        Button(enabled = hasAccess && hasNetwork && computers.isNotEmpty(),
-                            onClick = { BackupService.start(this@MainActivity) }) { Text(tr("Start backup mode")) }
-                        if (computers.isEmpty()) Text(tr("Not paired yet: on the computer click " +
-                            "“Set up phone app…” and scan the QR code."), style = MaterialTheme.typography.bodySmall)
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (running) tr("Your computer can read photos and videos right now.")
+                             else tr("Closed – your computer cannot read anything right now."),
+                            Modifier.weight(1f), fontWeight = FontWeight.SemiBold)
+                        if (running)
+                            TextButton(onClick = { BackupService.stop(this@MainActivity) }) { Text(tr("Switch off")) }
+                        else
+                            TextButton(enabled = hasAccess && hasNetwork && computers.isNotEmpty(),
+                                onClick = { BackupService.start(this@MainActivity) }) { Text(tr("Open now")) }
                     }
+                    if (AppState.status.isNotEmpty()) Text(AppState.status, style = MaterialTheme.typography.bodySmall)
+                    if (connectInfo.isNotEmpty()) Text(connectInfo, fontWeight = FontWeight.SemiBold)
+                    if (running) Text(
+                        if (AppState.onCable) tr("Stays open while the USB cable is plugged in; closes 5 minutes after " +
+                            "it is unplugged.")
+                        else if (AppState.idleLeft.isNotEmpty()) tr("Closes by itself after the backup, or after 5 " +
+                            "minutes without use (in %s).", AppState.idleLeft)
+                        else tr("Closes by itself after the backup, or after 5 minutes without use."),
+                        style = MaterialTheme.typography.bodySmall)
+                    if (computers.isEmpty()) Text(tr("Not paired yet: on the computer click " +
+                        "“Set up phone app…” and scan the QR code."), style = MaterialTheme.typography.bodySmall)
                 }
             }
 
             if (computers.isNotEmpty()) {
+                val mode = if (!askOn) "never" else if (autoOn) "auto" else "ask"
+                Card(Modifier.fillMaxWidth()) {
+                    Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(tr("When your computer wants a backup"), fontWeight = FontWeight.SemiBold)
+                        listOf(
+                            Triple("ask", tr("Ask me"), tr("The phone shows “Allow backup?” – nothing starts without your tap.")),
+                            Triple("auto", tr("Start automatically"), tr("No question: when the computer finds the phone " +
+                                "at home or you plug in the USB cable, the newest photos and videos are backed up – at " +
+                                "most once per hour, over the fastest connection.")),
+                            Triple("never", tr("Never"), tr("The computer cannot ask. Start backups yourself here in the app.")),
+                        ).forEach { (key, label, help) ->
+                            Row(Modifier.fillMaxWidth().selectable(selected = mode == key, role = Role.RadioButton,
+                                onClick = {
+                                    AskService.setEnabled(this@MainActivity, key != "never")
+                                    AskService.setAuto(this@MainActivity, key == "auto")
+                                    askOn = AskService.enabled(this@MainActivity)
+                                    autoOn = AskService.autoEnabled(this@MainActivity)
+                                    if (key == "auto") askUnrestricted()
+                                }).padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                                RadioButton(selected = mode == key, onClick = null)
+                                Column(Modifier.padding(start = 8.dp)) {
+                                    Text(label)
+                                    Text(help, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        }
+                        if (mode != "never") Text(tr("Uses a little battery and shows a permanent notification."),
+                            style = MaterialTheme.typography.bodySmall)
+                    }
+                }
                 Text(tr("Paired computers"), fontWeight = FontWeight.SemiBold)
                 computers.forEach { pc ->
                     Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -352,6 +415,23 @@ class MainActivity : ComponentActivity() {
             LanguageRow()
             Text(tr("Version %s", BuildConfigInfo.versionName(this@MainActivity)), style = MaterialTheme.typography.bodySmall)
         }
+    }
+
+    /** Android's USB settings ("File transfer" etc.) – there is no public screen for it, so
+     *  try the known ones; false if none opens (then the user takes the USB notification). */
+    private fun openUsbSettings(): Boolean {
+        val tries = listOf(
+            Intent().setClassName("com.android.settings", "com.android.settings.Settings\$UsbDetailsActivity"),
+            Intent("android.settings.USB_PREFERENCES"),
+        )
+        for (i in tries) {
+            try {
+                startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                return true
+            } catch (_: Exception) {
+            }
+        }
+        return false
     }
 
     /** "Language: …" – System (phone language if there is a dictionary, else English) or any dictionary. */

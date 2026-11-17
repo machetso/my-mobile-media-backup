@@ -77,19 +77,27 @@ pestañas que se describen más abajo).
   **La app del teléfono la activa:** en la primera conexión con depuración por USB, el programa
   ofrece instalar la app del teléfono *My Media Backup* y darle permiso para activar la depuración
   por USB (`WRITE_SECURE_SETTINGS` de Android, concedido por el cable; la app no puede obtenerlo
-  por sí misma). A partir de ahí: abre la app → **Permitir copia por cable** → conecta el cable.
-  Después de cada copia, el equipo vuelve a desactivar la depuración por USB (o la Depuración
+  por sí misma). A partir de ahí: abre la app → **Permitir conexión rápida (ADB)** (activa la
+  depuración por USB y la Depuración inalámbrica) → conecta el cable, o quédate en el Wi-Fi.
+  **Activar conexión estándar** vuelve a desactivar ADB y abre los ajustes USB de Android, donde
+  eliges *Transferencia de archivos*. Después de cada copia, el equipo vuelve a desactivar la depuración por USB (o la Depuración
   inalámbrica) (*Desactivar … después de la copia*, activado por defecto). Solo se desactiva la
-  depuración por USB; las Opciones para desarrolladores se mantienen.
+  depuración; las Opciones para desarrolladores se mantienen.
+  La app del teléfono tiene el mismo número de versión que el programa. Si la app del teléfono es
+  más antigua, la pantalla de inicio y *Gestionar copias → Resumen* lo indican, con un botón
+  **Actualizar la app del teléfono** (un clic mientras el teléfono está conectado por ADB). Las copias
+  antiguas de la app del teléfono se eliminan automáticamente.
 
   **Reglas para desactivar la depuración** (la app del teléfono las aplica aunque el equipo ya no esté):
   1. Las copias por Wi-Fi se hacen normalmente a través de la app del teléfono con la depuración
      desactivada; la Depuración inalámbrica solo para teléfonos sin la app.
   2. Una conexión por copia: por cable → la Depuración inalámbrica se desactiva al empezar;
      mediante la app por Wi-Fi → la depuración por USB se desactiva al empezar.
-  3. La app del teléfono nunca activa la Depuración inalámbrica.
-  4. 5 minutos después de *Permitir copia por cable* sin que empiece una copia → se desactiva (cuenta atrás en el teléfono).
-  5. Durante una copia, el equipo dice "sigo aquí" cada 30 s; si no hay nada durante 2 minutos → se desactiva.
+  3. Mientras el cable USB siga conectado, la depuración sigue activada; 5 minutos después de
+     desconectar el cable → se desactiva (cuenta atrás en el teléfono).
+  4. Cable nunca conectado: 5 minutos después de *Permitir conexión rápida (ADB)* sin que empiece
+     una copia → se desactiva.
+  5. Por Wi-Fi, el equipo dice "sigo aquí" cada 30 s durante una copia; si no hay nada durante 2 minutos → se desactiva.
   6. Justo después de la copia, el equipo la desactiva (y termina el modo de copia en el teléfono).
 
   **Reconocer el teléfono de forma segura:** al emparejar, la app del teléfono crea una clave en el
@@ -301,9 +309,21 @@ pantallas muestran un código; toca *Emparejar* en el teléfono solo si coincide
 Por el cable, el programa también puede instalar la app por sí mismo: siempre **pregunta antes** y
 explica qué teléfono, qué versión, por qué y qué ocurre exactamente; no se instala nada sin tu clic.
 
-Para una copia: abre *My Media Backup* en el teléfono → **Iniciar modo de copia**. El equipo lo
-encuentra y se conecta; después de la copia, el teléfono desactiva el modo de copia por sí mismo
-(también tras 5 minutos sin uso). La app solo puede leer fotos y vídeos; la conexión está cifrada
+Para una copia: abre *My Media Backup* en el teléfono → **Abrir ahora**. El equipo lo
+encuentra y se conecta; después de la copia, el teléfono se vuelve a cerrar por sí mismo
+(también tras 5 minutos sin uso).
+
+**Cuando tu equipo quiera una copia** (en la app del teléfono):
+* **Preguntarme** (predeterminado) – cuando el equipo encuentra el teléfono en casa, el teléfono
+  muestra *¿Permitir copia?*; no empieza nada sin que toques.
+* **Iniciar automáticamente** – sin pregunta: cuando el equipo encuentra el teléfono en el Wi-Fi, o
+  conectas el cable USB, se copian las fotos y vídeos más recientes – como máximo una vez por hora,
+  por la conexión más rápida. Si conectas el cable durante una copia por Wi-Fi, continúa por el cable.
+* **Nunca** – el equipo no puede preguntar.
+
+Un teléfono en el que se vuelve a instalar la app del teléfono se reconoce por su número de serie
+(por el cable) y nunca aparece dos veces en *Teléfonos conocidos*; sin número de serie, el programa
+pregunta una vez si es el mismo teléfono. La app solo puede leer fotos y vídeos; la conexión está cifrada
 (TLS, certificado fijado durante el emparejamiento). El equipo **solicita** los archivos: pide cada
 archivo, y el teléfono solo responde al equipo emparejado y nunca envía nada por sí mismo. Mismos archivos y rutas que por ADB, así que las copias existentes simplemente continúan.
 
@@ -329,6 +349,11 @@ directamente entre el teléfono y el equipo. La mayoría de los adaptadores Wi-F
 tanto el Wi-Fi normal; vuelve cuando se detiene el Wi-Fi directo (la app lo pregunta al cerrarla).
 
 Un Wi-Fi Direct real (P2P) necesitaría una app complementaria en el teléfono; está previsto como un paso posterior.
+
+**Resumen y copias completas:** después de cada copia desde el teléfono, el programa pregunta si
+esta copia está completa. *Gestionar copias → Resumen* muestra entonces para cada copia: la última
+copia, qué unidades de copia están completas, las copias Abuelo-Padre-Hijo de la copia y las copias
+que se iniciaron pero no terminaron.
 
 ## Plan de copia por unidad
 

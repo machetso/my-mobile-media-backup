@@ -133,9 +133,16 @@ class AdbSource:
         r = _run([self.adb, "-s", self.serial, "shell", cmd], timeout=timeout)
         return r.returncode, (r.stdout + r.stderr).decode("utf-8", "replace")
 
-    def companion_state(self):
+    def companion_state(self, apk=None):
         """'missing' / 'no-permission' (installed, cannot switch debugging yet) / 'outdated'
-        (older than the app bundled with this program) / 'ready'."""
+        (older than the app bundled with this program) / 'ready'.
+
+        apk = the bundled app: then the installed app file is also compared with it (one copy from
+        the phone): self.companion_signer_ok (same signer: True / False / None = not checked) and
+        self.companion_build_differs – the SAME version number but a different build counts as
+        'outdated' (the phone app has the program's version, so builds share it; user 2026-11-17)."""
+        self.companion_signer_ok = None
+        self.companion_build_differs = False
         _rc, out = self.control("companion_installed")
         if f"package:{phoneguard.COMPANION_PACKAGE}" not in out.split():
             return "missing"
@@ -147,28 +154,70 @@ class AdbSource:
             return "no-permission"
         from .companion import APP_VERSION_CODE
         m = re.search(r"versionCode=(\d+)", out)
-        return "outdated" if m and int(m.group(1)) < APP_VERSION_CODE else "ready"
+        code = int(m.group(1)) if m else None
+        if apk is not None:
+            self.companion_signer_ok, same = self.companion_check(apk)
+            self.companion_build_differs = same is False and code == APP_VERSION_CODE
+        if code is not None and code < APP_VERSION_CODE:
+            return "outdated"
+        return "outdated" if self.companion_build_differs else "ready"
+
+    def old_companion_copies(self):
+        """OLD copies of the phone app on the phone: other packages that open its link
+        (phonebackup://) – e.g. from before the package was renamed. [(package, version)].
+        Such a copy can keep running and answer instead of the current app (user 2026-11-17)."""
+        _rc, out = self.control("companion_copies")
+        found = []
+        for m in re.finditer(r"^\s*([A-Za-z][\w.]*)/[\w.$]+\s*$", out, re.M):
+            pkg = m.group(1)
+            if pkg != phoneguard.COMPANION_PACKAGE and pkg not in [p for p, _v in found]:
+                r = _run([self.adb, "-s", self.serial, "shell", phoneguard.old_copy_command("version", pkg)],
+                         timeout=30)
+                v = re.search(r"versionName=(\S+)", (r.stdout or b"").decode("utf-8", "replace"))
+                found.append((pkg, v.group(1) if v else ""))
+        return found
+
+    def remove_old_companion(self, package):
+        """Uninstall one old copy of the phone app – only a package that is listed as an old copy
+        right now (never the current app, never anything else). Returns (ok, message)."""
+        if package not in [p for p, _v in self.old_companion_copies()]:
+            raise phoneguard.ForbiddenPhoneCommand(tr("refused (not an old copy of the phone app): %s",
+                                                      str(package)[:80]))
+        r = _run([self.adb, "-s", self.serial, "shell", phoneguard.old_copy_command("remove", package)],
+                 timeout=60)
+        out = (r.stdout + r.stderr).decode("utf-8", "replace").strip()
+        return ("Success" in out), (out.splitlines()[-1] if out else "")
 
     def companion_signer_matches(self, apk):
         """Was the phone app installed on the phone signed like the bundled one? True / False /
         None (could not be checked). A different signer = not our app (e.g. a fake APK handed
         out by somebody in the Wi-Fi during the download)."""
+        return self.companion_check(apk)[0]
+
+    def companion_check(self, apk):
+        """(same signer, same file) of the installed phone app compared with the bundled one –
+        each True / False / None (could not be checked). One copy of the app file from the phone."""
         from . import apksig
         try:
             _rc, out = self.control("companion_path")
             paths = [ln[len("package:"):].strip() for ln in out.splitlines() if ln.startswith("package:")]
             base = next((x for x in paths if x.endswith("/base.apk")), None)
             if base is None:
-                return None
+                return None, None
             phoneguard.check_companion_apk(base)
             with tempfile.TemporaryDirectory(prefix="pb-apk-") as tmp:
                 local = Path(tmp) / "installed.apk"
                 r = _run([self.adb, "-s", self.serial, "pull", base, str(local)], timeout=120)
                 if r.returncode != 0 or not local.is_file():
-                    return None
-                return apksig.same_signer(local, apk)
-        except (OSError, subprocess.SubprocessError, apksig.ApkSigError, phoneguard.ForbiddenPhoneCommand):
-            return None
+                    return None, None
+                same_file = _sha256_file(local) == _sha256_file(apk)
+                try:
+                    signer = apksig.same_signer(local, apk)
+                except apksig.ApkSigError:
+                    signer = None
+                return signer, same_file
+        except (OSError, subprocess.SubprocessError, phoneguard.ForbiddenPhoneCommand):
+            return None, None
 
     def install_companion(self, apk):
         """Install / update the bundled phone app (only this one file) and give it the right to
@@ -784,3 +833,12 @@ def connect_source(cfg):
         src.fallback_reason = f"ADB: {reason}; MTP: {why}"
         return src
     return None
+
+
+def _sha256_file(path):
+    import hashlib
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()

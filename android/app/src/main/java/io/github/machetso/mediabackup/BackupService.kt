@@ -5,10 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.net.wifi.WifiManager
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -26,6 +29,7 @@ object AppState {
     var pairedChanged by mutableStateOf(0)
     var pairings by mutableStateOf(0)        // +1 for every new pairing (closes the pairing card)
     var idleLeft by mutableStateOf("")       // "4:12" until backup mode switches off unused
+    var onCable by mutableStateOf(false)     // USB cable in: no timeout (user request 2026-11-17)
 }
 
 /**
@@ -59,6 +63,8 @@ class BackupService : Service() {
     private val idleCheck = object : Runnable {
         override fun run() {
             val s = server ?: return
+            // on the USB cable: backup mode stays on (no timeout while the cable is in, user 2026-11-17)
+            if (UsbDebug.Guard.cableHolds(this@BackupService)) s.keepAlive()
             if (System.currentTimeMillis() - s.lastActivity > IDLE_MS) {
                 stopSelf()
                 return
@@ -73,7 +79,8 @@ class BackupService : Service() {
             server?.let {
                 Announce.refresh(this@BackupService, it.port)
                 val left = IDLE_MS - (System.currentTimeMillis() - it.lastActivity)
-                AppState.idleLeft = if (left > 0) "%d:%02d".format(left / 60_000, left / 1000 % 60) else ""
+                AppState.onCable = UsbDebug.Guard.cableHolds(this@BackupService)
+                AppState.idleLeft = if (left > 0 && !AppState.onCable) "%d:%02d".format(left / 60_000, left / 1000 % 60) else ""
             }
             main.postDelayed(this, 1000)
         }
@@ -81,10 +88,50 @@ class BackupService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    // Started again (e.g. the computer opened the app over the cable): if the server had to take a
+    // random port because another app held the usual one (an OLD copy of this app, user 2026-11-17),
+    // move to the usual port now if it is free – the computer reaches the app over the cable there.
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        val old = server
+        if (old != null && old.port != Server.PREFERRED_PORT) {
+            val srv = Server(this) { ev -> main.post { onServerEvent(ev) } }
+            try {
+                srv.start()
+                if (srv.port == Server.PREFERRED_PORT) {
+                    old.stop()
+                    server = srv
+                    AppState.port = srv.port
+                    Announce.refresh(this, srv.port)
+                } else {
+                    srv.stop()
+                }
+            } catch (_: Exception) {
+                runCatching { srv.stop() }
+            }
+        }
+        return super.onStartCommand(intent, flags, startId)
+    }
+
+    // USB cable plugged in during a Wi-Fi backup: switch to the cable (UsbDebug.Guard.cablePlugged)
+    private val power = object : BroadcastReceiver() {
+        override fun onReceive(c: Context, i: Intent) = checkCable()
+    }
+
+    private fun checkCable() {
+        val b = registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED)) ?: return
+        if (b.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) != BatteryManager.BATTERY_PLUGGED_USB) return
+        if (UsbDebug.Guard.cablePlugged(this)) {
+            val t = tr("USB cable plugged in – the backup continues over the faster cable.")
+            AppState.status = t
+            notify(t)
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         I18n.load(this)                      // notification texts (also without the activity)
         val nm = getSystemService(NotificationManager::class.java)
+        nm.cancel(AskService.ASK_NOTIFICATION)        // "Allow backup?" answered
         nm.createNotificationChannel(NotificationChannel(CHANNEL, tr("Backup mode"), NotificationManager.IMPORTANCE_LOW))
         val n = notification(tr("Waiting for the computer – photos and videos are shared read-only."))
         if (Build.VERSION.SDK_INT >= 34) {
@@ -113,7 +160,13 @@ class BackupService : Service() {
         Announce.refresh(this, srv.port)
         main.postDelayed(idleCheck, 5_000)
         main.postDelayed(tick, 1000)
+        registerReceiver(power, IntentFilter(Intent.ACTION_POWER_CONNECTED))
+        guardCheck = object : Runnable {           // the cable may already be in when the backup starts
+            override fun run() { checkCable(); main.postDelayed(this, 10_000) }
+        }.also { main.postDelayed(it, 10_000) }
     }
+
+    private var guardCheck: Runnable? = null
 
     private fun onServerEvent(ev: String) {
         if (ev == "DONE") {
@@ -133,6 +186,7 @@ class BackupService : Service() {
         if (ev.startsWith("PAIRED\n")) {
             AppState.pairedChanged++
             AppState.pairings++
+            AskService.startIfEnabled(this)        // first computer paired: listener on (default)
             Announce.stop(this)                    // announce the new computer's token too
             val t = tr("Paired with %s", ev.substringAfter('\n'))
             AppState.status = t
@@ -160,6 +214,7 @@ class BackupService : Service() {
 
     override fun onDestroy() {
         main.removeCallbacksAndMessages(null)
+        runCatching { unregisterReceiver(power) }
         Announce.stop(this)
         if (UsbDebug.Guard.engaged) UsbDebug.switchOff(this)     // backup mode ends → debugging off
         server?.stop()

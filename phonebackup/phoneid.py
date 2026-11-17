@@ -219,15 +219,15 @@ def speed_advice(pid, usb_mbit=None, on_cable=""):
     if on_cable and c != "usb-adb":
         if usb_mbit and usb_mbit >= 5000:
             fix = tr("Faster (about 25–50 MB/s): the %s is already on the USB cable (USB 3), only USB "
-                     "debugging is off – tap “Allow backup over cable” in the phone app (or switch on "
+                     "debugging is off – tap “Allow fast connection (ADB)” in the phone app (or switch on "
                      "USB debugging in the Developer options), then click Start again.", on_cable)
         else:
             fix = tr("Faster (about 25–50 MB/s): the %s is already on the USB cable, only USB "
-                     "debugging is off – tap “Allow backup over cable” in the phone app (or switch on "
+                     "debugging is off – tap “Allow fast connection (ADB)” in the phone app (or switch on "
                      "USB debugging in the Developer options), then click Start again.", on_cable)
     else:
-        fix = tr("Faster (about 25–50 MB/s): plug the phone in with a USB cable and tap “Allow backup "
-                 "over cable” in the phone app (or switch on USB debugging in the Developer options).")
+        fix = tr("Faster (about 25–50 MB/s): plug the phone in with a USB cable and tap “Allow fast connection (ADB)” "
+                 "in the phone app (or switch on USB debugging in the Developer options).")
     if c in ("wifi-adb", "app-wifi"):
         return False, tr("Wi-Fi – slower (about 3–30 MB/s, depends on the Wi-Fi).") + " " + fix
     if c == "mtp":

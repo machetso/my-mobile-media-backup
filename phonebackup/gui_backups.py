@@ -18,19 +18,22 @@ from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QColor
-from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QFileDialog, QFormLayout,
+from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QComboBox, QFileDialog,
+                               QFormLayout,
                                QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
-                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton,
-                               QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem, QVBoxLayout,
+                               QListWidgetItem, QMenu, QMessageBox, QPushButton, QRadioButton, QScrollArea,
+                               QSizePolicy, QStackedWidget, QTabWidget, QTreeWidget, QTreeWidgetItem,
+                               QVBoxLayout,
                                QWidget)
 
-from . import APP_NAME, backuplist, companion, lastbackup, setfolders, ui
+from . import (APP_NAME, backuplist, companion, completeness, config, generations, history, lastbackup,
+               plans, setfolders, ui)
 from .i18n import N_, tr, trp
 from .importer import CAMERA, OTHER, check_selection, guess_kind, scan_folder
 from .index import backup_totals, describe_totals
 from .locations import detect_drives, find_backups, mount_for_paths_status
 
-GRAY, GREEN = "#808080", "#1f8a4c"
+GRAY, GREEN, ORANGE = "#808080", "#1f8a4c", "#c76a00"
 CAMERA_FOLDER = backuplist.CAMERA_FOLDER
 
 
@@ -48,9 +51,82 @@ def _fit_height(view, rows_min=2, rows_max=6):
     view.setFixedHeight(head + row * max(rows_min, min(n, rows_max)) + 2 * view.frameWidth() + 6)
 
 
+def _size_of_current_only(pages):
+    """A QStackedWidget / QTabWidget is as high as its HIGHEST page – which made the Manage backups
+    page scroll although the open page fits (user request 2026-11-17). Hidden pages are ignored."""
+    def update(_i=None):
+        for i in range(pages.count()):
+            w = pages.widget(i)
+            pol = QSizePolicy.Preferred if i == pages.currentIndex() else QSizePolicy.Ignored
+            w.setSizePolicy(pol, pol)
+        pages.updateGeometry()
+    pages.currentChanged.connect(update)
+    update()
+
+
+class _MinHeightLayout(QVBoxLayout):
+    """In a scroll area, a layout with word-wrapped labels makes Qt use the PREFERRED height of the
+    content (height-for-width), so the page scrolled although everything fitted. Without
+    height-for-width the scroll area uses the minimum height: scroll bars only when really needed."""
+
+    def hasHeightForWidth(self):
+        return False
+
+
 def _short(path):
     parts = Path(path).parts
     return "/".join(parts[-2:]) if len(parts) > 1 else str(path)
+
+
+def _result_text(status):
+    from .report import shown
+    if str(status).startswith("COMPLETED"):
+        return tr("OK")
+    if status == history.RUNNING:
+        return tr("not finished (interrupted)")
+    return str(shown(status)) or "–"
+
+
+def _result_html(status):
+    ok = str(status).startswith("COMPLETED")
+    return f"<span style='color:{GREEN if ok else ORANGE}'>{html.escape(_result_text(status))}</span>"
+
+
+def _complete_text(state, ref):
+    """(text, colour) of a drive in the "Complete backup" column."""
+    if not ref:
+        return tr("not marked yet"), GRAY
+    if not state:
+        return tr("not checked yet (drive not connected)"), GRAY
+    when = state.get("checked", "")[:10]
+    if state.get("complete"):
+        return tr("yes (checked %s)", when), GREEN
+    return trp("no – %d file missing (checked %s)", "no – %d files missing (checked %s)",
+               state.get("missing", 0), state.get("missing", 0), when), ORANGE
+
+
+_ROLE_LONG = {"full": N_("Grandfather (full backup)"), "differential": N_("Father (monthly differential)"),
+              "incremental": N_("Son (latest complement)")}
+
+
+def _role_text(mode):
+    return tr(_ROLE_LONG[mode]) if mode in _ROLE_LONG else mode
+
+
+def _generations_html(s):
+    """Grandfather / Father / Son of a storage: the newest of each and how many are kept."""
+    if not s:
+        return html.escape(tr("not known yet – shown after the next backup there"))
+    rows = []
+    for t in generations.TYPES:
+        g = s.get(t) or {}
+        if g.get("count"):
+            val = trp("%s (%d kept)", "%s (%d kept)", g["count"], g["last"][:10], g["count"])
+            color = GREEN
+        else:
+            val, color = tr("none yet"), GRAY
+        rows.append(f"{html.escape(_role_text(t))}: <span style='color:{color}'>{html.escape(val)}</span>")
+    return "<br>".join(rows)
 
 
 # =========================================================================== folder list
@@ -453,7 +529,12 @@ class BackupsTabMixin:
         self.backups_stack = QStackedWidget()
         self.backups_stack.addWidget(self._build_backups_manage())
         self.backups_stack.addWidget(self._build_old_import_page())
-        return self.backups_stack
+        _size_of_current_only(self.backups_stack)
+        w = QWidget()
+        lay = _MinHeightLayout(w)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.addWidget(self.backups_stack)
+        return w
 
     # ---------------------------------------------------------------- page 1: your backups
     def _build_backups_manage(self):
@@ -488,10 +569,11 @@ class BackupsTabMixin:
         new_old.clicked.connect(lambda: self._show_old_import(True))
         for b in (sel_all, rm, refresh):
             row.addWidget(b)
+        row.addSpacing(12)
+        row.addWidget(self.backups_show_hidden)
         row.addStretch()
         row.addWidget(new_old)
         top.addLayout(row)
-        top.addWidget(self.backups_show_hidden)
         lay.addWidget(g._group(tr("Your backups"), top))
 
         # ---- the chosen backup
@@ -499,9 +581,12 @@ class BackupsTabMixin:
         self.backup_detail_hint.setWordWrap(True)
         self.backup_detail_hint.setStyleSheet(f"color:{GRAY}")
         self.backup_tabs = QTabWidget()
-        self.backup_tabs.addTab(self._build_backup_phone_tab(), tr("Phone"))
+        self.backup_tabs.addTab(self._build_backup_overview_tab(), tr("Overview"))
+        self.backup_tabs.addTab(self._build_backup_phone_tab(), tr("Phone folders"))
         self.backup_tabs.addTab(self._build_backup_drives_tab(), tr("Backup drives"))
         self.backup_tabs.addTab(self._build_backup_import_tab(), tr("Import folders"))
+        self.backup_tabs.addTab(self._build_backup_history_tab(), tr("Backup history"))
+        _size_of_current_only(self.backup_tabs)
         box = QVBoxLayout()
         box.addWidget(self.backup_detail_hint)
         box.addWidget(self.backup_tabs)
@@ -510,8 +595,7 @@ class BackupsTabMixin:
         self.backup_actions = QWidget()
         self.backup_actions.setLayout(self._build_backup_actions())
         self.backup_detail = g._group(tr("Selected backup"), box)
-        lay.addWidget(self.backup_detail)
-        lay.addStretch(1)
+        lay.addWidget(self.backup_detail, 1)          # the rest of the height: no empty space below
         self._backups = []
         return w
 
@@ -566,12 +650,17 @@ class BackupsTabMixin:
         lab.setWordWrap(True)
         lab.setStyleSheet(f"color:{GRAY}")
         lay.addWidget(lab)
+        self.backup_complete_info = QLabel()
+        self.backup_complete_info.setWordWrap(True)
+        self.backup_complete_info.setTextFormat(Qt.RichText)
+        lay.addWidget(self.backup_complete_info)
         self.backup_drives = QTreeWidget()
-        self.backup_drives.setHeaderLabels([tr("Drive"), tr("Status"), tr("This backup"), tr("Folder")])
+        self.backup_drives.setHeaderLabels([tr("Drive"), tr("Status"), tr("Complete backup"), tr("This backup"),
+                                            tr("Folder")])
         self.backup_drives.setRootIsDecorated(False)
         self.backup_drives.setSelectionMode(QAbstractItemView.ExtendedSelection)
         h = self.backup_drives.header()
-        for c in range(4):
+        for c in range(5):
             h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
         lay.addWidget(self.backup_drives)
         row = QHBoxLayout()
@@ -613,6 +702,194 @@ class BackupsTabMixin:
         lay.addStretch()
         return w
 
+    def _build_backup_overview_tab(self):
+        """Latest backup, complete backups, drives, backups of the backup (Grandfather-Father-Son)
+        and runs that did not finish (user request 2026-11-17)."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        self.backup_overview = QLabel()
+        self.backup_overview.setTextFormat(Qt.RichText)
+        self.backup_overview.setWordWrap(True)
+        self.backup_overview.setTextInteractionFlags(Qt.TextSelectableByMouse)
+        self.backup_overview.setAlignment(Qt.AlignTop | Qt.AlignLeft)
+        lay.addWidget(self.backup_overview)
+        self.overview_app_update = AppUpdateBox()
+        self.overview_app_update.clicked.connect(lambda: self._app_update_clicked(self.overview_app_update))
+        lay.addWidget(self.overview_app_update)
+        lay.addStretch()
+        return w
+
+    def _overview_phone_names(self, b):
+        e = (self.cfg.get("phones") or {}).get(b["key"]) or {}
+        return [n for n in (b["phone"], e.get("model")) if n]
+
+    def _completeness(self, b):
+        return completeness.check(self.cfg, b["key"], setfolders.rel(b["phone"], b["owner"]), b["drives"])
+
+    def _fill_backup_overview(self):
+        b = self._current_backup()
+        if b is None:
+            self.backup_overview.clear()
+            self.overview_app_update.hide()
+            return
+        self._fill_app_update(self.overview_app_update, *self._overview_phone_names(b))
+        esc = html.escape
+        rel = setfolders.rel(b["phone"], b["owner"])
+        runs = history.entries(self.cfg, b["key"], b["copies"])
+        parts = []
+
+        def head(text):
+            parts.append(f"<p style='margin:10px 0 2px 0'><b>{esc(text)}</b></p>")
+
+        def table(rows):
+            cells = "".join("<tr>" + "".join(f"<td style='padding:1px 14px 1px 0'>{c}</td>" for c in r) + "</tr>"
+                            for r in rows)
+            parts.append(f"<table cellspacing='0'>{cells}</table>")
+
+        # ---- latest backup + complete
+        last = next((e for e in runs if e["kind"] == history.BACKUP), None)
+        ref = completeness.reference(self.cfg, b["key"])
+        rows = []
+        if last:
+            rows.append([esc(tr("Latest backup from the phone")) + ":",
+                         esc(last["when"][:16].replace("T", " ")) + " – " + _result_html(last.get("status", ""))])
+        else:
+            rows.append([esc(tr("Latest backup from the phone")) + ":", esc(tr("none yet"))])
+        if ref:
+            rows.append([esc(tr("Marked as complete")) + ":",
+                         esc(tr("%s (on %s)", ref["when"][:16], ", ".join(_short(d) for d in ref["drives"])))])
+        else:
+            rows.append([esc(tr("Marked as complete")) + ":",
+                         esc(tr("not yet – you are asked after every backup from the phone"))])
+        version, old, _one = self._phone_app_state(*self._overview_phone_names(b))
+        if version:
+            rows.append([esc(tr("Phone app")) + ":", esc(version) + (
+                f" <span style='color:{ORANGE}'>– {esc(tr('update available: %s', companion.APP_VERSION_NAME))}</span>"
+                if old else "")])
+        table(rows)
+
+        # ---- backup drives
+        head(tr("Backup drives"))
+        comp = self._completeness(b)
+        rows = []
+        for d in b["drives"]:
+            avail = os.path.isdir(d)
+            ctext, ccolor = _complete_text(comp.get(d), ref)
+            plan = plans.folder_plan(Path(d) / rel) if avail else None
+            plan = plan or plans.plan_of(self.cfg, d)
+            rows.append([esc(_short(d)),
+                         f"<span style='color:{GREEN if avail else GRAY}'>"
+                         f"{esc(tr('connected') if avail else tr('not connected'))}</span>",
+                         esc(tr(plans.NAMES[plan])),
+                         f"<span style='color:{ccolor}'>{esc(ctext)}</span>"])
+            if plan == plans.GFS:
+                s, _live = generations.of(self.cfg, b["key"], d, Path(d) / rel if avail else None)
+                rows.append(["", _generations_html(s), "", ""])
+        if not rows:
+            rows.append([esc(tr("No backup drive yet."))])
+        table(rows)
+
+        # ---- backups of this backup (Backup backups)
+        head(tr("Backups of this backup"))
+        drives = set(b["drives"])
+        targets = [t for t in self.cfg.get("export_targets", []) if not str(t).startswith("gdrive:")]
+        targets += [t for t in generations.targets(self.cfg, b["key"]) if t not in targets and t not in drives]
+        rows = []
+        for t in targets:
+            set_dir = Path(t) / rel if t != generations.GDRIVE else None
+            avail = set_dir is not None and set_dir.is_dir()
+            s, _live = generations.of(self.cfg, b["key"], t, set_dir if avail else None)
+            if s is None and not avail:
+                continue
+            name = tr("Google Drive") if t == generations.GDRIVE else _short(t)
+            state = ("" if t == generations.GDRIVE else
+                     f" <span style='color:{GREEN if os.path.isdir(t) else GRAY}'>"
+                     f"({esc(tr('connected') if os.path.isdir(t) else tr('not connected'))})</span>")
+            rows.append([esc(name) + state, _generations_html(s)])
+        if not rows:
+            rows.append([esc(tr("None yet – make one in the tab “Backup backups”."))])
+        table(rows)
+
+        # ---- not finished
+        head(tr("Started but not finished"))
+        rows = []
+        for e in history.unfinished(runs):
+            what = (tr("Backup from the phone") if e["kind"] == history.BACKUP else tr("Added from another source"))
+            rows.append([esc(e["when"][:16].replace("T", " ")), esc(what), _result_html(e.get("status", ""))])
+        for t in targets + [d for d in b["drives"]]:
+            s = (self.cfg.get("gfs_summary") or {}).get(b["key"], {}).get(str(t))
+            for u in (s or {}).get("unfinished", []):
+                where = tr("Google Drive") if t == generations.GDRIVE else _short(t)
+                rows.append([esc(u["started"][:16]), esc(tr("%s on %s", _role_text(u["type"]), where)),
+                             _result_html(u.get("status", ""))])
+        if not rows:
+            rows.append([esc(tr("Nothing – every started backup was finished."))])
+        table(rows)
+        self.backup_overview.setText("".join(parts))
+
+    def _build_backup_history_tab(self):
+        """Every backup from the phone and every addition from another source (user request 2026-11-17)."""
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        row = QHBoxLayout()
+        lab = QLabel(tr("Everything that was added to this backup: backups from the phone and photos and "
+                        "videos added from other sources."))
+        lab.setWordWrap(True)
+        lab.setStyleSheet(f"color:{GRAY}")
+        row.addWidget(lab, 1)
+        self.history_order = QComboBox()
+        self.history_order.addItem(tr("Newest first"), True)
+        self.history_order.addItem(tr("Oldest first"), False)
+        self.history_order.setCurrentIndex(0 if self.cfg.get("history_newest_first", True) else 1)
+        self.history_order.currentIndexChanged.connect(self._history_order_changed)
+        row.addWidget(self.history_order, 0, Qt.AlignTop)
+        lay.addLayout(row)
+        self.backup_history = QTreeWidget()
+        self.backup_history.setHeaderLabels([tr("Date"), tr("What"), tr("From"), tr("New files"),
+                                             tr("Result"), tr("Backup drives")])
+        self.backup_history.setRootIsDecorated(False)
+        self.backup_history.setSelectionMode(QAbstractItemView.ExtendedSelection)
+        h = self.backup_history.header()
+        for c in range(6):
+            h.setSectionResizeMode(c, QHeaderView.ResizeToContents)
+        h.setSectionResizeMode(2, QHeaderView.Stretch)
+        lay.addWidget(self.backup_history)
+        return w
+
+    def _history_order_changed(self, _i):
+        self.cfg["history_newest_first"] = bool(self.history_order.currentData())
+        config.save(self.cfg)
+        self._fill_backup_history()
+
+    def _fill_backup_history(self):
+        tree = self.backup_history
+        tree.clear()
+        b = self._current_backup()
+        if b is None:
+            return
+        rows = history.entries(self.cfg, b["key"], b["copies"], bool(self.history_order.currentData()))
+        for e in rows:
+            what = (tr("Backup from the phone") if e["kind"] == history.BACKUP
+                    else tr("Added from another source"))
+            new = describe_totals((e["files"], e["bytes"])) if e["files"] else tr("nothing new")
+            status = e.get("status", "")
+            ok = status.startswith("COMPLETED")
+            result = tr("OK") if ok else _result_text(status)
+            src = e.get("source", "")
+            if e["kind"] == history.IMPORT:          # folder names only, the full paths in the tooltip
+                src = " + ".join(Path(x.strip()).name or x.strip() for x in src.split(" + "))
+            it = QTreeWidgetItem([e["when"][:16].replace("T", " "), what, src or "–", new,
+                                  result, ", ".join(_short(d) for d in e.get("drives", [])) or "–"])
+            it.setToolTip(2, e.get("source", ""))
+            it.setToolTip(5, "\n".join(e.get("drives", [])))
+            if not ok:
+                it.setForeground(4, QColor(ORANGE))
+            tree.addTopLevelItem(it)
+        if not rows:
+            it = QTreeWidgetItem([tr("No backups recorded yet."), "", "", "", "", ""])
+            it.setFlags(Qt.NoItemFlags)
+            tree.addTopLevelItem(it)
+
     # ---------------------------------------------------------------- list
     def _refresh_backups(self, mount=False):
         if mount:
@@ -628,6 +905,9 @@ class BackupsTabMixin:
             when = e.get("when", "").replace("T", " ") or "–"
             sizes = [backup_totals(c) for c in b["copies"]]
             sizes = [s for s in sizes if s]
+            if sizes and e and [e.get("size_files"), e.get("size_bytes")] != list(max(sizes, key=lambda t: t[0])):
+                e["size_files"], e["size_bytes"] = max(sizes, key=lambda t: t[0])   # for when no drive is there
+                config.save(self.cfg)
             size = (describe_totals(max(sizes, key=lambda t: t[0])) if sizes else
                     describe_totals((e["size_files"], e["size_bytes"])) if e.get("size_files") is not None
                     else "–")
@@ -649,7 +929,7 @@ class BackupsTabMixin:
             tree.topLevelItem(0).setSelected(True)
             tree.setCurrentItem(tree.topLevelItem(0))
         tree.blockSignals(False)
-        _fit_height(tree, 3, 7)
+        _fit_height(tree, 2, 6)
         self._backup_selected()
 
     def _current_backup_key(self):
@@ -682,6 +962,8 @@ class BackupsTabMixin:
         self.backup_keep_check.blockSignals(False)
         self.backup_import.load(prof["import_roots"], prof["import_choices"])
         self._fill_backup_drives()
+        self._fill_backup_history()
+        self._fill_backup_overview()
         self._update_backup_hints()
 
     def _update_backup_hints(self):
@@ -772,18 +1054,32 @@ class BackupsTabMixin:
         t.clear()
         if b is None:
             return
-        for d in b["drives"]:
+        comp = self._completeness(b)
+        complete = [d for d in b["drives"] if (comp.get(d) or {}).get("complete")]
+        complete.sort(key=lambda d: 0 if os.path.isdir(d) else 1)
+        for d in complete + [d for d in b["drives"] if d not in complete]:   # complete backups first
             avail = os.path.isdir(d)
             copy = backuplist.copy_on(d, b["phone"], b["owner"]) if avail else None
             have = (describe_totals(backup_totals(copy) or (0, 0)) if copy else
                     tr("not on this drive yet") if avail else "–")
-            it = QTreeWidgetItem([_short(d), tr("connected") if avail else tr("not connected"), have, d])
+            ctext, ccolor = _complete_text(comp.get(d), completeness.reference(self.cfg, b["key"]))
+            it = QTreeWidgetItem([_short(d), tr("connected") if avail else tr("not connected"), ctext, have, d])
             it.setForeground(1, QColor(GREEN if avail else GRAY))
+            it.setForeground(2, QColor(ccolor))
             it.setData(0, Qt.UserRole, d)
             it.setToolTip(0, d)
             t.addTopLevelItem(it)
+        if complete:
+            self.backup_complete_info.setText(tr("Complete backups of the phone's media on: %s",
+                                                 "<b>" + html.escape(", ".join(_short(d) for d in complete)) + "</b>"))
+        elif completeness.reference(self.cfg, b["key"]):
+            self.backup_complete_info.setText(tr("No backup drive with a complete backup is connected or "
+                                                 "known right now."))
+        else:
+            self.backup_complete_info.setText(tr("No backup has been marked as complete yet – after the next "
+                                                 "backup from the phone you are asked."))
         if not b["drives"]:
-            it = QTreeWidgetItem([tr("No backup drive – click “Add drive…”"), "", "", ""])
+            it = QTreeWidgetItem([tr("No backup drive – click “Add drive…”"), "", "", "", ""])
             it.setFlags(Qt.NoItemFlags)
             t.addTopLevelItem(it)
         _fit_height(t, 2, 6)
@@ -1024,6 +1320,28 @@ class BackupsTabMixin:
 
 # =========================================================================== phone app (settings)
 
+class AppUpdateBox(QWidget):
+    """"The phone app on this phone is outdated" + one button (user request 2026-11-17): start page
+    rows and Manage backups → Overview. Filled by PhoneAppMixin._fill_app_update."""
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName("appUpdateBox")
+        self.setStyleSheet("#appUpdateBox{background:#fff4d6;border:1px solid #e0b84a;border-radius:6px}"
+                           "#appUpdateBox QLabel{color:#4a3800}")
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(8, 4, 8, 4)
+        self.label = QLabel()
+        self.label.setWordWrap(True)
+        self.button = QPushButton()
+        self.button.clicked.connect(self.clicked)
+        lay.addWidget(self.label, 1)
+        lay.addWidget(self.button, 0, Qt.AlignVCenter)
+        self.one_click = False
+        self.hide()
+
+
 class PhoneAppMixin:
     """Program settings → "Versions and phone app" (user request 2026-11-10): versions, what the
     phone app does, and installing it by USB cable, QR code or – as a last resort – Bluetooth."""
@@ -1045,7 +1363,7 @@ class PhoneAppMixin:
                  "ads and talks to no server on the internet. It only answers the computer it is paired "
                  "with (encrypted).") + "<br><br><b>" + tr("What you gain") + "</b><ul>"
             + "<li>" + tr("Backups over Wi-Fi – no cable, no USB debugging, no Developer options.") + "</li>"
-            + "<li>" + tr("Fast cable backups: one tap “Allow backup over cable” switches USB debugging on "
+            + "<li>" + tr("Fast cable backups: one tap “Allow fast connection (ADB)” switches USB debugging on "
                           "just for the backup – and off again afterwards.") + "</li>"
             + "<li>" + tr("“Connect phone…”: scan a QR code instead of searching settings.") + "</li>"
             + "<li>" + tr("The phone is recognised by its own key – a backup never lands in the wrong "
@@ -1089,6 +1407,131 @@ class PhoneAppMixin:
         self._update_versions()
         return w
 
+    def _phone_app_state(self, *names):
+        """(version, outdated, one_click) of the phone app on the phone called `names` (phone name,
+        model): the connected phone's live version, else the one seen at its last connection.
+        one_click: this phone is connected over ADB (cable or Wireless debugging) – the update can be
+        installed right away."""
+        g = _gui()
+        src = self.source
+        here = src is not None and any(companion.same_phone_name(src.device_name, n) for n in names)
+        live = ""
+        if here:
+            live = (src.app_version if isinstance(src, companion.CompanionSource)
+                    else getattr(src, "companion_version", ""))
+        paired = companion.paired_for(self.cfg, *names)
+        version = live or (paired or {}).get("app_version", "")
+        one_click = here and isinstance(src, g.AdbSource) and g.apk_path() is not None
+        # same version number, other build (the phone app has the program's version): checked by
+        # comparing the app file when the phone was connected over ADB (user 2026-11-17)
+        old_build = here and bool(getattr(src, "companion_build_differs", False))
+        return version, companion.app_outdated(version) or old_build, one_click
+
+    def _fill_app_update(self, box, *names):
+        version, old, one_click = self._phone_app_state(*names)
+        box.setVisible(old)
+        if not old:
+            return
+        box.one_click = one_click
+        if version == companion.APP_VERSION_NAME:
+            box.label.setText(tr("Phone app outdated: the phone has an older build of version %s than the one "
+                                 "included in this program.", version))
+        else:
+            box.label.setText(tr("Phone app outdated: version %s on the phone, this program includes version %s.",
+                                 version, companion.APP_VERSION_NAME))
+        if one_click:
+            box.button.setText(tr("Update phone app"))
+            box.button.setToolTip(tr("Installs version %s of the phone app on the connected phone now. Your "
+                                     "photos, videos and the pairing stay as they are.",
+                                     companion.APP_VERSION_NAME))
+            box.button.setEnabled(not self.busy)
+        else:
+            box.button.setText(tr("Phone app settings…"))
+            box.button.setToolTip(tr("Connect the phone with the USB cable (USB debugging) or Wireless "
+                                     "debugging for a one-click update – or see the other ways to update "
+                                     "it in Program settings."))
+            box.button.setEnabled(True)
+
+    def _app_update_clicked(self, box):
+        if box.one_click and isinstance(self.source, _gui().AdbSource):
+            self._install_app_cable(one_click=True)
+            return
+        self._open_program_settings()
+        group = getattr(self, "phone_app_group", None)
+        area = group.parentWidget() if group is not None else None
+        while area is not None and not isinstance(area, QScrollArea):
+            area = area.parentWidget()
+        if area is not None:
+            area.ensureWidgetVisible(group)
+
+    def _remove_old_app_copies(self, src):
+        """Worker thread, phone on ADB: remove every OLD copy of the phone app (earlier package
+        name). An old copy keeps running and answers instead of the current app – the program then
+        talks to the old app (user 2026-11-17: "phone app 0.7.0" although the app said 0.9.8.4).
+        ALWAYS removed, without a question (user decision 2026-11-17): after every install /
+        update of the phone app and whenever a phone with an old copy is connected. Its pairing is
+        forgotten; the current app is then paired once more (code on the phone)."""
+        try:
+            olds = src.old_companion_copies()
+        except Exception as e:  # noqa: BLE001
+            ui.warn(tr("Could not check for old copies of the phone app: %s", e))
+            return
+        if not olds:
+            return
+        phone = f"{src.manufacturer} {src.device_name}".strip() or tr("the phone")
+        old_versions = [v for _p, v in olds if v]
+        # the pairing that belongs to the old copy: the paired phone it answers for
+        forget = set()
+        try:
+            link, _why = companion.link_over_cable(src, self.cfg)
+        except Exception:  # noqa: BLE001
+            link = None
+        if link is not None:
+            if link.app_version in old_versions:
+                forget.add(link.entry["phone_id"])
+            link.close()
+        for p in companion.phones(self.cfg):        # old copy not running: same phone, old version
+            if p.get("app_version") in old_versions and companion.same_phone_name(p.get("name"), src.device_name):
+                forget.add(p["phone_id"])
+        for pkg, version in olds:
+            ok, msg = src.remove_old_companion(pkg)
+            if ok:
+                ui.ok(tr("Old copy of the phone app (version %s) removed from %s – it blocked the current "
+                         "app.", version or "?", phone))
+            else:
+                ui.warn(tr("The old copy of the phone app could not be removed: %s – remove “%s” "
+                           "(version %s) on the phone by hand.", msg, companion.APP_NAME, version or "?"))
+                return
+        for phone_id in forget:
+            companion.forget_phone(self.cfg, phone_id)
+
+    def _check_same_phone(self, entry, serial=None):
+        """Main thread, after a phone was verified (cable: with its serial number) or paired: never
+        the same phone twice in "Known phones" (user request 2026-11-17). Same serial number →
+        the older pairing is removed; same name without a serial number → asked once."""
+        if not entry:
+            return
+        for p in companion.remember_serial(self.cfg, entry, serial):
+            ui.info(tr("Older pairing of %s (from %s) removed – it is the same phone (serial %s).",
+                       p.get("name") or tr("the phone"), p.get("paired", "?"), serial))
+        _sure, maybe = companion.same_phone_pairings(self.cfg, entry, serial)
+        for p in maybe:
+            box = QMessageBox(QMessageBox.Question, tr("The same phone?"), tr(
+                "“Known phones” lists %s twice: the one connected now (paired %s) and one paired %s. "
+                "A phone gets a new pairing when its phone app was installed again.\n\nIs it the same "
+                "phone?", p.get("name") or tr("this phone"), entry.get("paired", "?"), p.get("paired", "?")),
+                parent=self)
+            same = box.addButton(tr("Same phone – remove the old pairing"), QMessageBox.AcceptRole)
+            box.addButton(tr("A different phone – keep both"), QMessageBox.RejectRole)
+            box.exec()
+            if box.clickedButton() is same:
+                companion.forget_phone(self.cfg, p["phone_id"])
+                ui.info(tr("Older pairing of %s (from %s) removed.", p.get("name") or "", p.get("paired", "?")))
+            else:
+                companion.mark_different(self.cfg, entry, p)
+        if hasattr(self, "known_phones"):
+            self.known_phones.fill()
+
     def _ask_again_before_update(self):
         self.cfg["companion_auto"] = []
         from . import config
@@ -1123,24 +1566,32 @@ class PhoneAppMixin:
         self.auto_update_btn.setVisible(bool(auto))
 
     def _remember_app_version(self, entry, version):
-        if not entry or not version or entry.get("app_version") == version:
+        """Save the phone app version of a paired phone (shown on the start page and in Overview)."""
+        if not entry or not version:
             return
         for p in companion.phones(self.cfg):
             if p.get("phone_id") == entry.get("phone_id"):
-                p["app_version"] = version
-                companion.save_phone(self.cfg, p)
+                if p.get("app_version") != version:
+                    p["app_version"] = version
+                    companion.save_phone(self.cfg, p)
                 break
+        entry["app_version"] = version
         if hasattr(self, "versions_label"):
             self._update_versions()
+        self._update_home()
 
     # ---- install over the USB cable (always asked first - user rule 2026-11-05)
-    def _install_app_cable(self):
+    def _install_app_cable(self, one_click=False):
+        """one_click: the button "Update phone app" (start page / Overview) – its text and tooltip
+        say what happens, so no second question (user request 2026-11-17); over the cable or
+        Wireless debugging."""
         g = _gui()
         src = self.source
+        one_click = one_click and isinstance(src, g.AdbSource)
         if src is not None and hasattr(src, "put_file") and not isinstance(src, g.AdbSource):
             self._copy_app_by_file_transfer(src)
             return
-        if not (isinstance(src, g.AdbSource) and not src.wireless):
+        if not one_click and not (isinstance(src, g.AdbSource) and not src.wireless):
             box = QMessageBox(QMessageBox.Information, tr("Install over USB cable"), tr(
                 "Connect the phone with the USB cable, unlock it and choose “File transfer” on the phone – "
                 "the program connects by itself. Then click this button again: the app file is copied "
@@ -1157,15 +1608,16 @@ class PhoneAppMixin:
             return
 
         def job():
-            state = src.companion_state()
+            state = src.companion_state(apk)
             installed = getattr(src, "companion_version", "")
             phone = f"{src.manufacturer} {src.device_name}".strip() or tr("the phone")
             ask = "reinstall" if state == "ready" else state
-            title, text, details = g.install_question(ask, phone, src.serial, installed, os.path.getsize(apk))
-            if not ui.ask_install(title, text, details):
-                ui.info(tr("Nothing installed on %s.", phone))
-                return False
-            ui.info(tr("Installing the phone app “%s” %s on %s (serial %s) over the USB cable …",
+            if not one_click:
+                title, text, details = g.install_question(ask, phone, src.serial, installed, os.path.getsize(apk))
+                if not ui.ask_install(title, text, details):
+                    ui.info(tr("Nothing installed on %s.", phone))
+                    return False
+            ui.info(tr("Installing the phone app “%s” %s on %s (serial %s) …",
                        g.COMPANION_NAME, g.COMPANION_VERSION, phone, src.serial))
             ok, msg = src.install_companion(apk)
             if not ok:
@@ -1173,14 +1625,22 @@ class PhoneAppMixin:
                            "Blocker”. Xiaomi: switch on “Install via USB” in the Developer options.", msg))
                 return False
             src.companion_version = g.COMPANION_VERSION
+            src.companion_build_differs = False        # now the bundled build (user 2026-11-17)
             ui.ok(tr("Phone app “%s” %s installed on %s.", g.COMPANION_NAME, g.COMPANION_VERSION, phone))
+            self._remove_old_app_copies(src)          # always – never two copies (user 2026-11-17)
             return True
 
         def done(ok):
+            if ok:
+                paired = companion.paired_for(self.cfg, src.device_name)
+                if paired is not None:
+                    paired["app_version"] = g.COMPANION_VERSION
+                    companion.save_phone(self.cfg, paired)
             if ok and self.source is src:
                 self._companion_asked.discard(src.serial)       # check / pair it like a new phone
                 self._cable_setup(src)
             self._update_versions()
+            self._update_home()
 
         self.run_job(job, done)
 

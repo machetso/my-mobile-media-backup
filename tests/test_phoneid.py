@@ -59,7 +59,7 @@ class PhoneIdTest(unittest.TestCase):
         self.assertIn("USB 3", text)
         fast, text = P.speed_advice(PIXEL_APP)
         self.assertFalse(fast)
-        self.assertIn("Allow backup over cable", text)
+        self.assertIn("Allow fast connection (ADB)", text)
 
 
 if __name__ == "__main__":

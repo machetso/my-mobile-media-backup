@@ -1,5 +1,30 @@
 # Changelog
 
+## [Unreleased]
+
+### Phone app
+- **The phone app now has the same version number as the program.** An outdated phone app is shown
+  on the start page and in *Manage backups → Overview*, with a one-click **Update phone app**.
+  Older copies of the phone app are removed automatically – they could block the current one.
+- **Simpler phone app:** one button **Allow fast connection (ADB)** (USB and Wireless debugging),
+  one button **Enable standard connection** (ADB off, *File transfer*), and one choice *When your
+  computer wants a backup*: **Ask me** / **Start automatically** / **Never**.
+- **USB debugging stays on while the USB cable is plugged in**; it switches off 5 minutes after the
+  cable is unplugged.
+
+### Automatic backup
+- **The program notices when a known phone comes home** (Wi-Fi or Bluetooth) and can ask it for a
+  backup. With *Start automatically* the backup runs without a question – also when you just plug
+  in the USB cable (at most once per hour).
+- **A running Wi-Fi backup continues over the cable** when the cable is plugged in.
+
+### Manage backups
+- New **Overview** tab: latest backup, complete backup drives, Grandfather-Father-Son backups of the
+  backup and backups that did not finish. After every backup the program asks whether it is complete.
+
+### Fixed
+- A phone whose phone app was installed again no longer appears twice under *Known phones*.
+
 ## [0.9.8.4] - 2026-11-11
 
 Includes everything listed under 0.9.8.3 (that version was tagged but never released – its build

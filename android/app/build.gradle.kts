@@ -1,3 +1,10 @@
+// The phone app has the SAME version as the desktop program (user request 2026-11-17):
+// read from phonebackup/__init__.py; versionCode = a.b.c.d → a*1000000 + b*10000 + c*100 + d
+val desktopVersion: String = Regex("""__version__\s*=\s*"([^"]+)"""")
+    .find(rootProject.file("../phonebackup/__init__.py").readText())!!.groupValues[1]
+val desktopVersionCode: Int = (desktopVersion.split(".").map { it.toInt() } + listOf(0, 0, 0, 0))
+    .take(4).let { (a, b, c, d) -> a * 1000000 + b * 10000 + c * 100 + d }
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.plugin.compose")
@@ -15,8 +22,8 @@ android {
         applicationId = "io.github.machetso.mediabackup"
         minSdk = 30          // Android 11 - same as wireless debugging
         targetSdk = 36
-        versionCode = 12
-        versionName = "0.8.0"
+        versionCode = desktopVersionCode     // 0.9.8.4 → 90804
+        versionName = desktopVersion
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

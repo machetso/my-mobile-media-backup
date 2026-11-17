@@ -27,6 +27,10 @@
     <!-- keep running while the computer copies (notification shows it) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <!-- ONLY if the user switches on "Backup requests from the computer" (AskService) -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- ONLY for "Automatic backup": asks the user to let the app start backup mode in the background -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <!-- after a reboot: make sure USB debugging is not left on by a backup (UsbDebug.GuardReceiver) -->
@@ -71,6 +75,16 @@
             android:name=".BackupService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- "Backup requests from the computer": waits for a request in the Wi-Fi, then asks the
+             user with a notification ("Allow"); off unless the user switches it on -->
+        <service
+            android:name=".AskService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Receives a backup request from the user's paired computer in the local network and asks the user to allow it" />
+        </service>
         <!-- USB-debugging guard without the app running: its alarm, app update, reboot -->
         <receiver
             android:name=".GuardReceiver"

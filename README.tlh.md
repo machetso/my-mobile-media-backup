@@ -71,18 +71,24 @@ De' jengva'meyDaq tu'lu'. *Hoch yIwIv* / *tetlhvo' yIteq* HablI'mey So' (polghac
   **HablI' ghun chu':** USB debugging rarghach wa'DIchDaq ghun
   HablI' ghun *My Media Backup* jom 'ej USB debugging choHmeH chaw' nob 'e' tlhob (Android
   `WRITE_SECURE_SETTINGS`, tlhegh Dung nob – ghun Hutlh 'oH SuqlaHbe'). vaj
-  reH: ghun yIpoSmoH → **Allow backup over cable** → yIrar. Hoch polghach rIn De'wI'
+  reH: ghun yIpoSmoH → **rarghach nom yIchaw' (ADB)** (USB debugging Wireless debugging je chu')
+  → yIrar, pagh Wi-FiDaq yIratlh. **rarghach motlh yIchu'** ADB Qempa'qa' 'ej Android USB ghuHmey
+  poSmoH; pa' *File transfer* DawIv. Hoch polghach rIn De'wI'
   USB debugging (pagh Wireless debugging) Qempa'qa' (*polghach rIn 'e' HablI'Daq … yIQempa'*,
-  motlh chu'). USB debugging neH Qempa'lu'; Developer options ratlh.
+  motlh chu'). debugging neH Qempa'lu'; Developer options ratlh.
+  HablI' ghun mI' ghun mI' rap. HablI'Daq HablI' ghun ngo'chugh, tagh 'agh *polghachmey yIlo' → Hoch
+  bey'* je ja', **HablI' ghun yIchu'moH** leQ je (HablI' ADB Dung rarlu'taHvIS wa'logh yI'uy). HablI' ghun
+  ngo' lutlh Hutlh teqlu'.
 
   **debugging Qempa'meH chutmey** (De'wI' tu'lu'be'chugh je HablI' ghun chutmey pab):
   1. Wi-Fi polghachmey motlh HablI' ghun lo' debugging Qempa'lu'taHvIS; Wireless debugging
      HablI'mey ghun ghajbe'bogh vaD neH.
   2. polghach Hoch wa' rarghach: tlhegh Dung → tagh DI' Wireless debugging Qempa'lu';
      ghun Wi-Fi Dung → tagh DI' USB debugging Qempa'lu'.
-  3. HablI' ghun Wireless debugging chu'be' reH.
-  4. *Allow backup over cable* 5 rep ret polghach tagh'be'chugh → Qempa' (HablI'Daq poH togh).
-  5. polghach poHvIS 30 lup Hoch De'wI' "naDev jIHtaH" ja'; 2 rep pagh → Qempa'.
+  3. USB tlhegh rarlu'taHvIS debugging chu'taH; tlhegh teqlu'DI' 5 rep ret → Qempa' (HablI'Daq poH
+     togh).
+  4. tlhegh rarlu'be' reH: *rarghach nom yIchaw' (ADB)* 5 rep ret polghach tagh'be'chugh → Qempa'.
+  5. Wi-Fi Dung polghach poHvIS 30 lup Hoch De'wI' "naDev jIHtaH" ja'; 2 rep pagh → Qempa'.
   6. polghach rInDI' De'wI' Qempa' SIbI' (HablI'Daq polmeH Dotlh rInmoH je).
 
   **HablI' QaD ngu'ghach:** rapmoHDI' HablI' ghun HablI' QaD chipDaq ngoq chenmoH;
@@ -282,9 +288,19 @@ tlhegh Dung ghun Hutlh ghun jomlaH je – reH **wa'DIch tlhob** 'ej
 nuq HablI', nuq Segh, qatlh, nuq qaS je QIj; DaHotbe'chugh pagh
 jomlu'.
 
-polghachvaD: HablI'Daq *My Media Backup* yIpoSmoH → **polmeH Dotlh yIchu'**. De'wI' tu' 'ej
-rar; polghach rInDI' HablI' polmeH Dotlh Qempa' Hutlh (5 rep
-lo'be'lu'DI' je). ghun mIlloghmey HaStamey je laDlaH neH; rarghach So'lu' (TLS, certificate
+polghachvaD: HablI'Daq *My Media Backup* yIpoSmoH → **DaH yIpoSmoH**. De'wI' tu' 'ej
+rar; polghach rInDI' HablI' SoQqa' Hutlh (5 rep lo'be'lu'DI' je).
+
+**De'wI'lIj polghach neHDI'** (HablI' ghunDaq):
+* **HIghel** (motlh) – juHDaq HablI' tu'DI' De'wI', HablI' *polghach Dachaw''a'?* 'agh; Dachoqbe'chugh
+  pagh tagh.
+* **ghaH ta' yItagh** – ghel pagh: Wi-FiDaq HablI' tu'DI' De'wI', pagh USB tlhegh DararDI', mIlloghmey
+  HaStamey je chu'qu' pollu' – rep Hoch wa'logh neH, rarghach nomqu' Dung. Wi-Fi polghach poHvIS tlhegh
+  Dararchugh, tlhegh Dung ghoS polghach.
+* **not** – ghellaHbe' De'wI'.
+
+HablI' ghun jomqa'lu'bogh HablI' mI'Daj (tlhegh Dung) ngu'lu' 'ej *HablI'mey Sovlu'bogh* tetlhDaq
+cha'logh ghItlhlu'be' reH; mI' ghajbe'chugh, ghun wa'logh ghel: rap HablI''a'? ghun mIlloghmey HaStamey je laDlaH neH; rarghach So'lu' (TLS, certificate
 rapmoHDI' ngaQ). De'wI' ghItlhmey **luqeq**: Hoch ghItlh tlhob, HablI'
 De'wI' rapmoHlu'bogh neH jang 'ej Hutlh pagh ngeH reH. ADB Dung rur ghItlhmey Hemey je rap, vaj polghachmey ghajbogh tlha' neH.
 
@@ -308,6 +324,10 @@ polghach Qap. Wi-Fi adapter law' Wi-Fi motlh chagh poHvam; Wi-Fi De'wI'vamDaq
 mevlu'DI' cheghqa' (DaSoQmoHDI' ghun tlhob).
 
 Wi-Fi Direct (P2P) teH HablI'Daq ghun latlh poQ; tugh Hergh 'oH.
+
+**Hoch legh polghachmey naQ je:** HablI' polghach Hoch rInDI' ghun ghel: polghachvam naQ'a'?
+*polghachmey yIlo' → Hoch legh* vaj polghach Hoch 'agh: polghach Qav, polghach De' jengva'mey naQ,
+polghach vav'a'-vav-puqloD polghachmey, polghachmey taghlu'pu'bogh 'ach rInbe'pu'bogh je.
 
 ## De' jengva' Hoch polghach mIw
 

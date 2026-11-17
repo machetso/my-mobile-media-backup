@@ -281,6 +281,7 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
     if status == "COMPLETED" and errors:
         status = "COMPLETED WITH ERRORS"
     cat.finish_run(run_id, status)
+    _remember_generations(cfg, source_parent, target_base, cat)
     cat.close()
 
     duration = time.monotonic() - t0
@@ -326,6 +327,15 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
                           ok, verdict, sections, columns, rows)
     (ui.ok if ok else ui.error)(verdict)
     return status, paths, verdict
+
+
+def _remember_generations(cfg, source_parent, target, cat):
+    """For Manage backups → Overview: which generations this storage has (user request 2026-11-17)."""
+    from . import generations, setfolders
+    try:
+        generations.remember(cfg, setfolders.key_of(source_parent), str(target), cat.runs())
+    except Exception:  # noqa: BLE001 - the export itself is done
+        pass
 
 
 def _attention(status, errors, warnings):

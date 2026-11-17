@@ -8,7 +8,8 @@ refused before it reaches adb, even if a bug or a manipulated file name tried it
 
 The only exceptions are the few fixed commands in CONTROL (no arguments, nothing built from data):
 they let the app switch USB debugging off again after a backup and set up its own phone app so it
-can switch debugging on for the next backup (user request 2026-11-04). See `check_control`.
+can switch debugging on for the next backup (user request 2026-11-04). See `check_control`. And
+`old_copy_command`: remove an OLD copy of the phone app (asked first, user 2026-11-17).
 """
 
 import re
@@ -41,7 +42,26 @@ CONTROL = {
     "companion_granted": f"dumpsys package {COMPANION_PACKAGE}",
     "companion_path": f"pm path {COMPANION_PACKAGE}",
     "companion_open": f"am start -a android.intent.action.VIEW -d phonebackup://cable -p {COMPANION_PACKAGE}",
+    # every app that opens the phone app's link: finds OLD copies of the phone app (an earlier
+    # package name) that still run and block the current one (user 2026-11-17)
+    "companion_copies": "cmd package query-activities --brief -a android.intent.action.VIEW -d phonebackup://cable",
 }
+
+_PACKAGE = re.compile(r"[A-Za-z][A-Za-z0-9_]*(?:\.[A-Za-z][A-Za-z0-9_]*)+")
+
+
+def old_copy_command(action, package):
+    """Commands for an OLD copy of the phone app (another package that opens phonebackup://):
+    'version' (read its version) or 'remove' (uninstall it – only after the user said yes, and
+    only a package that `companion_copies` listed; see AdbSource.remove_old_companion). Never the
+    current phone app, never anything but a plain package name."""
+    if not _PACKAGE.fullmatch(package or "") or package == COMPANION_PACKAGE:
+        raise ForbiddenPhoneCommand(tr("refused (not an old copy of the phone app): %s", str(package)[:80]))
+    if action == "version":
+        return f"dumpsys package {package}"
+    if action == "remove":
+        return f"pm uninstall {package}"
+    raise ForbiddenPhoneCommand(tr("refused (unknown control action): %s", str(action)[:80]))
 
 
 class ForbiddenPhoneCommand(PermissionError):

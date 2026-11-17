@@ -75,18 +75,26 @@ Laufwerken gefunden. *Alle auswählen* / *Aus Liste entfernen* blenden Telefone 
   **Die Telefon-App schaltet es:** Bei der ersten Verbindung über USB-Debugging bietet das Programm an,
   die Telefon-App *My Media Backup* zu installieren und ihr das Recht zu geben, USB-Debugging zu schalten (Androids
   `WRITE_SECURE_SETTINGS`, über das Kabel erteilt – die App kann es sich nicht selbst holen). Ab dann:
-  App öffnen → **Backup über Kabel erlauben** → anstecken. Nach jedem Backup schaltet der Computer
+  App öffnen → **Schnelle Verbindung erlauben (ADB)** (schaltet USB-Debugging und Kabelloses
+  Debugging ein) → anstecken, oder im Wi-Fi bleiben. **Standardverbindung einschalten** schaltet ADB wieder
+  aus und öffnet Androids USB-Einstellungen, wo du *Dateiübertragung* wählst. Nach jedem Backup schaltet der Computer
   USB-Debugging (oder Kabelloses Debugging) wieder aus (*USB-Debugging / Kabelloses Debugging nach dem Backup auf dem Telefon ausschalten*,
-  standardmäßig an). Nur USB-Debugging wird ausgeschaltet; die Entwickleroptionen bleiben.
+  standardmäßig an). Nur das Debugging wird ausgeschaltet; die Entwickleroptionen bleiben.
+  Die Telefon-App hat dieselbe Versionsnummer wie das Programm. Ist die Telefon-App auf dem Telefon
+  älter, sagen das der Startbildschirm und *Backups verwalten → Übersicht*, mit einer Schaltfläche
+  **Telefon-App aktualisieren** (ein Klick, während das Telefon über ADB verbunden ist). Ältere Kopien
+  der Telefon-App werden automatisch entfernt.
 
   **Regeln für das Ausschalten des Debuggings** (die Telefon-App setzt sie durch, auch wenn der Computer weg ist):
   1. Backups über Wi-Fi laufen normalerweise über die Telefon-App mit ausgeschaltetem Debugging; Kabelloses Debugging
      nur für Telefone ohne die App.
   2. Eine Verbindung pro Backup: über das Kabel → Kabelloses Debugging wird beim Start ausgeschaltet;
      über die App per Wi-Fi → USB-Debugging wird beim Start ausgeschaltet.
-  3. Die Telefon-App schaltet Kabelloses Debugging nie ein.
-  4. 5 Minuten nach *Backup über Kabel erlauben* ohne Backup-Start → aus (Countdown auf dem Telefon).
-  5. Während eines Backups meldet der Computer alle 30 s „noch da“; 2 Minuten lang nichts → aus.
+  3. Solange das USB-Kabel eingesteckt bleibt, bleibt das Debugging an; 5 Minuten nachdem das Kabel
+     abgezogen wurde → aus (Countdown auf dem Telefon).
+  4. Kabel nie eingesteckt: 5 Minuten nach *Schnelle Verbindung erlauben (ADB)* ohne Backup-Start
+     → aus.
+  5. Über Wi-Fi meldet der Computer während eines Backups alle 30 s „noch da“; 2 Minuten lang nichts → aus.
   6. Direkt nach dem Backup schaltet der Computer es aus (und beendet den Backup-Modus auf dem Telefon).
 
   **Das Telefon sicher erkennen:** Beim Koppeln erzeugt die Telefon-App einen Schlüssel im
@@ -290,9 +298,21 @@ funktioniert genauso: Beide Bildschirme zeigen einen Code, tippe auf dem Telefon
 erklärt, welches Telefon, welche Version, warum und was genau passiert; ohne deinen Klick wird nichts
 installiert.
 
-Für ein Backup: Öffne *My Media Backup* auf dem Telefon → **Backup-Modus starten**. Der Computer findet es und
-verbindet sich; nach dem Backup schaltet das Telefon den Backup-Modus selbst aus (auch nach 5 Minuten
-ohne Nutzung). Die App kann nur Fotos und Videos lesen; die Verbindung ist verschlüsselt (TLS, Zertifikat
+Für ein Backup: Öffne *My Media Backup* auf dem Telefon → **Jetzt öffnen**. Der Computer findet es und
+verbindet sich; nach dem Backup schließt sich das Telefon wieder von selbst (auch nach 5 Minuten ohne Nutzung).
+
+**Wenn dein Computer ein Backup möchte** (in der Telefon-App):
+* **Mich fragen** (Standard) – wenn der Computer das Telefon zu Hause findet, zeigt das Telefon *Backup
+  erlauben?*; ohne dein Tippen startet nichts.
+* **Automatisch starten** – keine Frage: Wenn der Computer das Telefon im Wi-Fi findet oder du das USB-Kabel
+  einsteckst, werden die neuesten Fotos und Videos gesichert – höchstens einmal pro Stunde, über die
+  schnellste Verbindung. Steckst du während eines Wi-Fi-Backups das Kabel ein, geht es über das Kabel
+  weiter.
+* **Nie** – der Computer kann nicht fragen.
+
+Ein Telefon, auf dem die Telefon-App neu installiert wird, wird an seiner Seriennummer erkannt (über das
+Kabel) und nie doppelt unter *Bekannte Telefone* aufgeführt; ohne Seriennummer fragt das Programm
+einmal, ob es dasselbe Telefon ist. Die App kann nur Fotos und Videos lesen; die Verbindung ist verschlüsselt (TLS, Zertifikat
 beim Koppeln fest hinterlegt). Der Computer **holt** die Dateien: Er fragt nach jeder Datei, das Telefon antwortet nur
 dem gekoppelten Computer und sendet nie von selbst etwas. Dieselben Dateien und Pfade wie über ADB, vorhandene Backups gehen also einfach weiter.
 
@@ -315,6 +335,11 @@ Telefon und Computer. Die meisten Wi-Fi-Adapter trennen währenddessen das norma
 direkte Wi-Fi beendet wird (die App fragt beim Schließen nach).
 
 Echtes Wi-Fi Direct (P2P) bräuchte eine Begleit-App auf dem Telefon; das ist als späterer Schritt geplant.
+
+**Übersicht und vollständige Backups:** Nach jedem Backup vom Telefon fragt das Programm, ob
+dieses Backup vollständig ist. *Backups verwalten → Übersicht* zeigt dann für jedes Backup: das letzte
+Backup, welche Backup-Laufwerke vollständig sind, die Großvater-Vater-Sohn-Backups des Backups und
+Backups, die gestartet, aber nicht abgeschlossen wurden.
 
 ## Backup-Plan pro Laufwerk
 

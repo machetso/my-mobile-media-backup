@@ -204,6 +204,8 @@ class PrivateFilesTest(unittest.TestCase):
 class SettingsCopyTest(unittest.TestCase):
     def test_daily_copy_before_overwrite(self):
         p = config.config_path()
+        shutil.rmtree(p.parent / "backups", ignore_errors=True)   # copies made by earlier tests (backups save the history)
+        p.unlink(missing_ok=True)
         config.save({"destinations": ["/media/x"]})
         config.save({})                                    # e.g. something wipes the settings
         copies = sorted((p.parent / "backups").glob("config-*.json"))

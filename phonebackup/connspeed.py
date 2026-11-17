@@ -74,14 +74,14 @@ def options(probe, seen=None):
     cable = probe.get("usb_phone")
     add("adb_usb", probe.get("adb_usb"),
         "" if probe.get("adb_usb") else
-        tr("phone on the cable – switch on USB debugging (or “Allow backup over cable” in the phone app)")
+        tr("phone on the cable – switch on USB debugging (or “Allow fast connection (ADB)” in the phone app)")
         if cable else tr("plug the phone in"))
     add("mtp", probe.get("mtp") or (cable and not probe.get("adb_usb")),
         "" if probe.get("mtp") else tr("choose “File transfer” on the phone") if cable else tr("plug the phone in"))
     add("app_wifi", probe.get("app_wifi"),
-        "" if probe.get("app_wifi") else tr("open the phone app and tap “Start backup mode”"))
+        "" if probe.get("app_wifi") else tr("open the phone app and tap “Open now”"))
     add("wifi_adb", probe.get("adb_wifi"),
-        "" if probe.get("adb_wifi") else tr("“Allow backup over Wireless debugging” in the phone app"))
+        "" if probe.get("adb_wifi") else tr("“Allow fast connection (ADB)” in the phone app"))
     if probe.get("hotspot_used"):            # the phone app / Wireless debugging runs over it
         add("hotspot", True)
         rows[-1]["in_use"] = True

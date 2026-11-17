@@ -238,6 +238,11 @@ def finish_gfs(d, status, cfg, cancel=None):
     else:
         run_status = status if not d.errors or status != "COMPLETED" else "COMPLETED WITH ERRORS"
         d.cat.finish_run(d.run_id, run_status)
+    try:                                            # for Manage backups → Overview
+        from . import generations, setfolders
+        generations.remember(cfg, setfolders.key_of(d.set_dir), str(d.base), d.cat.runs())
+    except Exception:  # noqa: BLE001
+        pass
     return status
 
 

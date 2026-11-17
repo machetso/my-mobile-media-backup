@@ -35,6 +35,9 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
     private var socket: ServerSocket? = null
     @Volatile var lastActivity = System.currentTimeMillis()
         private set
+
+    /** USB cable plugged in: counts as activity – no idle timeout while the cable is in (2026-11-17). */
+    fun keepAlive() { lastActivity = System.currentTimeMillis() }
     val port get() = socket?.localPort ?: 0
 
     fun start() {
@@ -193,6 +196,7 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                 Response.json(out, 200, JSONObject()
                     .put("protocol", PROTOCOL)
                     .put("app_version", BuildConfigInfo.versionName(ctx))
+                    .put("auto_backup", AskService.autoEnabled(ctx))     // the computer learns it over the cable too
                     .put("phone_id", Identity.phoneId(ctx))
                     .put("manufacturer", Build.MANUFACTURER)
                     .put("model", Build.MODEL)

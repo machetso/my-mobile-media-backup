@@ -75,18 +75,26 @@ disques connectés. *Tout sélectionner* / *Retirer de la liste* masquent des t�
   **L’app du téléphone s’en charge :** lors de la première connexion avec débogage USB, le programme propose d’installer
   l’app du téléphone *My Media Backup* et de lui donner le droit d’activer le débogage USB (l’autorisation Android
   `WRITE_SECURE_SETTINGS`, accordée par le câble – l’app ne peut pas l’obtenir seule). À partir de là :
-  ouvre l’app → **Autoriser la sauvegarde par câble** → branche le câble. Après chaque sauvegarde, l’ordinateur
+  ouvre l’app → **Autoriser la connexion rapide (ADB)** (active le débogage USB et le débogage sans fil)
+  → branche le câble, ou reste dans le Wi-Fi. **Activer la connexion standard** désactive à nouveau ADB et
+  ouvre les paramètres USB d’Android, où tu choisis *Transfert de fichiers*. Après chaque sauvegarde, l’ordinateur
   désactive à nouveau le débogage USB (ou le débogage sans fil) (*Désactiver … après la sauvegarde*, activé
-  par défaut). Seul le débogage USB est désactivé ; les options pour les développeurs restent.
+  par défaut). Seul le débogage est désactivé ; les options pour les développeurs restent.
+  L’app du téléphone a le même numéro de version que le programme. Si l’app sur le téléphone est plus
+  ancienne, l’écran d’accueil et *Gérer les sauvegardes → Vue d’ensemble* l’indiquent, avec un bouton
+  **Mettre à jour l’app du téléphone** (un clic pendant que le téléphone est connecté par ADB). Les
+  anciennes copies de l’app du téléphone sont supprimées automatiquement.
 
   **Règles de désactivation du débogage** (l’app du téléphone les applique même si l’ordinateur a disparu) :
   1. Les sauvegardes par Wi-Fi passent normalement par l’app du téléphone avec le débogage désactivé ; le débogage sans fil
      seulement pour les téléphones sans l’app.
   2. Une seule connexion par sauvegarde : par câble → le débogage sans fil est désactivé au démarrage ;
      via l’app par Wi-Fi → le débogage USB est désactivé au démarrage.
-  3. L’app du téléphone n’active jamais le débogage sans fil.
-  4. 5 minutes après *Autoriser la sauvegarde par câble* sans démarrage de sauvegarde → désactivé (compte à rebours sur le téléphone).
-  5. Pendant une sauvegarde, l’ordinateur dit « toujours là » toutes les 30 s ; rien pendant 2 minutes → désactivé.
+  3. Tant que le câble USB reste branché, le débogage reste activé ; 5 minutes après le débranchement
+     du câble → désactivé (compte à rebours sur le téléphone).
+  4. Câble jamais branché : 5 minutes après *Autoriser la connexion rapide (ADB)* sans démarrage de
+     sauvegarde → désactivé.
+  5. Par Wi-Fi, l’ordinateur dit « toujours là » toutes les 30 s pendant une sauvegarde ; rien pendant 2 minutes → désactivé.
   6. Juste après la sauvegarde, l’ordinateur le désactive (et met fin au mode sauvegarde sur le téléphone).
 
   **Reconnaître le téléphone en toute sécurité :** lors de l’association, l’app du téléphone crée une clé dans la puce de
@@ -290,9 +298,21 @@ Par le câble, le programme peut aussi installer l’app lui-même – il **dema
 explique quel téléphone, quelle version, pourquoi et ce qui se passe exactement ; rien n’est installé sans
 ton clic.
 
-Pour une sauvegarde : ouvre *My Media Backup* sur le téléphone → **Démarrer le mode sauvegarde**. L’ordinateur le trouve et
-se connecte ; après la sauvegarde, le téléphone désactive lui-même le mode sauvegarde (aussi après 5 minutes
-sans utilisation). L’app peut seulement lire les photos et vidéos ; la connexion est chiffrée (TLS, certificat
+Pour une sauvegarde : ouvre *My Media Backup* sur le téléphone → **Ouvrir maintenant**. L’ordinateur le trouve et
+se connecte ; après la sauvegarde, le téléphone se referme de lui-même (aussi après 5 minutes sans utilisation).
+
+**Quand ton ordinateur veut une sauvegarde** (dans l’app du téléphone) :
+* **Me demander** (par défaut) – quand l’ordinateur trouve le téléphone à la maison, le téléphone affiche
+  *Autoriser la sauvegarde ?* ; rien ne démarre sans ton appui.
+* **Démarrer automatiquement** – sans question : quand l’ordinateur trouve le téléphone dans le Wi-Fi, ou
+  que tu branches le câble USB, les photos et vidéos les plus récentes sont sauvegardées – au plus une fois
+  par heure, par la connexion la plus rapide. Si tu branches le câble pendant une sauvegarde par Wi-Fi,
+  elle continue par le câble.
+* **Jamais** – l’ordinateur ne peut pas demander.
+
+Un téléphone sur lequel l’app du téléphone est réinstallée est reconnu par son numéro de série (par le
+câble) et n’apparaît jamais deux fois sous *Téléphones connus* ; sans numéro de série, le programme demande
+une fois s’il s’agit du même téléphone. L’app peut seulement lire les photos et vidéos ; la connexion est chiffrée (TLS, certificat
 épinglé lors de l’association). L’ordinateur **récupère** les fichiers : il demande chaque fichier, le téléphone ne
 répond qu’à l’ordinateur associé et n’envoie jamais rien de lui-même. Mêmes fichiers et chemins que par ADB, les sauvegardes existantes continuent donc simplement.
 
@@ -316,6 +336,11 @@ téléphone et l’ordinateur. La plupart des adaptateurs Wi-Fi coupent le Wi-Fi
 Wi-Fi direct est arrêté (l’app le demande quand tu la fermes).
 
 Un vrai Wi-Fi Direct (P2P) nécessiterait une app compagnon sur le téléphone ; c’est prévu pour une étape ultérieure.
+
+**Vue d’ensemble et sauvegardes complètes :** après chaque sauvegarde depuis le téléphone, le programme
+demande si cette sauvegarde est complète. *Gérer les sauvegardes → Vue d’ensemble* affiche ensuite pour
+chaque sauvegarde : la dernière sauvegarde, quels disques de sauvegarde sont complets, les sauvegardes
+Grand-père-Père-Fils de la sauvegarde, et les sauvegardes qui ont été démarrées mais ne se sont pas terminées.
 
 ## Plan de sauvegarde par disque
 

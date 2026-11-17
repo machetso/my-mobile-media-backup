@@ -74,18 +74,26 @@ drives. *Select all* / *Remove from list* hide phones (their backups stay on the
   **Phone app switches it:** at the first USB-debugging connection the program offers to install
   the phone app *My Media Backup* and give it the right to switch USB debugging (Android's
   `WRITE_SECURE_SETTINGS`, granted over the cable – the app cannot get it by itself). From then
-  on: open the app → **Allow backup over cable** → plug in. After every backup the computer
-  switches USB debugging (or Wireless debugging) off again (*Switch … off after the backup*, on
-  by default). Only USB debugging is switched off; the Developer options stay.
+  on: open the app → **Allow fast connection (ADB)** (switches on USB debugging and Wireless
+  debugging) → plug in, or stay in the Wi-Fi. **Enable standard connection** switches ADB off
+  again and opens Android's USB settings, where you choose *File transfer*. After every backup the
+  computer switches USB debugging (or Wireless debugging) off again (*Switch … off after the
+  backup*, on by default). Only debugging is switched off; the Developer options stay.
+  The phone app has the same version number as the program. When the phone app on the phone is
+  older, the start page and *Manage backups → Overview* say so, with an **Update phone app**
+  button (one click while the phone is connected over ADB). Older copies of the phone app are
+  removed automatically.
 
   **Rules for switching debugging off** (the phone app enforces them even if the computer is gone):
   1. Wi-Fi backups normally run through the phone app with debugging off; Wireless debugging
      only for phones without the app.
   2. One connection per backup: over the cable → Wireless debugging is switched off at the start;
      through the app over Wi-Fi → USB debugging is switched off at the start.
-  3. The phone app never switches Wireless debugging on.
-  4. 5 minutes after *Allow backup over cable* without a backup start → off (countdown on the phone).
-  5. During a backup the computer says "still here" every 30 s; nothing for 2 minutes → off.
+  3. While the USB cable stays plugged in, debugging stays on; 5 minutes after the cable is
+     unplugged → off (countdown on the phone).
+  4. Cable never plugged in: 5 minutes after *Allow fast connection (ADB)* without a backup
+     start → off.
+  5. Over Wi-Fi the computer says "still here" every 30 s during a backup; nothing for 2 minutes → off.
   6. Right after the backup the computer switches it off (and ends backup mode on the phone).
 
   **Recognising the phone securely:** at pairing the phone app creates a key in the phone's
@@ -287,9 +295,21 @@ Over the cable the program can also install the app itself – it always **asks 
 explains which phone, which version, why and exactly what happens; nothing is installed without
 your click.
 
-For a backup: open *My Media Backup* on the phone → **Start backup mode**. The computer finds it and
-connects; after the backup the phone switches backup mode off itself (also after 5 minutes
-unused). The app can only read photos and videos; the connection is encrypted (TLS, certificate
+For a backup: open *My Media Backup* on the phone → **Open now**. The computer finds it and
+connects; after the backup the phone closes again by itself (also after 5 minutes unused).
+
+**When your computer wants a backup** (in the phone app):
+* **Ask me** (default) – when the computer finds the phone at home, the phone shows *Allow
+  backup?*; nothing starts without your tap.
+* **Start automatically** – no question: when the computer finds the phone in the Wi-Fi, or you
+  plug in the USB cable, the newest photos and videos are backed up – at most once per hour, over
+  the fastest connection. If you plug in the cable during a Wi-Fi backup, it continues over the
+  cable.
+* **Never** – the computer cannot ask.
+
+A phone that gets the phone app installed again is recognised by its serial number (over the
+cable) and never listed twice under *Known phones*; without a serial number the program asks
+once whether it is the same phone. The app can only read photos and videos; the connection is encrypted (TLS, certificate
 pinned while pairing). The computer **pulls** the files: it asks for every file, the phone only
 answers the paired computer and never sends anything by itself. Same files and paths as over ADB, so existing backups simply continue.
 
@@ -313,6 +333,11 @@ phone and computer. Most Wi-Fi adapters drop the normal Wi-Fi meanwhile; it retu
 direct Wi-Fi is stopped (the app asks when you close it).
 
 Real Wi-Fi Direct (P2P) would need a companion app on the phone; it is planned as a later step.
+
+**Overview and complete backups:** after every backup from the phone the program asks whether
+this backup is complete. *Manage backups → Overview* then shows for each backup: the latest
+backup, which backup drives are complete, the Grandfather-Father-Son backups of the backup, and
+backups that were started but did not finish.
 
 ## Backup plan per drive
 

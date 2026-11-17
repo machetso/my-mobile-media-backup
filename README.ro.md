@@ -75,18 +75,26 @@ conectate. *Selectează tot* / *Elimină din listă* ascund telefoanele (backup-
   **Aplicația de pe telefon o pornește:** la prima conexiune cu depanare USB, programul se oferă să instaleze
   aplicația de pe telefon *My Media Backup* și să îi dea dreptul de a comuta depanarea USB (permisiunea Android
   `WRITE_SECURE_SETTINGS`, acordată prin cablu – aplicația nu o poate obține singură). De atunci
-  înainte: deschide aplicația → **Permite backup prin cablu** → conectează cablul. După fiecare backup, computerul
+  înainte: deschide aplicația → **Permite conexiunea rapidă (ADB)** (pornește depanarea USB și Depanarea
+  wireless) → conectează cablul, sau rămâi în Wi-Fi. **Activează conexiunea standard** oprește din nou ADB și
+  deschide setările USB ale Android, unde alegi *Transfer de fișiere*. După fiecare backup, computerul
   oprește din nou depanarea USB (sau Depanarea wireless) (*Oprește depanarea USB / Depanarea wireless pe telefon după backup*, activat
-  implicit). Se oprește doar depanarea USB; Opțiunile pentru dezvoltatori rămân.
+  implicit). Se oprește doar depanarea; Opțiunile pentru dezvoltatori rămân.
+  Aplicația de pe telefon are același număr de versiune ca programul. Când aplicația de pe telefon este
+  mai veche, ecranul de start și *Gestionează backup-urile → Prezentare generală* spun acest lucru, cu un buton
+  **Actualizează aplicația de pe telefon** (un clic cât timp telefonul este conectat prin ADB). Copiile
+  mai vechi ale aplicației de pe telefon sunt eliminate automat.
 
   **Reguli pentru oprirea depanării** (aplicația de pe telefon le aplică chiar dacă computerul nu mai este acolo):
   1. Backup-urile prin Wi-Fi rulează în mod normal prin aplicația de pe telefon, cu depanarea oprită; Depanarea wireless
      doar pentru telefoanele fără aplicație.
   2. O singură conexiune per backup: prin cablu → Depanarea wireless este oprită la început;
      prin aplicație, prin Wi-Fi → depanarea USB este oprită la început.
-  3. Aplicația de pe telefon nu pornește niciodată Depanarea wireless.
-  4. La 5 minute după *Permite backup prin cablu* fără ca un backup să pornească → oprită (numărătoare inversă pe telefon).
-  5. În timpul unui backup, computerul spune „încă sunt aici” la fiecare 30 s; nimic timp de 2 minute → oprită.
+  3. Cât timp cablul USB rămâne conectat, depanarea rămâne pornită; la 5 minute după ce cablul este
+     deconectat → oprită (numărătoare inversă pe telefon).
+  4. Cablul nu a fost conectat niciodată: la 5 minute după *Permite conexiunea rapidă (ADB)* fără ca un
+     backup să pornească → oprită.
+  5. Prin Wi-Fi, computerul spune „încă sunt aici” la fiecare 30 s în timpul unui backup; nimic timp de 2 minute → oprită.
   6. Imediat după backup, computerul o oprește (și încheie modul backup pe telefon).
 
   **Recunoașterea sigură a telefonului:** la asociere, aplicația de pe telefon creează o cheie în cipul de
@@ -289,9 +297,20 @@ Prin cablu, programul poate instala și singur aplicația – **întreabă înto
 explică ce telefon, ce versiune, de ce și exact ce se întâmplă; nu se instalează nimic fără
 clicul tău.
 
-Pentru un backup: deschide *My Media Backup* pe telefon → **Pornește modul backup**. Computerul îl găsește și
-se conectează; după backup, telefonul oprește singur modul backup (și după 5 minute fără
-utilizare). Aplicația poate citi doar fotografii și videoclipuri; conexiunea este criptată (TLS, certificat
+Pentru un backup: deschide *My Media Backup* pe telefon → **Deschide acum**. Computerul îl găsește și
+se conectează; după backup, telefonul se închide din nou singur (și după 5 minute fără utilizare).
+
+**Când computerul tău vrea un backup** (în aplicația de pe telefon):
+* **Întreabă-mă** (implicit) – când computerul găsește telefonul acasă, telefonul afișează *Permiți
+  backup-ul?*; nimic nu pornește fără atingerea ta.
+* **Pornește automat** – fără întrebare: când computerul găsește telefonul în Wi-Fi, sau conectezi
+  cablul USB, cele mai noi fotografii și videoclipuri sunt salvate – cel mult o dată pe oră, prin cea mai
+  rapidă conexiune. Dacă conectezi cablul în timpul unui backup prin Wi-Fi, acesta continuă prin cablu.
+* **Niciodată** – computerul nu poate întreba.
+
+Un telefon pe care aplicația de pe telefon este instalată din nou este recunoscut după numărul de serie
+(prin cablu) și nu apare niciodată de două ori la *Telefoane cunoscute*; fără număr de serie, programul
+întreabă o dată dacă este același telefon. Aplicația poate citi doar fotografii și videoclipuri; conexiunea este criptată (TLS, certificat
 fixat la asociere). Computerul **preia** fișierele: cere fiecare fișier, iar telefonul răspunde doar
 computerului asociat și nu trimite niciodată nimic din proprie inițiativă. Aceleași fișiere și căi ca prin ADB, deci backup-urile existente pur și simplu continuă.
 
@@ -315,6 +334,11 @@ telefon și computer. Majoritatea adaptoarelor Wi-Fi renunță între timp la Wi
 Wi-Fi-ul direct este oprit (aplicația întreabă când o închizi).
 
 Un Wi-Fi Direct real (P2P) ar necesita o aplicație însoțitoare pe telefon; este planificat ca pas ulterior.
+
+**Prezentare generală și backup-uri complete:** după fiecare backup de pe telefon, programul întreabă
+dacă acest backup este complet. *Gestionează backup-urile → Prezentare generală* arată apoi pentru fiecare
+backup: cel mai recent backup, ce unități de backup sunt complete, backup-urile Bunic-Tată-Fiu ale
+backup-ului și backup-urile care au fost pornite, dar nu s-au terminat.
 
 ## Plan de backup per unitate
 

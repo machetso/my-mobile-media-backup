@@ -39,14 +39,26 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import config
+from . import __version__ as _PROGRAM_VERSION
 from .i18n import tr, N_
 from .copier import CHUNK
 from .sources import SourceFile, _dedupe, _run
 
 SERVICE_TYPE = "_phonebkp._tcp"
 APP_PACKAGE = "io.github.machetso.mediabackup"
-APP_VERSION_CODE = 12         # versionCode of the bundled assets/companion/MediaBackup.apk
-APP_VERSION_NAME = "0.8.0"    # its versionName (shown before installing)
+
+
+def version_code(version):
+    """versionCode of the phone app for a version name – the same formula as
+    android/app/build.gradle.kts: a.b.c.d → a*1000000 + b*10000 + c*100 + d."""
+    nums = [int(x) if x.isdigit() else 0 for x in str(version).split(".")][:4]
+    nums += [0] * (4 - len(nums))
+    return nums[0] * 1000000 + nums[1] * 10000 + nums[2] * 100 + nums[3]
+
+
+# the phone app has the same version as this program (user request 2026-11-17)
+APP_VERSION_NAME = _PROGRAM_VERSION    # versionName of the bundled assets/companion/MediaBackup.apk
+APP_VERSION_CODE = version_code(APP_VERSION_NAME)
 APP_NAME = "My Media Backup"
 DEFAULT_PORT = 47823
 SETUP_PORT = 47824
@@ -68,9 +80,12 @@ def install_question(state, phone, serial, installed_version, apk_size):
     app = f"<b>“{APP_NAME}”</b>"
     if state == "outdated":
         title = tr("Update the app on the phone?")
-        head = tr("This program wants to <b>update</b> the app %s on %s – from "
-                  "version %s to %s.", app, who, escape(installed_version or tr("older")),
-                  f"<b>{APP_VERSION_NAME}</b>")
+        head = (tr("This program wants to <b>update</b> the app %s on %s – the phone has an older "
+                   "build of version %s.", app, who, f"<b>{APP_VERSION_NAME}</b>")
+                if installed_version == APP_VERSION_NAME else
+                tr("This program wants to <b>update</b> the app %s on %s – from "
+                   "version %s to %s.", app, who, escape(installed_version or tr("older")),
+                   f"<b>{APP_VERSION_NAME}</b>"))
         why = tr("The version on the phone is older than the one included in this program. The "
                  "newer version is needed so that phone and computer understand each other and all "
                  "safety switch-offs work.")
@@ -110,9 +125,10 @@ def install_question(state, phone, serial, installed_version, apk_size):
         + tr("3. The app is opened on the phone; the first time you pair it with this computer (tap "
              "“Pair” on the phone).") + "\n\n"
         + does + " "
-        + tr("it switches USB debugging on only when you tap “Allow backup over "
-             "cable”, and off again after the backup – automatically after 5 minutes without a backup, "
-             "2 minutes without contact to the computer, and after a restart. It reads photos and "
+        + tr("it switches USB debugging on only when you tap “Allow fast connection (ADB)”"
+             ", and off again after the backup. While the cable stays plugged in it stays on; "
+             "it switches off automatically 5 minutes after the cable is unplugged, 5 minutes after "
+             "“Allow” if the cable is never plugged in, and after a restart. It reads photos and "
              "videos only after you allow it on the phone, and sends them only to the paired computer "
              "in your own Wi-Fi or over the cable (encrypted).") + "\n"
         + cannot + " "
@@ -212,10 +228,79 @@ def phones(cfg):
     return list(cfg.get("companion_phones", []))
 
 
+def app_outdated(version):
+    """Is a phone app version older than the one included in this program? ('' = unknown → no)"""
+    return bool(version) and version_code(version) < APP_VERSION_CODE
+
+
+def same_phone_name(a, b):
+    """"Google Pixel 10 Pro" (file transfer) = "Pixel 10 Pro" (phone app / ADB)."""
+    a, b = (a or "").casefold().strip(), (b or "").casefold().strip()
+    return bool(a and b) and (a == b or a in b or b in a)
+
+
+def paired_for(cfg, *names):
+    """The paired phone (phone app) whose name matches one of `names` (phone name, model) –
+    exact matches first; None if there is none."""
+    found = phones(cfg)
+    for exact in (True, False):
+        for p in found:
+            pn = p.get("name") or ""
+            if any((pn.casefold().strip() == (n or "").casefold().strip() and pn) if exact
+                   else same_phone_name(pn, n) for n in names):
+                return p
+    return None
+
+
 def save_phone(cfg, entry):
     lst = [p for p in phones(cfg) if p.get("phone_id") != entry["phone_id"]] + [entry]
     cfg["companion_phones"] = lst
     config.save(cfg)
+
+
+def same_phone_pairings(cfg, entry, serial=None):
+    """Other pairings that may be the SAME phone as `entry` (a reinstalled phone app has a new key
+    and is paired anew – user 2026-11-17: the Pixel appeared twice in "Known phones").
+    (sure, maybe): sure = same serial number (one phone; replaced without asking); maybe = same
+    name, serial unknown, and the user did not say "a different phone" before – ask."""
+    sure, maybe = [], []
+    for p in phones(cfg):
+        if p.get("phone_id") == entry.get("phone_id"):
+            continue
+        if serial and p.get("serial") == serial:
+            sure.append(p)
+        elif (same_phone_name(p.get("name"), entry.get("name"))
+              and not (serial and p.get("serial"))                      # another known serial: not it
+              and entry.get("phone_id") not in p.get("not_same_as", [])
+              and p.get("phone_id") not in entry.get("not_same_as", [])):
+            maybe.append(p)
+    return sure, maybe
+
+
+def remember_serial(cfg, entry, serial):
+    """The phone `entry` was verified over the cable with this serial number: keep it, and drop
+    older pairings of the same phone (same serial). Returns the dropped entries."""
+    if not serial:
+        return []
+    sure, _maybe = same_phone_pairings(cfg, entry, serial)
+    for p in sure:
+        forget_phone(cfg, p["phone_id"])
+    for p in phones(cfg):
+        if p.get("phone_id") == entry.get("phone_id") and p.get("serial") != serial:
+            p["serial"] = serial
+            save_phone(cfg, p)
+    entry["serial"] = serial
+    return sure
+
+
+def mark_different(cfg, entry, other):
+    """The user said: `other` is a different phone than `entry` – never ask again for this pair."""
+    for p in phones(cfg):
+        if p.get("phone_id") == other.get("phone_id"):
+            p.setdefault("not_same_as", [])
+            if entry.get("phone_id") not in p["not_same_as"]:
+                p["not_same_as"].append(entry.get("phone_id"))
+            save_phone(cfg, p)
 
 
 def forget_phone(cfg, phone_id):
@@ -310,13 +395,14 @@ def ble_scan(cfg, seconds=5.0):
 
 # =========================================================================== discovery
 
-def discover(timeout=6):
+def discover(timeout=6, service_type=SERVICE_TYPE):
     """Phones in backup mode in the local network: list of (txt dict, 'ip:port').
-    The phone announces itself anonymously (see above)."""
+    The phone announces itself anonymously (see above). service_type: also the phone app's
+    "Backup requests from the computer" (presence.ASK_TYPE)."""
     res = []
     if shutil_which("avahi-browse"):
         try:
-            r = _run(["avahi-browse", "-rpt", SERVICE_TYPE], timeout=timeout + 2)
+            r = _run(["avahi-browse", "-rpt", service_type], timeout=timeout + 2)
             for line in r.stdout.decode("utf-8", "replace").splitlines():
                 f = line.split(";")
                 if len(f) < 10 or f[0] != "=" or ":" in f[7]:
@@ -663,6 +749,11 @@ class AppGuard:
         self._stop.set()
         self._call("/guard/end", {"off": bool(switch_off)})
 
+    def stop_beats(self):
+        """The backup moved to another connection (its own guard): no more "still here" here,
+        and no /guard/end – that would switch off the debugging the new connection uses."""
+        self._stop.set()
+
 
 class CableLink:
     """The phone app reached through the USB cable (adb forward to its server). The phone is
@@ -671,6 +762,8 @@ class CableLink:
     def __init__(self, adb_source, entry, port):
         self.src, self.entry, self.port = adb_source, entry, port
         self.client = Client(f"127.0.0.1:{port}", entry["fingerprint"], entry["secret"], timeout=30)
+        self.app_version = ""        # what the phone app itself reports (/info)
+        self.auto_backup = None      # its "Automatic backup" switch (None = older app, not reported)
 
     def close(self):
         self.client.close()
@@ -679,7 +772,7 @@ class CableLink:
 
 def link_over_cable(adb_source, cfg):
     """Verify the phone on the cable: (CableLink, None) or (None, reason).
-    Needs the phone app in backup mode (it runs after 'Allow backup over cable')."""
+    Needs the phone app in backup mode (it runs after 'Allow fast connection (ADB)')."""
     entries = phones(cfg)
     if not entries:
         return None, tr("no phone paired with the phone app yet")
@@ -689,12 +782,16 @@ def link_over_cable(adb_source, cfg):
     for e in entries:                 # the secret is only sent after the certificate matched
         c = Client(f"127.0.0.1:{port}", e["fingerprint"], e["secret"], timeout=10)
         try:
-            c.request("GET", "/info")
+            info = c.request("GET", "/info")
         except (OSError, CompanionError, http.client.HTTPException):
             continue
         finally:
             c.close()
-        return CableLink(adb_source, e, port), None
+        link = CableLink(adb_source, e, port)
+        link.app_version = (info or {}).get("app_version", "") if isinstance(info, dict) else ""
+        if isinstance(info, dict) and "auto_backup" in info:
+            link.auto_backup = bool(info["auto_backup"])
+        return link, None
     adb_source.unforward(port)
     return None, tr("the phone app is not in backup mode, or this phone is not paired")
 
@@ -740,8 +837,10 @@ def pair_over_cable(adb_source, cfg, wait_s=180, cancel=None, on_code=None):
             if isinstance(res, dict) and res.get("secret"):
                 entry = {"phone_id": res.get("phone_id"), "name": adb_source.device_name,
                          "fingerprint": fp, "secret": res["secret"], "address": "",
-                         "paired": time.strftime("%Y-%m-%d %H:%M"), "via": "cable"}
+                         "paired": time.strftime("%Y-%m-%d %H:%M"), "via": "cable",
+                         "serial": adb_source.serial}
                 save_phone(cfg, entry)
+                remember_serial(cfg, entry, adb_source.serial)   # replaces older pairings of this phone
                 return entry
             time.sleep(1)
         raise CompanionError(tr("not confirmed on the phone in time"))

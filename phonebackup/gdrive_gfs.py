@@ -532,6 +532,11 @@ def _perform_drive_gfs_export(_sets, source_parent, cfg, mode="auto", cancel=Non
         if status == "COMPLETED" and errors:
             status = "COMPLETED WITH ERRORS"
         cat.finish_run(run_id, status)
+        try:                                     # for Manage backups → Overview
+            from . import generations
+            generations.remember(cfg, setfolders.key_of_rel(name), generations.GDRIVE, cat.runs())
+        except Exception:  # noqa: BLE001
+            pass
         cat.close()
         cat_problem = None
         # unfinished earlier export folders that are now empty (all reused): remove them

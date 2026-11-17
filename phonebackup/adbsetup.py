@@ -59,8 +59,8 @@ DEFAULT_CONNECTION = "adb_app"
 CONNECTIONS = (
     Connection("adb_app", N_("USB cable + USB debugging, switched on and off by the phone app"),
                N_("45–50 MB/s (USB 3 cable) · about 20–30 MB/s (USB 2)"), (45, 50),
-               N_("Fastest, every file checked on the phone. Before a backup tap “Allow backup over "
-                  "cable” in the phone app; the computer switches USB debugging off again afterwards. "
+               N_("Fastest, every file checked on the phone. Before a backup tap “Allow fast connection (ADB)”"
+                  " in the phone app; the computer switches USB debugging off again afterwards. "
                   "One-time setup: switch on USB debugging by hand once."),
                short=N_("Cable + USB debugging via the phone app")),
     Connection("adb_manual", N_("USB cable + USB debugging, switched on by hand"),
@@ -80,7 +80,7 @@ CONNECTIONS = (
                short=N_("Wi-Fi: Wireless debugging")),
     Connection("app_wifi", N_("Wi-Fi: phone app only (no debugging)"),
                N_("10–30 MB/s, depends on the Wi-Fi"), (10, 30),
-               N_("No Developer options at all. Start backup mode in the phone app; it may only read "
+               N_("No Developer options at all. Tap “Open now” in the phone app; it may only read "
                   "photos and videos."),
                short=N_("Wi-Fi: phone app (no debugging)")),
     Connection("hotspot", N_("Wi-Fi directly to this computer (no router)"),
@@ -192,7 +192,7 @@ def guide_steps(guide, with_app=True):
     if with_app:
         steps.append(N_("This program then installs the small phone app “My Media Backup” once and "
                         "gives it the right to switch USB debugging on and off. From then on: open the "
-                        "app, tap “Allow backup over cable”, plug in – after the backup the computer "
+                        "app, tap “Allow fast connection (ADB)”, plug in – after the backup the computer "
                         "switches USB debugging off again."))
     return [tr(s) for s in steps]
 
@@ -316,8 +316,8 @@ def describe_probe(p):
                                       "in “Allow USB debugging?”")))
     elif p.get("usb_phone"):
         rows.append((cable, False,
-                     tr("%s is on the cable, USB debugging is off – tap “Allow backup "
-                        "over cable” in the phone app (or switch on USB debugging)", p["usb_phone"])))
+                     tr("%s is on the cable, USB debugging is off – tap “Allow fast connection (ADB)” "
+                        "in the phone app (or switch on USB debugging)", p["usb_phone"])))
     else:
         rows.append((cable, False, tr("no phone on the cable")))
     rows.append((tr("Wi-Fi: phone app"), bool(p.get("app_wifi")),
@@ -339,12 +339,12 @@ def describe_probe(p):
                                "about 2× faster.")
     elif best:
         advice = tr("Wi-Fi works, but the cable is about 2–5× faster: plug the phone in and tap "
-                    "“Allow backup over cable” in the phone app.")
+                    "“Allow fast connection (ADB)” in the phone app.")
         if p.get("usb_phone"):
-            advice = tr("The %s is already on the cable – tap “Allow backup over cable” "
+            advice = tr("The %s is already on the cable – tap “Allow fast connection (ADB)” "
                         "in the phone app (or switch on USB debugging) for the fastest connection.",
                         p["usb_phone"])
     else:
-        advice = tr("No phone found. Fastest: plug the phone in with a USB cable and tap “Allow backup "
-                    "over cable” in the phone app (first time: switch on USB debugging by hand).")
+        advice = tr("No phone found. Fastest: plug the phone in with a USB cable and tap “Allow fast connection (ADB)” "
+                    "in the phone app (first time: switch on USB debugging by hand).")
     return best, rows, advice
