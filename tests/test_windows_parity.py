@@ -186,18 +186,33 @@ class RealWindowsTest(unittest.TestCase):
     """The real PowerShell scripts and Explorer on Windows – no phone or Wi-Fi there, but every
     script must run without an error and give one of its known answers."""
 
+    def _known(self, out, *answers):
+        """One of the script's own answers – or Windows refused (no Wi-Fi/Bluetooth on the test
+        machine), but never an error that means the script itself is wrong."""
+        from phonebackup import winps
+        last = out.splitlines()[-1] if out else ""
+        print("\n    Windows answered:", out)
+        if last.startswith("PSERROR"):
+            self.assertFalse(any(e in out for e in winps.SCRIPT_ERRORS), out)
+        else:
+            self.assertTrue(any(last == a or last.startswith(a) for a in answers), out)
+
     def test_hotspot_script_answers(self):
-        ok, out = wireless._win_tether("state")
-        self.assertTrue(out == "NOPROFILE" or out.startswith("STATE "), out)
+        from phonebackup import winps
+        code, out = winps.run(wireless._WIN_TETHER, {"PB_ACTION": "state"}, timeout=90)
+        self.assertEqual(code, 0, out)
+        self._known(out, "NOPROFILE", "STATE ")
 
     def test_bluetooth_scripts_answer(self):
         from phonebackup import winps
         code, out = winps.run(presence._WIN_PAIRED, timeout=60)
         self.assertEqual(code, 0, out)
+        if out.startswith("PSERROR"):
+            self._known(out)
         presence._win_paired_bluetooth(out)                  # parses whatever is there
         code, out = winps.run(presence._WIN_NEAR, {"PB_ADDR": 0xA0B1C2D3E4F5}, timeout=60)
-        last = out.splitlines()[-1] if out else ""
-        self.assertTrue(last == "NONE" or last.startswith("ERROR "), out)
+        self.assertEqual(code, 0, out)
+        self._known(out, "NONE", "ERROR ")
 
     def test_explorer_search_runs_in_its_worker(self):
         try:

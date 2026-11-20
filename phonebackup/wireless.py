@@ -299,7 +299,10 @@ def _win_start_hotspot(ssid, password):
     if ok and out.startswith("RESULT Success"):
         _win_state.update(on=True, t=time.monotonic())
         return True, tr("Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).", ssid)
-    if out == "NOPROFILE":
+    if out == "NOPROFILE" or out.startswith("PSERROR"):
+        if out.startswith("PSERROR"):
+            return False, tr("Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button "
+                             "below) instead.", out[len("PSERROR"):].strip() or "?")
         return False, tr("Windows starts its Mobile hotspot only while this computer has a network "
                          "connection. Switch it on in the settings (button below) instead.")
     detail = out[len("RESULT "):].strip() if out.startswith("RESULT ") else out

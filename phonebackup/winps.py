@@ -30,13 +30,22 @@ def powershell():
                         "v1.0", "powershell.exe")
 
 
+# Every script answers with one of its known lines – also when Windows refuses (no Wi-Fi adapter, no
+# Bluetooth, …): then "PSERROR <reason>" (found on GitHub's Windows machine 2026-11-20).
+WRAP = "try {{\n{body}\n}} catch {{ 'PSERROR ' + $_.Exception.Message }}\nexit 0\n"
+
+# PowerShell errors that mean the SCRIPT is wrong (not the computer) – the real-Windows tests check them
+SCRIPT_ERRORS = ("Unable to find type", "is not recognized as", "Cannot find an overload",
+                 "Method invocation failed", "ParserError", "Missing ", "Unexpected token")
+
+
 def run(script, env=None, timeout=90):
     """Run `script` (after PRELUDE). Returns (exit code, stdout text). Raises OSError /
     subprocess.TimeoutExpired."""
     full_env = dict(os.environ)
     full_env.update({k: str(v) for k, v in (env or {}).items()})
     r = subprocess.run([powershell(), "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-                        "-Command", PRELUDE + script], capture_output=True, timeout=timeout,
+                        "-Command", PRELUDE + WRAP.format(body=script)], capture_output=True, timeout=timeout,
                        env=full_env, creationflags=_NO_WINDOW)
     out = r.stdout.decode("utf-8", "replace").strip()
     if r.returncode and not out:
