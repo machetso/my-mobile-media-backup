@@ -2,10 +2,13 @@
 
 Only for phones already paired with the phone app; the pairing secret signs it:
 
-* QR code: the computer shows  phonebackup://connect?pc=<pc id>&a=<ip:port>&n=<nonce>&e=<expiry>&t=<tokens>
-  with one token per paired phone = HMAC(secret, "fmb-connect:<nonce>:<expiry>")[:8]. The phone's
-  camera opens the app; the app checks the token, switches backup mode on and tells the computer
-  where it is (POST /here to ip:port with proof = HMAC(secret, "fmb-here:<nonce>:<ip:port>")).
+* QR code: the computer shows  m3b://c/<ip:port>/<nonce>/<token>.<token>…  (short = a small QR
+  code the camera reads at once – user 2026-11-20; the old link had the computer id and the expiry
+  and was about 135 characters) with one token per paired phone = HMAC(secret, "m3b-c:<nonce>")[:4].
+  The phone's camera opens the app; the app finds the paired computer whose token matches,
+  switches backup mode on and tells the computer where it is (POST /here to ip:port with
+  proof = HMAC(secret, "fmb-here:<nonce>:<ip:port>")). The code is valid for 5 minutes and once:
+  the computer's little server only lives that long and only accepts the first answer.
   The address in the QR means the phone is found even where mDNS does not work.
 Afterwards the computer connects over TLS pinned to the phone's key – a wrong answer to /here can
 not make it talk to another device. The QR code opens a page first (page()): it opens the app, or
@@ -31,18 +34,16 @@ def _hmac(secret, msg):
 
 
 # ------------------------------------------------------------------ QR code
-def connect_token(secret, nonce, expiry):
-    return _hmac(secret, f"fmb-connect:{nonce}:{expiry}")[:8].hex()
+def connect_token(secret, nonce):
+    return _hmac(secret, f"m3b-c:{nonce}")[:4].hex()
 
 
 def here_proof(secret, nonce, address):
     return _hmac(secret, f"fmb-here:{nonce}:{address}")[:16].hex()
 
 
-def connect_link(pc_id, address, entries, nonce, expiry):
-    q = urllib.parse.urlencode({"pc": pc_id, "a": address, "n": nonce, "e": str(expiry),
-                                "t": ".".join(connect_token(e["secret"], nonce, expiry) for e in entries)})
-    return f"phonebackup://connect?{q}"
+def connect_link(address, entries, nonce):
+    return f"m3b://c/{address}/{nonce}/" + ".".join(connect_token(e["secret"], nonce) for e in entries)
 
 
 def verify_here(entries, nonce, address, proof):
@@ -62,7 +63,7 @@ class ConnectServer:
         self.cfg = cfg
         self.on_here = on_here               # (entry, 'ip:port') from a server thread
         self.ip = ip or (companion.local_ips() or ["127.0.0.1"])[0]
-        self.nonce = secrets.token_hex(8)
+        self.nonce = secrets.token_hex(4)
         self.expiry = int(time.time()) + QR_SECONDS
         self.used = False
         self.httpd = None
@@ -72,9 +73,8 @@ class ConnectServer:
         return f"{self.ip}:{self.httpd.server_address[1]}" if self.httpd else ""
 
     def link(self):
-        """phonebackup://connect?… – opens the app directly (only when it is installed)."""
-        pc_id, _name = companion.pc_identity(self.cfg)
-        return connect_link(pc_id, self.address, companion.phones(self.cfg), self.nonce, self.expiry)
+        """m3b://c/… – opens the app directly (only when it is installed)."""
+        return connect_link(self.address, companion.phones(self.cfg), self.nonce)
 
     def page_url(self):
         """What the QR code shows (user 2026-11-10): a page in the phone's browser that opens the
@@ -82,9 +82,9 @@ class ConnectServer:
         return f"http://{self.address}/c/{self.nonce}"
 
     def intent_url(self):
-        q = self.link().split("?", 1)[1]
+        rest = self.link().split("://", 1)[1]
         fallback = urllib.parse.quote(self.page_url() + "#install", safe="")
-        return (f"intent://connect?{q}#Intent;scheme=phonebackup;package={companion.APP_PACKAGE};"
+        return (f"intent://{rest}#Intent;scheme=m3b;package={companion.APP_PACKAGE};"
                 f"S.browser_fallback_url={fallback};end")
 
     def page(self):

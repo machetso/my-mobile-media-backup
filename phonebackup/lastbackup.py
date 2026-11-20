@@ -16,9 +16,12 @@ from .i18n import tr, trp
 
 
 def record(cfg, phone, owner, folders, destinations, files, size, status, model="",
-           keep_structure=False):
-    """model = the phone's own model name (the backup name `phone` may have been typed)."""
+           keep_structure=False, started=None):
+    """model = the phone's own model name (the backup name `phone` may have been typed).
+    started = when the backup started (unix s): after a complete backup it is the "since" for
+    "how many photos and videos are new?" (user request 2026-11-20)."""
     from .backup import backup_parent_name
+    old = (cfg.get("phones") or {}).get(backup_parent_name(phone, owner)) or {}
     entry = {
         "phone": phone, "model": model or phone, "owner": owner, "folders": list(folders),
         "destinations": [str(d) for d in destinations],
@@ -26,6 +29,10 @@ def record(cfg, phone, owner, folders, destinations, files, size, status, model=
         "files": int(files), "bytes": int(size), "status": status,
         "keep_structure": bool(keep_structure),
     }
+    if started is not None and str(status).startswith("COMPLETED"):
+        entry["since"] = int(started)
+    elif old.get("since"):                       # stopped / with errors: the last complete one counts
+        entry["since"] = old["since"]
     cfg["last_backup"] = entry
     key = backup_parent_name(phone, owner)
     cfg.setdefault("phones", {})[key] = entry
@@ -174,3 +181,15 @@ def _label(path):
         return drive_label_of(path)
     except Exception:  # noqa: BLE001
         return None
+
+
+def since(e):
+    """Unix time of the last complete backup of this entry (start), or None if not known."""
+    if e.get("since"):
+        return int(e["since"])
+    if str(e.get("status", "")).startswith("COMPLETED") and e.get("when"):
+        try:                                     # older entries: the end (minute) – a bit late
+            return int(datetime.fromisoformat(e["when"]).timestamp())
+        except ValueError:
+            return None
+    return None

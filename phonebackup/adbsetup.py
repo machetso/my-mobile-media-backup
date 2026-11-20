@@ -59,7 +59,7 @@ DEFAULT_CONNECTION = "adb_app"
 CONNECTIONS = (
     Connection("adb_app", N_("USB cable + USB debugging, switched on and off by the phone app"),
                N_("45–50 MB/s (USB 3 cable) · about 20–30 MB/s (USB 2)"), (45, 50),
-               N_("Fastest, every file checked on the phone. Before a backup tap “Allow fast connection (ADB)”"
+               N_("Fastest, every file checked on the phone. Before a backup switch on “Allow backup”"
                   " in the phone app; the computer switches USB debugging off again afterwards. "
                   "One-time setup: switch on USB debugging by hand once."),
                short=N_("Cable + USB debugging via the phone app")),
@@ -80,7 +80,7 @@ CONNECTIONS = (
                short=N_("Wi-Fi: Wireless debugging")),
     Connection("app_wifi", N_("Wi-Fi: phone app only (no debugging)"),
                N_("10–30 MB/s, depends on the Wi-Fi"), (10, 30),
-               N_("No Developer options at all. Tap “Open now” in the phone app; it may only read "
+               N_("No Developer options at all. Switch on “Allow backup” in the phone app; it may only read "
                   "photos and videos."),
                short=N_("Wi-Fi: phone app (no debugging)")),
     Connection("hotspot", N_("Wi-Fi directly to this computer (no router)"),
@@ -190,9 +190,9 @@ def guide_steps(guide, with_app=True):
     """All steps as a list of strings, in the interface language."""
     steps = list(guide.developer) + list(guide.debugging) + [_PLUG_IN] + list(guide.extra)
     if with_app:
-        steps.append(N_("This program then installs the small phone app “My Media Backup” once and "
+        steps.append(N_("This program then installs the small phone app “My Mobile Media Backup” once and "
                         "gives it the right to switch USB debugging on and off. From then on: open the "
-                        "app, tap “Allow fast connection (ADB)”, plug in – after the backup the computer "
+                        "app, switch on “Allow backup”, plug in – after the backup the computer "
                         "switches USB debugging off again."))
     return [tr(s) for s in steps]
 
@@ -217,6 +217,8 @@ PHONE_VENDORS = {
     "2d95": "vivo", "1004": "LG", "0bb4": "HTC", "19d2": "ZTE", "17ef": "Lenovo", "0e8d": "MediaTek",
     "05c6": "Qualcomm", "2ae5": "Fairphone",
 }
+# makers that also build docks, hubs, network adapters and modems
+DOCK_VENDORS = {"17ef", "05c6", "0e8d"}
 
 
 def _read(p):
@@ -233,9 +235,19 @@ def _linux_usb_phones(sysfs="/sys/bus/usb/devices"):
         if vendor not in PHONE_VENDORS:
             continue
         # a drive of a phone maker (e.g. Samsung T7 SSD): only mass-storage interfaces (class 08)
-        classes = {_read(i / "bInterfaceClass").lower() for i in Path(sysfs).glob(glob.escape(dev.name) + ":*")}
+        ifaces = [(_read(i / "bInterfaceClass").lower(), _read(i / "bInterfaceSubClass").lower())
+                  for i in Path(sysfs).glob(glob.escape(dev.name) + ":*")]
+        classes = {c for c, _ in ifaces}
         if classes and classes <= {"08"}:
             continue
+        # a USB hub, dock or network adapter of a phone maker (Lenovo dock with "VIA Labs USB2.0 Hub"
+        # and "ThinkPad Lan" was shown as a phone on the cable – user report 2026-11-20)
+        if _read(dev / "bDeviceClass").lower() == "09" or "09" in classes:
+            continue
+        if classes and not classes & {"06", "ff"}:         # no photo (MTP/PTP) or vendor interface
+            continue
+        if vendor in DOCK_VENDORS and not any(c == "06" or (c, sc) == ("ff", "42") for c, sc in ifaces):
+            continue                                       # these need MTP/PTP or ADB to count
         maker = _read(dev / "manufacturer") or PHONE_VENDORS[vendor]
         product = _read(dev / "product")
         if product and re.fullmatch(r"(?i)[a-z]+[ _-]?(android|mtp|adb)( device)?", product):
@@ -316,7 +328,7 @@ def describe_probe(p):
                                       "in “Allow USB debugging?”")))
     elif p.get("usb_phone"):
         rows.append((cable, False,
-                     tr("%s is on the cable, USB debugging is off – tap “Allow fast connection (ADB)” "
+                     tr("%s is on the cable, USB debugging is off – switch on “Allow backup” "
                         "in the phone app (or switch on USB debugging)", p["usb_phone"])))
     else:
         rows.append((cable, False, tr("no phone on the cable")))
@@ -339,12 +351,12 @@ def describe_probe(p):
                                "about 2× faster.")
     elif best:
         advice = tr("Wi-Fi works, but the cable is about 2–5× faster: plug the phone in and tap "
-                    "“Allow fast connection (ADB)” in the phone app.")
+                    "“Allow backup” in the phone app.")
         if p.get("usb_phone"):
-            advice = tr("The %s is already on the cable – tap “Allow fast connection (ADB)” "
+            advice = tr("The %s is already on the cable – switch on “Allow backup” "
                         "in the phone app (or switch on USB debugging) for the fastest connection.",
                         p["usb_phone"])
     else:
-        advice = tr("No phone found. Fastest: plug the phone in with a USB cable and tap “Allow fast connection (ADB)” "
+        advice = tr("No phone found. Fastest: plug the phone in with a USB cable and switch on “Allow backup” "
                     "in the phone app (first time: switch on USB debugging by hand).")
     return best, rows, advice

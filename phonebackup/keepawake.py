@@ -27,8 +27,8 @@ import sys
 from .i18n import tr
 
 # sent to the operating system (logind / D-Bus / Windows), not translated
-WHY = "My Smartphone Media Backup is copying files - do not sleep or shut down"
-WHO = "My Smartphone Media Backup"
+WHY = "My Mobile Media Backup is copying files - do not sleep or shut down"
+WHO = "My Mobile Media Backup"
 
 # Windows SetThreadExecutionState flags
 ES_CONTINUOUS = 0x80000000

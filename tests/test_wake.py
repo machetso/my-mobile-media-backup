@@ -15,12 +15,17 @@ PHONES = [{"phone_id": "a", "secret": "11" * 32, "paired": "2026-11-01 10:00", "
 
 class WakeTest(unittest.TestCase):
     def test_link(self):
-        url = wake.connect_link("pc-1", "192.168.1.5:4000", PHONES, "ab" * 8, 1234)
-        q = urllib.parse.parse_qs(urllib.parse.urlparse(url).query)
-        self.assertTrue(url.startswith("phonebackup://connect?"))
-        self.assertEqual(q["a"], ["192.168.1.5:4000"])
-        self.assertEqual(q["t"][0].split("."), [wake.connect_token(p["secret"], "ab" * 8, 1234) for p in PHONES])
+        url = wake.connect_link("192.0.2.20:45123", PHONES, "ab" * 4)
+        self.assertEqual(url.split("/")[:5], ["m3b:", "", "c", "192.0.2.20:45123", "abababab"])
+        self.assertEqual(url.split("/")[5].split("."), [wake.connect_token(p["secret"], "ab" * 4) for p in PHONES])
         self.assertNotIn(PHONES[0]["secret"], url)
+        # short = a small QR code the camera reads at once (user 2026-11-20; it was ~135 characters)
+        self.assertLessEqual(len(wake.connect_link("192.0.2.20:45123", PHONES[:1], "ab" * 4)), 50)
+
+    def test_token_same_as_phone_app(self):
+        """Same value as ConnectTokenTest.kt in the phone app."""
+        self.assertEqual(wake.connect_token("ab" * 32, "0123abcd"),
+                         wake._hmac("ab" * 32, "m3b-c:0123abcd")[:4].hex())
 
     def test_here_once_and_only_from_the_phone(self):
         cfg = {"companion_phones": PHONES}
@@ -39,7 +44,7 @@ class WakeTest(unittest.TestCase):
             good = {"n": srv.nonce, "port": 47823,
                     "proof": wake.here_proof(PHONES[1]["secret"], srv.nonce, "127.0.0.1:47823")}
             self.assertEqual(post(dict(good, proof="00" * 16)), 403)          # wrong secret
-            self.assertEqual(post(dict(good, n="ff" * 8)), 403)              # other QR code
+            self.assertEqual(post(dict(good, n="ff" * 4)), 403)              # other QR code
             self.assertEqual(post(dict(good, port=47824)), 403)             # proof for another port
             self.assertEqual(post(good), 200)
             self.assertEqual(got, [("b", "127.0.0.1:47823")])

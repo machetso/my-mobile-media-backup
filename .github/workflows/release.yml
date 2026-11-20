@@ -34,10 +34,10 @@ jobs:
         include:
           - os: ubuntu-22.04          # older glibc = runs on more Linux distributions
             platform: linux-x86_64
-            binary: my-smartphone-media-backup
+            binary: my-mobile-media-backup
           - os: windows-latest
             platform: windows-x64
-            binary: My-Smartphone-Media-Backup
+            binary: My-Mobile-Media-Backup
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -91,7 +91,7 @@ jobs:
       - name: Package
         run: |
           VERSION=$(python -c "import phonebackup; print(phonebackup.__version__)")
-          NAME="my-smartphone-media-backup-v${VERSION}-${{ matrix.platform }}"
+          NAME="my-mobile-media-backup-v${VERSION}-${{ matrix.platform }}"
           mkdir -p "pkg/$NAME"
           cp dist/* README.md LICENSE "pkg/$NAME/"
           cd pkg
@@ -123,6 +123,8 @@ jobs:
         with:
           path: pkg
           merge-multiple: true
+      - name: Phone app as its own file (the "Install the app" QR code downloads it)
+        run: cp assets/companion/MediaBackup.apk pkg/My-Mobile-Media-Backup-phone-app.apk
       - name: Checksums
         run: |
           cd pkg
@@ -142,5 +144,5 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" pkg/* \
             --draft \
-            --title "My Smartphone Media Backup $GITHUB_REF_NAME" \
+            --title "My Mobile Media Backup $GITHUB_REF_NAME" \
             --notes-file notes.md

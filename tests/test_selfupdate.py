@@ -31,7 +31,7 @@ class FakeGitHub:
         if sysname == "linux":
             buf = io.BytesIO()
             with tarfile.open(fileobj=buf, mode="w:gz") as tf:
-                ti = tarfile.TarInfo(f"{name[:-len('.tar.gz')]}/my-smartphone-media-backup")
+                ti = tarfile.TarInfo(f"{name[:-len('.tar.gz')]}/my-mobile-media-backup")
                 ti.size = len(program)
                 tf.addfile(ti, io.BytesIO(program))
             payload = buf.getvalue()

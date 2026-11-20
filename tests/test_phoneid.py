@@ -59,7 +59,7 @@ class PhoneIdTest(unittest.TestCase):
         self.assertIn("USB 3", text)
         fast, text = P.speed_advice(PIXEL_APP)
         self.assertFalse(fast)
-        self.assertIn("Allow fast connection (ADB)", text)
+        self.assertIn("“Allow backup”", text)            # the phone app's switch (renamed 2026-11-20)
 
 
 if __name__ == "__main__":
@@ -115,3 +115,27 @@ class CableAdviceTest(unittest.TestCase):
             (p / "manufacturer").write_text("SAMSUNG")
             (p / "product").write_text("SAMSUNG_Android")
             self.assertEqual(adbsetup._linux_usb_phones(d), ["Samsung phone"])
+
+    def test_dock_is_no_phone(self):
+        """Lenovo dock: VIA Labs hubs + ThinkPad Lan (vendor 17ef) were shown as a phone (2026-11-20)."""
+        import tempfile as tf
+        from phonebackup import adbsetup
+
+        def dev(root, name, vendor, maker, product, dev_class, ifaces):
+            p = Path(root) / name
+            p.mkdir()
+            for k, v in (("idVendor", vendor), ("manufacturer", maker), ("product", product),
+                         ("bDeviceClass", dev_class)):
+                (p / k).write_text(v)
+            for n, (c, sc) in enumerate(ifaces):
+                i = Path(root) / f"{name}:1.{n}"
+                i.mkdir()
+                (i / "bInterfaceClass").write_text(c)
+                (i / "bInterfaceSubClass").write_text(sc)
+        with tf.TemporaryDirectory() as d:
+            dev(d, "1-2", "17ef", "VIA Labs, Inc.", "USB2.0 Hub", "09", [("09", "00")])
+            dev(d, "2-2.3", "17ef", "Lenovo", "ThinkPad Lan", "00", [("ff", "ff")])
+            self.assertEqual(adbsetup._linux_usb_phones(d), [])
+            dev(d, "3-1", "18d1", "Google", "Pixel 10 Pro", "00", [("06", "01")])          # MTP
+            dev(d, "3-2", "17ef", "Lenovo", "Tab P12", "00", [("ff", "42")])               # ADB
+            self.assertEqual(adbsetup._linux_usb_phones(d), ["Google Pixel 10 Pro", "Lenovo Tab P12"])

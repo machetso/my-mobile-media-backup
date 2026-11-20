@@ -14,7 +14,12 @@ Three ways, all only DETECT the phone – nothing is copied and nothing is switc
    for a backup (send_ask); the phone shows "Allow backup?".
 
 A found phone: {"name", "how": "wifi"|"bluetooth"|"app", "entry": paired phone entry or None,
-                "ask": "ip:port" when the phone app can be asked}.
+                "ask": "ip:port" when the phone app can be asked,
+                "auto": the app allows a backup without asking (one click on the computer),
+                "self": the app allows automatic backups (the computer starts them by itself)}.
+
+The phone app also answers "how many photos and videos are new since the last backup?"
+(ask_new, user request 2026-11-20) – only a number, no file names.
 """
 
 import json
@@ -171,7 +176,8 @@ def ask_proof(secret, pc_id, nonce, expiry, auto=False):
 
 
 def check_app(cfg):
-    """Paired phones whose app waits for backup requests: [(entry, 'ip:port', automatic backup on)]."""
+    """Paired phones whose app waits for backup requests:
+    [(entry, 'ip:port', allowed without asking, also starts by itself)]."""
     entries = companion.phones(cfg)
     if not entries:
         return []
@@ -182,9 +188,48 @@ def check_app(cfg):
         except ValueError:
             continue
         hit = companion.match_token(entries, tokens)
-        if hit and all(hit is not e for e, _a, _x in found):
-            found.append((hit, addr, txt.get("a") == "1"))
+        if hit and all(hit is not f[0] for f in found):
+            allow = txt.get("a") == "1"
+            # app before 0.9.9.0 (v=1): "Automatic backup" meant both
+            by_itself = txt.get("s") == "1" if txt.get("v", "1") != "1" else allow
+            found.append((hit, addr, allow, by_itself))
     return found
+
+
+def new_proof(secret, pc_id, nonce, expiry, since, folders, ready=""):
+    msg = f"fmb-new:{pc_id}:{nonce}:{expiry}:{int(since)}:" + "|".join(folders) + f":{ready}"
+    return companion._hmac(secret, msg)[:16].hex()
+
+
+def ask_new(cfg, entry, address, since, folders, ready="", timeout=6):
+    """How many photos and videos came onto the phone (into `folders`) after `since` (unix s)?
+    ready = can this computer start a backup of it ("" yes, "no_backup", "no_drive", "busy") – the
+    phone shows it at its "Back up now" button (user request 2026-11-20).
+    Returns (photos, videos, bytes), or None when the phone cannot tell (no access / old app / no answer)."""
+    pc_id, _name = companion.pc_identity(cfg)
+    nonce = secrets.token_hex(8)
+    expiry = int(time.time()) + 300
+    folders = [str(f).strip("/") for f in folders if str(f).strip("/")]
+    body = json.dumps({"pc": pc_id, "n": nonce, "e": expiry, "s": int(since), "f": folders, "r": ready,
+                       "p": new_proof(entry["secret"], pc_id, nonce, expiry, since, folders, ready)}).encode()
+    req = urllib.request.Request(f"http://{address}/new", data=body, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(req, timeout=timeout) as r:
+            ans = json.loads(r.read(4096).decode("utf-8") or "{}")
+    except (OSError, ValueError):
+        return None
+    return counts_of(ans)
+
+
+def counts_of(ans):
+    """(photos, videos, bytes) from the phone app's answer, or None (unknown / no access).
+    bytes is None for a phone app that does not send the size."""
+    p, v, b = ans.get("photos"), ans.get("videos"), ans.get("bytes")
+    if isinstance(p, int) and isinstance(v, int) and p >= 0 and v >= 0:
+        return p, v, (b if isinstance(b, int) and b >= 0 else None)
+    return None
 
 
 def send_ask(cfg, entry, address, timeout=8, auto=False):
@@ -259,16 +304,16 @@ def scan(cfg, bluetooth=True):
     """Every way at once (takes a few seconds – run it in a thread). [found phone], app first."""
     found = []
 
-    def add(name, how, entry=None, ask=None, auto=False):
+    def add(name, how, entry=None, ask=None, auto=False, by_itself=False):
         for f in found:
             if _norm(f["name"]) == _norm(name):
                 if ask and not f.get("ask"):
-                    f.update(how=how, entry=entry, ask=ask, auto=auto)
+                    f.update(how=how, entry=entry, ask=ask, auto=auto, self=by_itself)
                 return
-        found.append({"name": name, "how": how, "entry": entry, "ask": ask, "auto": auto})
+        found.append({"name": name, "how": how, "entry": entry, "ask": ask, "auto": auto, "self": by_itself})
 
-    for entry, addr, auto in check_app(cfg):
-        add(entry.get("name") or "Phone", "app", entry, addr, auto)
+    for entry, addr, auto, by_itself in check_app(cfg):
+        add(entry.get("name") or "Phone", "app", entry, addr, auto, by_itself)
     for name in check_wifi(cfg):
         entry = next((p for p in companion.phones(cfg) if _norm(p.get("name")) == _norm(name)), None)
         ask = None
@@ -276,8 +321,27 @@ def scan(cfg, bluetooth=True):
             ip = next((e["ip"] for e in cfg.get("presence_wifi", []) if e["name"] == name), None)
             if ip and companion._port_open(f"{ip}:{ASK_PORT}", timeout=0.8):
                 ask = f"{ip}:{ASK_PORT}"
-        add(name, "wifi", entry, ask, bool(entry) and name in auto_phones(cfg))
+        on = bool(entry) and name in auto_phones(cfg)
+        add(name, "wifi", entry, ask, on, on)
     if bluetooth and os.environ.get("PHONEBACKUP_NO_BLUETOOTH") is None:
         for name in check_bluetooth(known_names(cfg)):
             add(name, "bluetooth")
     return found
+
+
+KEEP_S = 200        # a phone missing from the searches stays shown this long (about 3 searches)
+
+
+def keep_seen(seen, found, now=None, keep=KEEP_S):
+    """Steady "phone is nearby" line (user report 2026-11-20: it vanished and came back while the
+    phone lay next to the computer – Wi-Fi/Bluetooth searches miss a phone now and then).
+    seen: {norm name: (last seen, entry)} – updated in place. Returns the phones to show: the ones
+    found now, plus the ones found within `keep` seconds (their last result)."""
+    now = time.time() if now is None else now
+    for f in found:
+        seen[_norm(f["name"])] = (now, f)
+    for k in [k for k, (t, _) in seen.items() if now - t > keep]:
+        seen.pop(k)
+    names = {_norm(f["name"]) for f in found}
+    return list(found) + [f for k, (t, f) in seen.items() if k not in names]
+

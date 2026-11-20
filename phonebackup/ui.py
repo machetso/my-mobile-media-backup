@@ -166,6 +166,16 @@ def human_size(n):
     return f"{n:.2f} TB"
 
 
+def short_size(n):
+    """"1.5 GB" / "321 MB" – not more detailed (user request 2026-11-20: "not backed up yet")."""
+    mb = float(n or 0) / (1024 * 1024)
+    if mb >= 1024:
+        return f"{mb / 1024:.1f} GB"
+    if mb >= 1:
+        return f"{round(mb)} MB"
+    return tr("under 1 MB")
+
+
 def human_duration(seconds):
     seconds = int(round(seconds))
     h, rest = divmod(seconds, 3600)

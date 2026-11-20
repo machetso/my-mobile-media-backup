@@ -65,15 +65,15 @@ def program():
 def asset_name(version, sysname=None):
     sysname = sysname or system()
     if sysname == "windows":
-        return f"My-Smartphone-Media-Backup-v{version}-windows-x64.exe"
-    return f"my-smartphone-media-backup-v{version}-linux-x86_64.tar.gz"
+        return f"My-Mobile-Media-Backup-v{version}-windows-x64.exe"
+    return f"my-mobile-media-backup-v{version}-linux-x86_64.tar.gz"
 
 
 def _get(url, limit, fetch=None):
     if fetch:
         data = fetch(url)
     else:
-        req = urllib.request.Request(url, headers={"User-Agent": "my-smartphone-media-backup"})
+        req = urllib.request.Request(url, headers={"User-Agent": "my-mobile-media-backup"})
         with urllib.request.urlopen(req, timeout=30) as r:
             data = r.read(limit + 1)
     if len(data) > limit:
@@ -84,7 +84,7 @@ def _get(url, limit, fetch=None):
 def _download(url, dest, size, sha256, on_bytes=None, cancel=None, opener=None):
     h = hashlib.sha256()
     done = 0
-    req = urllib.request.Request(url, headers={"User-Agent": "my-smartphone-media-backup"})
+    req = urllib.request.Request(url, headers={"User-Agent": "my-mobile-media-backup"})
     with (opener or urllib.request.urlopen)(req, timeout=60) as r, open(dest, "wb") as out:
         while True:
             if cancel is not None and cancel.is_set():
@@ -154,7 +154,7 @@ def prepare(exe, on_bytes=None, cancel=None, release=None, fetch=None, opener=No
         if system() == "windows":
             os.replace(part, staged)
         else:                                       # the program inside the .tar.gz
-            member = f"{name[:-len('.tar.gz')]}/my-smartphone-media-backup"
+            member = f"{name[:-len('.tar.gz')]}/my-mobile-media-backup"
             with tarfile.open(part, "r:gz") as tf:
                 ti = tf.getmember(member)
                 if not ti.isfile() or ti.size > MAX_PROGRAM:

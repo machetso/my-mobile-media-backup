@@ -14,7 +14,7 @@ import urllib.request
 
 from . import __version__
 
-REPO = "machetso/my-smartphone-media-backup"
+REPO = "machetso/my-mobile-media-backup"        # renamed 2026-11-20 (GitHub redirects the old name)
 API_URL = f"https://api.github.com/repos/{REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{REPO}/releases/latest"
 EVERY = 24 * 3600              # seconds between two checks
@@ -40,7 +40,7 @@ def is_newer(candidate, current=__version__):
 def latest_release(fetch=None):
     """(version text, page url) of the newest published release, or None."""
     def default_fetch(url):
-        req = urllib.request.Request(url, headers={"User-Agent": "my-smartphone-media-backup",
+        req = urllib.request.Request(url, headers={"User-Agent": "my-mobile-media-backup",
                                                    "Accept": "application/vnd.github+json"})
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
             return r.read(MAX_ANSWER)

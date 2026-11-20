@@ -8,6 +8,7 @@
 """
 
 import os
+import queue
 import re
 import shutil
 import subprocess
@@ -538,7 +539,8 @@ class FolderSource:
         except OSError:
             return []
 
-    def list_files(self, folders):
+    def list_files(self, folders, progress=None):
+        """progress(): called for every folder and file looked at (GvfsMtpSource's watchdog)."""
         files, missing = [], []
         for rel in folders:
             rel = rel.strip("/")
@@ -547,12 +549,16 @@ class FolderSource:
                 missing.append(rel)
                 continue
             for dirpath, dirnames, filenames in os.walk(base):
+                if progress:
+                    progress()
                 dirnames[:] = sorted(d for d in dirnames
                                      if not d.startswith(".") and d.lower() not in self.exclude_dirs)
                 for fn in sorted(filenames):
                     if fn.startswith("."):
                         continue
                     full = Path(dirpath) / fn
+                    if progress:
+                        progress()
                     try:
                         st = full.stat()
                     except OSError:
@@ -584,12 +590,167 @@ class FolderSource:
         pass
 
 
+class MtpStalled(OSError):
+    """The phone's file transfer stopped answering: the backup stops at once (backup._copy_one)
+    instead of waiting STALL_S for every further file."""
+    abort_backup = True
+
+
+class GvfsMtpSource(FolderSource):
+    """The phone over the USB cable in "File transfer" (Linux, gvfs). Every access runs in a helper
+    thread under a watchdog (user request 2026-11-20): a hanging MTP mount blocks file accesses for
+    good, so without it a backup could hang forever. No answer for STALL_S seconds → MtpStalled
+    (the backup stops with a clear message), the mount is reset; the stuck helper is left behind."""
+
+    STALL_S = 45          # no progress this long = hanging (a big video still sends a chunk in time)
+    CHECK_S = 8           # quick checks (is it there? which folders?)
+
+    @staticmethod
+    def _stalled():
+        _unmount_gvfs_mtp()
+        return MtpStalled(tr("the phone's file transfer stopped answering – unplug the USB cable and "
+                             "plug it in again, then start the backup again"))
+
+    def _call(self, fn, timeout):
+        """fn() in a helper thread; MtpStalled if it does not return within `timeout`."""
+        box = {}
+        done = threading.Event()
+
+        def run():
+            try:
+                box["v"] = fn()
+            except BaseException as e:  # noqa: BLE001 - handed over to the caller
+                box["e"] = e
+            done.set()
+        threading.Thread(target=run, daemon=True).start()
+        if not done.wait(timeout):
+            raise self._stalled()
+        if "e" in box:
+            raise box["e"]
+        return box.get("v")
+
+    def is_connected(self):
+        try:
+            return bool(self._call(lambda: self.root.is_dir(), self.CHECK_S))
+        except MtpStalled:
+            return False
+
+    def folder_exists(self, rel):
+        return bool(self._call(lambda: (self.root / rel.strip("/")).is_dir(), self.CHECK_S))
+
+    def list_subfolders(self, rel):
+        return self._call(lambda: FolderSource.list_subfolders(self, rel), self.STALL_S)
+
+    def list_files(self, folders):
+        """The walk may take long with thousands of files – it only must not stand still."""
+        beat = [time.monotonic()]
+
+        def walk():                            # every folder and file looked at counts as progress
+            return FolderSource.list_files(self, folders, progress=lambda: beat.__setitem__(0, time.monotonic()))
+        box = {}
+        done = threading.Event()
+
+        def run():
+            try:
+                box["v"] = walk()
+            except BaseException as e:  # noqa: BLE001
+                box["e"] = e
+            done.set()
+        threading.Thread(target=run, daemon=True).start()
+        while not done.wait(1.0):
+            if time.monotonic() - beat[0] > self.STALL_S:
+                raise self._stalled()
+        if "e" in box:
+            raise box["e"]
+        return box["v"]
+
+    def open_stream(self, sf):
+        """The file's chunks, read by a helper thread; a chunk that does not come in time stops."""
+        q = queue.Queue(maxsize=4)
+        stop = threading.Event()
+        path = self.root / sf.rel
+
+        def reader():
+            try:
+                for chunk in file_chunks(path):
+                    while not stop.is_set():
+                        try:
+                            q.put(("c", chunk), timeout=1)
+                            break
+                        except queue.Full:
+                            continue
+                    if stop.is_set():
+                        return
+                q.put(("end", None))
+            except BaseException as e:  # noqa: BLE001
+                q.put(("err", e))
+        threading.Thread(target=reader, daemon=True).start()
+        try:
+            while True:
+                try:
+                    kind, val = q.get(timeout=self.STALL_S)
+                except queue.Empty:
+                    raise self._stalled() from None
+                if kind == "c":
+                    yield val
+                elif kind == "end":
+                    return
+                else:
+                    raise val
+        finally:
+            stop.set()
+
+
 def _gvfs_name(mount_dir_name):
     name = mount_dir_name.split("=", 1)[-1]
     parts = [p for p in name.split("_") if p]
     if len(parts) > 1 and re.fullmatch(r"[0-9A-Za-z]{8,}", parts[-1]) and re.search(r"\d", parts[-1]):
         parts = parts[:-1]
     return " ".join(parts)
+
+
+def _probe_gvfs(base, timeout=8):
+    """Look at the gvfs folder in a separate process with a time limit: a hanging MTP mount makes
+    every file access wait for good (uninterruptible) – in the program itself that blocked all
+    connection jobs. Returns ([mtp mounts], [DCIM folders]) or None (no answer in time)."""
+    if not shutil.which("find"):
+        return [], []
+    try:
+        proc = subprocess.Popen(["find", str(base), "-maxdepth", "3", "(", "-name", "mtp:*", "-o", "-name", "DCIM",
+                                 ")", "-print"], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    except OSError:
+        return [], []
+    deadline = time.monotonic() + timeout
+    while proc.poll() is None:
+        if time.monotonic() > deadline:
+            proc.kill()                  # may not die while the mount hangs: never wait for it
+            return None
+        time.sleep(0.1)
+    mounts, dcims = [], []
+    with proc.stdout:
+        out = proc.stdout.read().decode("utf-8", "replace")
+    for line in out.splitlines():
+        p = Path(line)
+        try:
+            rel = p.relative_to(base).parts
+        except ValueError:
+            continue
+        if len(rel) == 1 and rel[0].startswith("mtp:"):
+            mounts.append(p)
+        elif len(rel) == 3 and rel[0].startswith("mtp:") and rel[2] == "DCIM":
+            dcims.append(p)
+    return mounts, dcims
+
+
+def _unmount_gvfs_mtp(base=None):
+    """Unmount the hanging phone mounts: `gio mount -s mtp` (all MTP mounts), as its own process
+    that is never waited for – touching the mount here could hang the program."""
+    if not shutil.which("gio"):
+        return
+    try:
+        subprocess.Popen(["gio", "mount", "-s", "mtp"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except OSError:
+        pass
 
 
 def find_gvfs_mtp():
@@ -599,20 +760,23 @@ def find_gvfs_mtp():
     base = Path(f"/run/user/{os.getuid()}/gvfs")
 
     def scan():
-        if not base.is_dir():
-            return []
-        found = []
-        for m in base.glob("mtp:*"):
-            try:
-                for storage in m.iterdir():
-                    if (storage / "DCIM").is_dir():
-                        found.append((m, storage))
-            except OSError:
-                continue
-        return found
+        """[(mount, storage)] – or None when the file transfer does not answer."""
+        res = _probe_gvfs(base)
+        if res is None:
+            return None
+        mounts, dcims = res
+        scan.mounted = bool(mounts)
+        return [(d.parent.parent, d.parent) for d in dcims]
+    scan.mounted = False
 
     found = scan()
-    mounted = base.is_dir() and any(base.glob("mtp:*"))
+    if found is None:
+        # the phone's file transfer (gvfs MTP) hangs – every access would block for good (found
+        # 2026-11-20: the program stayed at "connecting …" and no other connection could start).
+        # Unmount it (it is mounted again on the next try) and say what helps.
+        _unmount_gvfs_mtp(base)
+        return None, tr("the phone's file transfer does not answer – unplug the USB cable and plug it in again")
+    mounted = scan.mounted
     if not found and mounted:
         # connected in "File transfer", but no storage visible: the phone is locked (Android shows
         # the storage only when unlocked) – say so at once instead of waiting a minute
@@ -621,10 +785,14 @@ def find_gvfs_mtp():
         try:
             out = _run(["gio", "mount", "-li"], timeout=20).stdout.decode("utf-8", "replace")
             for uri in sorted(set(re.findall(r"activation_root=(mtp://\S+)", out))):
-                ui.info("  " + tr("Mounting %s via MTP (can take a while) ...", uri))
-                _run(["gio", "mount", uri], timeout=120)
+                # no line in the log: the status line says "connecting via file transfer" already
+                _run(["gio", "mount", uri], timeout=45)
             for _ in range(15):
                 found = scan()
+                if found is None:
+                    _unmount_gvfs_mtp(base)
+                    return None, tr("the phone's file transfer does not answer – unplug the USB cable and "
+                                    "plug it in again")
                 if found:
                     break
                 time.sleep(1)
@@ -634,8 +802,8 @@ def find_gvfs_mtp():
         return None, tr("no phone found via MTP - unlock the phone and choose "
                         "'File transfer' in the USB notification")
     mount, storage = found[0]
-    return FolderSource(storage, kind=N_("MTP (fallback)"), device_name=_gvfs_name(mount.name),
-                        description=tr("MTP via gvfs: %s", storage)), None
+    return GvfsMtpSource(storage, kind=N_("MTP (fallback)"), device_name=_gvfs_name(mount.name),
+                         description=tr("MTP via gvfs: %s", storage)), None
 
 
 class WindowsMtpSource:

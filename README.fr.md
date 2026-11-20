@@ -1,432 +1,341 @@
-# My Smartphone Media Backup
+# My Mobile Media Backup
 
-Sauvegarde vérifiée et incrémentielle des photos et vidéos d’un téléphone Android vers un ou plusieurs
-disques externes, triées par année et par mois, avec un rapport après chaque passage.
-Python 3.8+, fonctionne sous Linux et Windows. L’interface graphique nécessite PySide6 ; la version
-en ligne de commande ne nécessite aucun paquet supplémentaire.
+**Version 0.9.9.0**
 
-## Téléchargement
+Sauvegarde les photos et vidéos de ton téléphone Android sur un ou plusieurs disques externes – vérifiées
+fichier par fichier, triées par année et par mois, avec un rapport après chaque sauvegarde. Pour Windows et Linux.
 
-Des programmes prêts à l’emploi pour Linux et Windows se trouvent sur la
-[page des versions](../../releases) - aucune installation de Python n’est nécessaire.
-Windows : télécharge `My-Smartphone-Media-Backup-v….exe` et double-clique dessus (ou le `.zip` avec
-le README et la licence) ; Linux : le `.tar.gz`.
-Consulte [CHANGELOG.md](CHANGELOG.md) pour voir les nouveautés.
+## Points forts
 
-**Mises à jour :** au démarrage, le programme vérifie si une version plus récente est disponible (une fois par jour ; peut être
-désactivé dans les Paramètres) et propose **Mettre à jour maintenant** ou **Pas maintenant**. *Mettre à jour maintenant* télécharge la nouvelle
-version, vérifie qu’elle est signée avec la clé de publication du projet, remplace le programme et le redémarre
-– les paramètres, disques, téléphones et associations sont conservés. Si la nouvelle version ne démarre pas, l’ancienne est
-automatiquement remise en place. (Si tu l’as démarré depuis le code source : mets à jour avec `git pull` à la place.)
+* **Un clic** – le téléphone et l’ordinateur indiquent combien de photos et de vidéos ne sont pas encore
+  sauvegardées (et leur taille) ; un appui sur le téléphone ou un clic sur l’ordinateur met la sauvegarde à jour.
+* **Seules les nouvelles photos et vidéos sont copiées** – la deuxième sauvegarde prend des minutes, pas des heures.
+* **Chaque fichier est vérifié.** Le téléphone calcule une empreinte (SHA-256) de chaque fichier, le
+  programme la compare avec ce qui est arrivé, puis encore une fois avec ce qui a été écrit sur le disque.
+* **Plusieurs disques en même temps** – le téléphone n’est lu qu’une seule fois.
+* **Tri automatique** dans des dossiers par année et par mois (`2026/26.11`), les photos RAW à part.
+* **Rien n’est jamais supprimé** – ni sur le téléphone, ni dans la sauvegarde.
+* **Toujours la connexion la plus rapide** – câble USB, Wi-Fi ou le propre Wi-Fi de l’ordinateur ; le
+  programme choisit tout seul.
+* **Jamais le mauvais téléphone** – chaque sauvegarde connaît son téléphone ; un autre téléphone est refusé.
+* **Sauvegardes automatiques** – quand un téléphone connu rentre à la maison, le programme peut le sauvegarder tout seul.
+* **Deuxième copie** sur un autre disque ou sur Google Drive, avec les anciens états conservés
+  (Grand-père-Père-Fils), et **restauration** en un clic.
+* **Les anciens téléphones et les anciens disques** peuvent être ajoutés à une sauvegarde ou recevoir leur propre sauvegarde.
+* Un rapport (texte, page web et tableau) après chaque sauvegarde.
+* En allemand, anglais, français, espagnol, roumain, hébreu et klingon.
 
-**Publier une version (mainteneur) :** pousser le tag → GitHub Actions construit le brouillon de version →
-`python3 tools/sign_release.py sign vX.Y.Z` sur l’ordinateur du mainteneur (ajoute le fichier signé
-`update-manifest.json` ; la clé privée ne va jamais sur GitHub) → publier la version.
+## Comment ça marche – en bref
 
-## Démarrer depuis le code source
+Le programme copie les photos et vidéos de ton téléphone sur un disque externe (par exemple un disque dur
+USB). Chaque téléphone a son propre dossier sur le disque : *Propriétaire / Téléphone*, par exemple
+*Karen / Pixel 10 Pro*. À l’intérieur, les photos et vidéos sont triées dans un dossier par mois.
 
-**Interface graphique** (nécessite PySide6) :
+Le programme se souvient de ce qui est déjà sur le disque. Chaque sauvegarde suivante n’ajoute que ce qui est nouveau –
+c’est pourquoi tu peux simplement appuyer sur **Mettre à jour la sauvegarde** une fois par semaine.
 
-```
-./start-linux.sh                   # Linux (uses the project's .venv, PySide6 is already installed there)
-start-windows.pyw                 # Windows: double-click (after: py -m pip install PySide6)
-```
+### Ta première sauvegarde
 
-**Écran d’accueil :** **Tes téléphones** – une entrée par sauvegarde (p. ex. *Sam's Pixel 10 Pro*,
-*Kim's Galaxy A55*) avec la date de sa dernière sauvegarde et son propre bouton **Mettre à jour la sauvegarde**,
-activé lorsque exactement ce téléphone et l’un de ses disques sont connectés (mêmes dossiers et disques,
-seulement les nouvelles photos et vidéos). Les sauvegardes faites avant l’existence de cette liste sont retrouvées sur les
-disques connectés. *Tout sélectionner* / *Retirer de la liste* masquent des téléphones (leurs sauvegardes restent sur les disques). En dessous :
-**Nouvelle sauvegarde…** (un autre téléphone, ou d’autres dossiers / disques), **Paramètres de sauvegarde…** et
-**Gérer les sauvegardes…** (les onglets ci-dessous).
+1. **Télécharge** le programme depuis la [page des versions](https://github.com/machetso/my-mobile-media-backup/releases)
+   et démarre-le – rien à installer. Windows : le fichier `.exe`. Linux : le fichier `.tar.gz`.
+2. **Branche le disque externe.**
+3. **Branche le téléphone avec son câble USB** et déverrouille-le. Si le téléphone demande à quoi sert la
+   connexion USB, choisis **Transfert de fichiers**. La barre colorée en haut indique si le
+   téléphone est connecté.
+4. Clique sur **Nouvelle sauvegarde…**, saisis ton nom comme **propriétaire** (le nom du téléphone se remplit
+   tout seul), vérifie les **dossiers du téléphone** (le dossier de l’appareil photo y est déjà) et coche le
+   **disque de sauvegarde**.
+5. Clique sur **Démarrer la sauvegarde**. La barre en bas indique l’avancement et la durée.
+6. Une fois terminé, **Ouvrir le rapport** montre ce qui a été copié, **Ouvrir le dossier de sauvegarde** ouvre les
+   photos sur le disque.
 
-**☰ Menu** (en haut à droite de l’écran d’accueil, dès le tout premier démarrage) : **Langue**, **Manuel** (ce texte, dans la langue choisie), **Paramètres du programme…** et **À propos**.
+### Chaque sauvegarde suivante
 
-**Paramètres de sauvegarde** (sous-page) :
+Branche le disque. Sur l’écran d’accueil, ton téléphone a son propre bouton **Mettre à jour la sauvegarde** – clique dessus.
+Seules les nouvelles photos et vidéos sont copiées. Avec l’app du téléphone (voir *Astuces*), le téléphone n’a même pas
+besoin d’être branché : quand il est sur le même Wi-Fi, sa ligne indique par exemple *À proximité – 23 photos et
+4 vidéos (1,5 GB) à sauvegarder*, et un clic suffit. Ou appuie sur **Sauvegarder maintenant** sur le téléphone.
 
-* **Connexion du téléphone** – le programme **utilise toujours la connexion la plus rapide qu’il trouve** ; tu n’as pas
-  à en choisir une. L’aperçu affiche la vitesse de chaque mode de connexion, celui utilisé est marqué, et
-  le journal indique s’il s’agit du plus rapide et ce qui serait plus rapide. Si le téléphone apparaît avec le débogage
-  USB sur le câble alors qu’il est connecté par Wi-Fi, le programme passe de lui-même au câble.
-  **Trouver la connexion la plus rapide** vérifie le câble, le Wi-Fi et le Bluetooth et affiche
-  ce qui est disponible.
+### Astuces
 
-  **Vue simple :** seulement l’état de la connexion et, quand c’est utile, un conseil en dessous.
-  Un téléphone sans sauvegarde : le conseil propose le câble USB avec le débogage USB (la première
-  sauvegarde copie toutes les photos et vidéos). Un téléphone sur le câble sans débogage USB, ou
-  connecté par Wi-Fi / transfert de fichiers : le conseil indique combien le débogage USB est plus
-  rapide – *Comment activer le débogage USB…* ouvre le guide pas à pas (voir ci-dessous),
-  *Continuer sans (transfert de fichiers plus lent)* utilise le transfert de fichiers normal du
-  téléphone. Coche **Paramètres de connexion avancés** pour voir l’aperçu des vitesses, tous les
-  boutons de connexion et *Désactiver … après la sauvegarde*.
+* **Plus rapide :** active une fois le *débogage USB* sur le téléphone (le programme te montre comment, pas à pas,
+  pour ton modèle de téléphone). La sauvegarde est alors deux à quatre fois plus rapide.
+* **Sans câble :** installe l’app du téléphone *My Mobile Media Backup* (*Connecter le téléphone…* sur l’écran
+  d’accueil affiche un code QR). La sauvegarde fonctionne alors par Wi-Fi, et le téléphone et l’ordinateur se trouvent
+  tout seuls.
+* **Deux disques** sont plus sûrs qu’un seul : coche les deux, ils sont écrits en même temps.
 
-  | Connexion | Vitesse |
-  |---|---|
-  | Câble USB + débogage USB (activé par l’app du téléphone, ou à la main) | 45–50 MB/s (USB 3), ~20–30 MB/s (USB 2) |
-  | Câble USB, transfert de fichiers normal (MTP – seulement sur demande) | 10–20 MB/s |
-  | Wi-Fi : app du téléphone ou débogage sans fil | 10–40 MB/s, selon le Wi-Fi |
-  | Wi-Fi directement vers cet ordinateur (sans routeur) | 10–30 MB/s |
+## Manuel détaillé
 
-  *Activer le débogage USB (première fois)…* est un guide pas à pas : il lit le modèle du
-  téléphone branché sur le câble (fonctionne avant que le débogage USB soit activé), contient les étapes pour Pixel, Samsung,
-  Xiaomi / Redmi / POCO, OnePlus / OPPO / realme, Motorola, Huawei / Honor, Sony et Nothing, et
-  *Rechercher ce téléphone sur le web* pour tous les autres. Android exige de le faire une fois à la main – aucun programme
-  ne peut activer le débogage USB avant cela.
-  **L’app du téléphone s’en charge :** lors de la première connexion avec débogage USB, le programme propose d’installer
-  l’app du téléphone *My Media Backup* et de lui donner le droit d’activer le débogage USB (l’autorisation Android
-  `WRITE_SECURE_SETTINGS`, accordée par le câble – l’app ne peut pas l’obtenir seule). À partir de là :
-  ouvre l’app → **Autoriser la connexion rapide (ADB)** (active le débogage USB et le débogage sans fil)
-  → branche le câble, ou reste dans le Wi-Fi. **Activer la connexion standard** désactive à nouveau ADB et
-  ouvre les paramètres USB d’Android, où tu choisis *Transfert de fichiers*. Après chaque sauvegarde, l’ordinateur
-  désactive à nouveau le débogage USB (ou le débogage sans fil) (*Désactiver … après la sauvegarde*, activé
-  par défaut). Seul le débogage est désactivé ; les options pour les développeurs restent.
-  L’app du téléphone a le même numéro de version que le programme. Si l’app sur le téléphone est plus
-  ancienne, l’écran d’accueil et *Gérer les sauvegardes → Vue d’ensemble* l’indiquent, avec un bouton
-  **Mettre à jour l’app du téléphone** (un clic pendant que le téléphone est connecté par ADB). Les
-  anciennes copies de l’app du téléphone sont supprimées automatiquement.
+### La fenêtre
 
-  **Règles de désactivation du débogage** (l’app du téléphone les applique même si l’ordinateur a disparu) :
-  1. Les sauvegardes par Wi-Fi passent normalement par l’app du téléphone avec le débogage désactivé ; le débogage sans fil
-     seulement pour les téléphones sans l’app.
-  2. Une seule connexion par sauvegarde : par câble → le débogage sans fil est désactivé au démarrage ;
-     via l’app par Wi-Fi → le débogage USB est désactivé au démarrage.
-  3. Tant que le câble USB reste branché, le débogage reste activé ; 5 minutes après le débranchement
-     du câble → désactivé (compte à rebours sur le téléphone).
-  4. Câble jamais branché : 5 minutes après *Autoriser la connexion rapide (ADB)* sans démarrage de
-     sauvegarde → désactivé.
-  5. Par Wi-Fi, l’ordinateur dit « toujours là » toutes les 30 s pendant une sauvegarde ; rien pendant 2 minutes → désactivé.
-  6. Juste après la sauvegarde, l’ordinateur le désactive (et met fin au mode sauvegarde sur le téléphone).
+* **Écran d’accueil :** l’état de la connexion (rouge = aucun téléphone connecté, jaune = quelque chose à faire sur
+  le téléphone, vert = connecté), **Connecter le téléphone…** et **Connexions possibles**. Un téléphone connu sur
+  le même Wi-Fi est affiché *à proximité*, avec **Sauvegarder maintenant**. **Nouvelle sauvegarde…** démarre la sauvegarde
+  d’un autre téléphone, ou avec d’autres dossiers ou disques. En dessous, **Tes téléphones** – une entrée par sauvegarde
+  avec la date de la dernière sauvegarde, le nombre de photos et vidéos pas encore sauvegardées (quand le
+  téléphone est à proximité ou connecté) et son propre bouton **Mettre à jour la sauvegarde**. Le bouton est gris tant
+  qu’un clic ne peut pas démarrer la sauvegarde ; un clic indique alors ce qui manque.
+* **Barre latérale :** Sauvegarde, Gérer les sauvegardes, l’engrenage (paramètres du programme), Manuel et À propos. Le globe
+  en haut à droite change la langue.
+* **En bas :** l’avancement, la vitesse et le temps restant, avec **Annuler** (s’arrête après le fichier en cours),
+  **Ouvrir le rapport** et **Ouvrir le dossier de sauvegarde**. Chaque tâche écrit aussi un fichier journal.
 
-  **Reconnaître le téléphone en toute sécurité :** lors de l’association, l’app du téléphone crée une clé dans la puce de
-  sécurité du téléphone ; l’ordinateur enregistre son empreinte. Le modèle, le numéro de série ou les noms ne sont jamais
-  considérés comme fiables – chaque connexion vérifie cette clé (TLS avec le certificat épinglé) avant que le
-  secret de l’ordinateur soit envoyé.
-  * **Câble :** pendant que l’app tourne, l’ordinateur la joint par le câble (`adb forward`) et
-    vérifie la clé – l’état affiche alors *vérifié*. La première fois : l’ordinateur installe l’app,
-    l’ouvre et demande l’association par le câble ; tu appuies sur **Associer** sur le téléphone (aucun code nécessaire, le
-    câble sert de preuve).
-  * **Wi-Fi :** l’app s’annonce de façon anonyme : un nom aléatoire et un code qui change toutes les
-    10 minutes, que seul un ordinateur associé peut reconnaître (HMAC du secret d’association). Les inconnus
-    sur le même réseau ne peuvent pas voir de quel téléphone il s’agit ni le suivre.
-  * **Bluetooth (dernier recours, uniquement pour trouver le téléphone) :** le même code changeant plus l’adresse
-    Wi-Fi du téléphone (chiffrée) dans un signal Bluetooth LE. Si l’ordinateur peut joindre cette adresse, il
-    se connecte par Wi-Fi ; sinon il l’indique. **Aucun fichier n’est jamais envoyé par Bluetooth.**
-    Nécessite le paquet Python `bleak` (dans requirements.txt) et l’autorisation « Appareils à proximité »
-    du téléphone.
-* **Dossiers du téléphone** – **Appareil photo** ajoute le dossier standard de l’appareil photo Android `DCIM/Camera` ;
-  *Choisir des dossiers…* liste les dossiers du téléphone (captures d’écran `Pictures/Screenshots`, Samsung
-  `DCIM/Screenshots`, WhatsApp `Android/media/com.whatsapp/WhatsApp/Media`, `Movies`, `Download`
-  …) ou te permet d’en saisir un (*Tout sélectionner* / *Tout désélectionner*) ; *Retirer*.
-  **Conserver la structure des dossiers du téléphone** (option) : les fichiers provenant d’autres dossiers que le dossier
-  de l’appareil photo atterrissent dans les mêmes dossiers dans la sauvegarde, p. ex. `Sam/Pixel 10 Pro/Pictures/Screenshots/` ;
-  le dossier de l’appareil photo est toujours trié en dossiers année/mois. Les fichiers déjà sauvegardés restent
-  là où ils sont ; les fichiers identiques ne sont toujours stockés qu’une seule fois.
-* **Destinations de sauvegarde** – la liste des disques de destination ; les noms de dossier longs peuvent défiler
-  horizontalement (nom complet en info-bulle).
-  Coche-en un ou plusieurs. *Ajouter un disque…* liste les disques externes connectés, y compris
-  ceux qui sont branchés mais pas encore montés (Linux : ils sont montés en un clic, sans mot de
-  passe). *Ajouter un dossier…* ouvre un sélecteur de dossier. Un disque coché qui est branché
-  mais pas monté est monté automatiquement au démarrage de la sauvegarde. Un aperçu montre
-  exactement où les fichiers iront. Le téléphone est détecté automatiquement dès qu’il est branché
-  via ADB. La liste n’affiche que les disques déjà utilisés avec ce téléphone (et ce
-  propriétaire), déjà cochés ; un téléphone sans sauvegarde commence avec une liste vide. *Ajouter
-  un disque…* propose aussi les dossiers de sauvegarde utilisés avec d’autres téléphones.
+### Connecter le téléphone
 
-**Jamais le mauvais téléphone.** Chaque dossier de sauvegarde mémorise son téléphone dans `.phonebackup/phone.json`
-(modèle, numéro de série du téléphone, identifiant de clé de l’app du téléphone ; pour les sauvegardes plus anciennes, le programme les lit
-dans les rapports). Quand tu cliques sur *Démarrer la sauvegarde*, le téléphone connecté est identifié en direct et
-comparé : un numéro de série ou une clé différents → **refusé, rien n’est copié**. Si seul le modèle peut être
-comparé, ou si le modèle ne correspond pas au nom de la sauvegarde, tu dois confirmer. Juste avant le
-premier fichier, le téléphone est identifié une seconde fois (un téléphone échangé arrête la sauvegarde). Un téléphone qui
-se connecte ne remplace jamais le nom de smartphone que tu as défini, et tant qu’un téléphone est sur le câble USB, aucun
-autre téléphone n’est pris par Wi-Fi. La confirmation affiche la connexion et, si ce n’est pas la plus
-rapide, comment la rendre plus rapide (câble + débogage USB ; câble USB 3 au lieu d’USB 2).
+Le programme utilise toujours **la connexion la plus rapide qu’il trouve**. Si le téléphone apparaît sur le câble USB
+pendant une sauvegarde par Wi-Fi, la sauvegarde continue par le câble. **Connexions possibles** montre toutes les façons
+de joindre le téléphone avec leur vitesse ; **Trouver la connexion la plus rapide** vérifie le câble, le Wi-Fi et
+le Bluetooth.
 
-**Gérer les sauvegardes…** comporte quatre onglets :
+| Connexion | Vitesse |
+|---|---|
+| Câble USB + débogage USB (activé par l’app du téléphone, ou à la main) | 45–50 MB/s (USB 3), environ 20–30 MB/s (USB 2) |
+| Câble USB, transfert de fichiers normal (MTP) | 10–20 MB/s |
+| Wi-Fi : app du téléphone ou débogage sans fil | 10–40 MB/s, selon le Wi-Fi |
+| Wi-Fi directement vers cet ordinateur (sans routeur) | 10–30 MB/s |
 
-* **Ancien disque / ancien téléphone** – sauvegarde les photos et vidéos d’un ancien disque dur ou d’un
-  ancien téléphone comme la sauvegarde d’un téléphone. Deux possibilités :
-  * *Ajouter à une sauvegarde existante* – ajoute d’anciennes sauvegardes ou n’importe quels dossiers (photos et vidéos mélangées, RAW,
-    dossiers imbriqués, doublons) à l’une de tes sauvegardes.
-  * *Nouvelle sauvegarde (ancien téléphone ou ancien disque)* – reçoit sa propre sauvegarde (p. ex. « Galaxy S7 - Sam » ou
-    « Ancien disque - Sam ») : saisis un nom et le propriétaire, et coche le ou les disques de destination.
+**Débogage USB (ADB).** ADB (Android Debug Bridge) est l’outil USB de Google pour Android. C’est le moyen
+le plus rapide et le plus sûr : le téléphone calcule lui-même l’empreinte de chaque fichier. Android exige
+de l’activer une fois à la main – aucun programme ne peut le faire avant :
 
-  Ajoute un ou plusieurs dossiers (p. ex. la copie de l’ancien téléphone et de sa carte SD, ou les dossiers de photos
-  de l’ancien disque) et clique sur *Choisir les dossiers à importer…* : chaque dossier contenant des fichiers est listé avec
-  ses photos / vidéos / autres fichiers ; les données d’apps, caches, miniatures, corbeilles et dossiers cachés sont
-  exclus. Coche les dossiers et choisis pour chacun :
-  * *Trier dans les dossiers année/mois* – les photos et vidéos sont triées par date exactement comme dans la sauvegarde
-    d’un téléphone (`2019/19.07`, RAW → `2019/raw/19.07`).
-  * *Garder le dossier tel quel* – le dossier est copié 1:1, avec son nom et son chemin, en haut de la
-    sauvegarde (p. ex. `Urlaub Italien 2019/Tag 1/`). Chaque dossier est importé avec ses propres fichiers ; ses
-    sous-dossiers sont des lignes à part – coche-les aussi pour garder toute l’arborescence.
+1. Sur le téléphone : *Paramètres → À propos du téléphone* → appuie 7 fois sur *Numéro de build* (options pour les développeurs activées).
+2. *Paramètres → Système → Options pour les développeurs* → active **Débogage USB**.
+3. Branche le téléphone, déverrouille-le et confirme *Autoriser le débogage USB* avec **Toujours autoriser depuis cet
+   ordinateur**.
 
-  Pour un ancien téléphone, les dossiers de l’appareil photo sont proposés pour le tri, les dossiers normaux
-  d’images/vidéos/téléchargements pour être gardés tels quels ; les dossiers de messagerie et de captures d’écran ne sont pas
-  pré-cochés. Chaque fichier est haché à la source et vérifié après écriture, les fichiers identiques ne sont stockés
-  qu’une seule fois (y compris par rapport à ce qui est déjà dans la sauvegarde), les anciens dossiers sont seulement lus.
-  Les fichiers ignorés sont listés dans le rapport « Import <nom> <date> ». (Les imports faits avant la version 0.9.8.3
-  ont placé les dossiers gardés sous `Year/other/pictures | movies | other-files/` – ils y restent.)
-* **Second stockage (export)** – choisis la sauvegarde, un second disque ou **Google Drive** et le type
-  d’export (*Automatique – Grand-père-Père-Fils* par défaut). Les exports précédents sont listés ; les anciens peuvent
-  être nettoyés (seulement après ta confirmation). Voir *Second stockage* ci-dessous.
-* **Restaurer** – choisis le jeu d’export (sur un disque ou sur Google Drive), l’état et le dossier
-  cible.
-* **Paramètres** – chemin d’adb (normalement vide = trouvé automatiquement), temps d’attente, fsync, garder
-  l’ordinateur éveillé. Survole un paramètre pour obtenir une explication.
+*Activer le débogage USB (première fois)…* est un guide pas à pas. Il reconnaît le téléphone sur le
+câble et contient les étapes pour Pixel, Samsung, Xiaomi / Redmi / POCO, OnePlus / OPPO / realme,
+Motorola, Huawei / Honor, Sony et Nothing ; pour les autres téléphones, *Rechercher ce téléphone sur le web*.
 
-**Pourquoi ADB ?** ADB (Android Debug Bridge, l’outil USB de Google pour Android) est la méthode rapide et sûre :
-environ 45–50 MB/s par un câble USB 3 (mesuré avec un Pixel 10 Pro), alors que MTP - le mode normal
-de « transfert de fichiers » - atteint généralement 10–20 MB/s. Avec ADB, chaque fichier est en plus vérifié avec
-SHA-256 sur le téléphone lui-même. Si ADB ne fonctionne pas, l’app se rabat sur MTP et l’indique.
+Le programme ADB lui-même vient de Google et ne peut pas être livré avec ce programme.
+*Paramètres du programme → Télécharger ADB…* le récupère directement chez Google dans le dossier du programme –
+un clic, aucune installation, aucun droit d’administrateur. Sous Linux, le paquet `adb` du système fonctionne aussi.
 
-**Garder l’ordinateur éveillé :** pendant une sauvegarde, un import, un export ou une restauration, l’ordinateur est
-empêché de se mettre en veille (activé par défaut, désactivable sous *Paramètres*). Les paramètres d’alimentation
-eux-mêmes ne sont pas modifiés – le blocage prend fin automatiquement avec la tâche, même après un plantage.
-Linux : la veille, la mise en veille pour inactivité, la fermeture du capot et un arrêt normal sont bloqués (inhibiteur
-logind), et le minuteur d’inactivité du bureau est mis en pause (inhibition D-Bus `org.freedesktop.ScreenSaver`,
-comme le fait un lecteur vidéo - nécessaire sur COSMIC et d’autres bureaux qui se mettent en veille d’eux-mêmes
-après une période d’inactivité). Pendant qu’une tâche tourne, l’écran reste donc allumé.
-Windows : la mise en veille pour inactivité est empêchée et Windows demande confirmation avant de s’éteindre ;
-la fermeture du capot et le bouton d’alimentation suivent toujours les paramètres d’alimentation de Windows.
+Si ADB ne fonctionne pas, le programme le dit clairement et utilise à la place le **transfert de fichiers** normal du téléphone
+(MTP). Sous Linux, le téléphone est ouvert automatiquement ; choisis *Transfert de fichiers* dans la notification USB
+du téléphone. MTP est plus lent, et le téléphone ne peut pas calculer d’empreintes – le rapport le signale.
 
-**Icône de bureau (Linux) :** `./install-linux-desktop.sh` place une icône de démarrage sur le bureau et dans
-le menu des applications (relance-le après avoir déplacé le dossier, `--remove` la supprime à nouveau).
-Les icônes sont générées à partir de `assets/PhoneBKP_Logo.webp` avec `.venv/bin/python tools/make_icons.py`.
+**L’app du téléphone *My Mobile Media Backup*.** Avec l’app, les sauvegardes fonctionnent par Wi-Fi sans débogage
+USB, l’app active et désactive pour toi la connexion la plus rapide, et le téléphone et l’ordinateur indiquent
+ce qui n’est pas encore sauvegardé.
 
-La barre de progression, la vitesse, le temps restant et le journal se trouvent en bas, avec *Annuler* (s’arrête
-après le fichier en cours), *Ouvrir le rapport* et *Ouvrir le dossier de sauvegarde*.
+* **Installer :** *Connecter le téléphone…* affiche deux codes QR : l’un connecte l’app, l’autre la télécharge
+  depuis la page des versions. Par le câble USB, le programme peut installer l’app lui-même ; il **demande
+  toujours d’abord** et indique quel téléphone, quelle version et pourquoi.
+* **Sauvegarde :** indique combien de photos et de vidéos ne sont pas encore sauvegardées et leur taille, par
+  exemple *23 photos et 4 vidéos (1,5 GB) à sauvegarder*. **Sauvegarder maintenant** démarre la sauvegarde :
+  le téléphone se connecte, l’ordinateur met la sauvegarde à jour tout seul. Quand il manque quelque chose (le
+  programme de l’ordinateur n’est pas lancé, le disque de sauvegarde n’est pas connecté, …) le bouton est gris et un
+  appui indique quoi faire.
+* **Autoriser la sauvegarde :** un seul interrupteur. Activé = la connexion la plus rapide – débogage USB et débogage sans fil
+  là où l’app peut les activer, et l’accès de l’app en lecture seule par le Wi-Fi. À côté :
+  *Connexion établie* ou *Non connecté* ; en dessous, combien de temps cela reste activé. **Déconnecter**
+  désactive tout. Après chaque sauvegarde, l’ordinateur désactive à nouveau le débogage
+  (*Désactiver … après la sauvegarde*, activé par défaut). Les options pour les développeurs restent activées.
+* **Quand ton ordinateur veut une sauvegarde :**
+  * **Me demander** (par défaut) – le téléphone demande *Autoriser la sauvegarde ?* ; rien ne démarre sans ton appui.
+  * **Autoriser sans demander** – un clic sur l’ordinateur démarre la sauvegarde, sans appui sur le téléphone.
+    Avec **Démarrer aussi tout seul**, les photos et vidéos les plus récentes sont sauvegardées quand l’ordinateur
+    trouve le téléphone sur le Wi-Fi ou que tu branches le câble (au plus une fois par heure).
+  * **Jamais** – l’ordinateur ne peut pas demander et ne trouve pas le téléphone à proximité.
+* **VPN sur le téléphone :** un VPN qui fait tout passer par le tunnel empêche l’ordinateur de
+  joindre l’app par le Wi-Fi. L’app affiche un conseil : exclus *My Mobile Media Backup* du
+  VPN, ou utilise le câble.
+* **Même version :** l’app du téléphone a le même numéro de version que le programme. Quand elle est plus ancienne,
+  l’écran d’accueil et *Gérer les sauvegardes → Vue d’ensemble* affichent **Mettre à jour l’app du téléphone**. Les anciennes copies de
+  l’app sont supprimées automatiquement.
+* L’app peut seulement lire les photos et les vidéos. L’ordinateur demande chaque fichier ; le téléphone ne répond qu’à
+  l’ordinateur associé et n’envoie jamais rien de lui-même.
 
-**Version en ligne de commande** (aucun paquet supplémentaire) : `python3 smartphone_media_backup.py --cli`
-ou directement `smartphone_media_backup.py backup | export | restore | settings`.
-Si PySide6 est absent, `smartphone_media_backup.py` démarre automatiquement la version en ligne de commande.
+**Quand le débogage est désactivé à nouveau** (l’app du téléphone le fait même si l’ordinateur n’est plus là) :
 
-## Résultat sur le disque
+1. Les sauvegardes par Wi-Fi passent normalement par l’app du téléphone avec le débogage désactivé ; le débogage sans fil ne sert
+   qu’aux téléphones sans l’app.
+2. Une seule connexion par sauvegarde : par le câble, le débogage sans fil est désactivé au début ;
+   par l’app en Wi-Fi, le débogage USB est désactivé au début.
+3. Tant que le câble USB est branché, le débogage reste activé ; 5 minutes après le débranchement, il est
+   désactivé (compte à rebours sur le téléphone).
+4. Câble jamais branché : désactivé 5 minutes après *Autoriser la sauvegarde* si aucune sauvegarde n’a démarré.
+5. Pendant une sauvegarde par Wi-Fi, l’ordinateur dit « toujours là » toutes les 30 secondes ; rien pendant 2 minutes → désactivé.
+6. Juste après la sauvegarde, l’ordinateur le désactive.
 
-```
-PhoneBackups/
-└── Sam/                                     ← one folder per owner
-    └── Pixel 10 Pro/                        ← the backup of this phone
-        ├── Logs/                            ← reports and logs
-        │   └── Backup Pixel 10 Pro Sam 2026-11-02.txt / .html / .csv
-        ├── 2026/
-        │   ├── 26.01/  …  26.12/            (photos + videos of each month)
-        │   ├── raw/26.01/ …  raw/26.12/     (only if RAW/DNG files exist)
-        │   └── other/pictures|movies|other-files/<original folder>/   (only old phone imports)
-        └── .phonebackup/index.sqlite        ← what is already backed up (do not delete)
-```
+**Wi-Fi sans l’app (débogage sans fil, Android 11 et plus récent).** Tout fonctionne comme par le
+câble, y compris les empreintes sur le téléphone – seulement plus lentement.
 
-* Nom du dossier du mois = année + mois : `26.02` est février 2026. Les sauvegardes des versions
-  précédentes (`02.February-photos` / `02.February-videos`) sont converties avant la prochaine
-  sauvegarde ou exportation – le programme affiche d’abord les anciens dossiers de mois et tu
-  décoches ceux qui doivent **garder leur nom et leur structure** (ils ne sont jamais modifiés). Le
-  choix vaut pour chaque disque et pour Google Drive ; les fichiers sont seulement déplacés, jamais
-  supprimés. Tes propres dossiers et les dossiers « garder la structure des dossiers » ne sont jamais
-  touchés.
-* Les dossiers d’année et de mois ne sont créés que lorsqu’un fichier y est placé - pas de dossiers vides.
-* Mois = date de prise de vue issue des métadonnées de la photo/vidéo → sinon le nom de fichier
-  (`PXL_20261102_…`) → sinon la date du fichier.
-* Les photos animées (`*.MP.jpg`), HEIC, PNG, … comptent comme des photos ; les DNG et autres fichiers RAW vont dans `raw/`.
-* Dossier de sauvegarde = propriétaire / téléphone (`Sam/Pixel 10 Pro`). Les sauvegardes des versions
-  précédentes (`Pixel 10 Pro - Sam`) y sont déplacées automatiquement ; si les deux existent, elles sont
-  fusionnées – rien n’est écrasé ni supprimé.
-* Les rapports (`.txt` / `.html` / `.csv`) et le journal d’une tâche terminée sans rapport vont dans le
-  dossier `Logs`, à côté des dossiers d’année. Les rapports des versions précédentes y sont déplacés
-  automatiquement avant la prochaine sauvegarde, le prochain import ou le prochain export.
-* Un second rapport le même jour reçoit l’heure en plus dans son nom.
-* Rien n’est jamais supprimé : ni sur le téléphone, ni dans la sauvegarde.
-* Même nom mais contenu différent → le nouveau fichier est enregistré sous `name_1.jpg`. Un contenu identique
-  n’est stocké qu’une seule fois.
+1. Téléphone : *Paramètres → Système → Options pour les développeurs → Débogage sans fil* → activé.
+2. Programme : **Associer par Wi-Fi…** → sur le téléphone, *Associer l’appareil avec un code QR* et scanne le code (ou
+   *Associer l’appareil avec un code d’association* et saisis les 6 chiffres). Nécessaire une seule fois.
+3. Ensuite, le téléphone est trouvé chaque fois que le débogage sans fil est activé et que les deux sont sur le même Wi-Fi.
 
-## Sécurité
+**Pas de routeur ? Wi-Fi direct.** **Wi-Fi direct…** permet à l’ordinateur d’ouvrir son propre réseau Wi-Fi (Linux :
+un point d’accès, en 5 GHz si possible ; Windows : ouvre les paramètres du *Point d’accès mobile*). Le téléphone s’y connecte avec
+un code QR. La plupart des ordinateurs quittent pendant ce temps le Wi-Fi normal ; il revient quand le Wi-Fi direct est
+arrêté.
 
-* **Téléphone → ordinateur :** avec ADB, le téléphone calcule lui-même le SHA-256, qui est comparé
-  avec les données reçues. Avec MTP, ce n’est pas possible, et le rapport l’indique.
-* **Ordinateur → disque :** chaque copie est forcée sur le disque, relue et son SHA-256 comparé.
-* Les fichiers sont écrits comme fichiers temporaires et ne sont renommés qu’après la vérification. Une sauvegarde interrompue
-  ne laisse jamais de fichiers à moitié écrits ; le passage suivant continue simplement.
-* Deux disques (ou plus) sont écrits **en même temps**. Le téléphone n’est lu qu’une seule fois.
-* L’espace libre est vérifié d’abord. Si un disque tombe en panne ou est plein, la sauvegarde continue sur
-  l’autre disque et le rapport l’affiche en rouge.
+**Comment le téléphone est reconnu en toute sécurité.** Quand l’app est associée, elle crée une clé dans la puce de
+sécurité du téléphone ; l’ordinateur enregistre son empreinte. Le modèle, le numéro de série ou les noms seuls ne suffisent jamais
+– chaque connexion vérifie cette clé (connexion chiffrée avec le certificat mémorisé)
+avant que quoi que ce soit d’autre ne soit envoyé.
 
-## Configuration d’ADB (une fois). Le téléphone est ainsi utilisable en ~2 secondes au lieu d’attendre MTP
+* **Câble :** l’ordinateur joint l’app par le câble et vérifie la clé – l’état indique alors
+  *vérifié*. L’association par le câble ne demande aucun code : tu appuies sur **Associer** sur le téléphone.
+* **Wi-Fi :** l’app s’annonce avec un nom aléatoire et un code qui change toutes les 10 minutes
+  et que seul un ordinateur associé peut reconnaître. Les autres sur le même réseau ne peuvent pas voir de quel téléphone
+  il s’agit.
+* **Bluetooth** (seulement pour trouver le téléphone) : le même code changeant plus l’adresse Wi-Fi du téléphone,
+  chiffrés. L’ordinateur se connecte ensuite par Wi-Fi. **Aucun fichier n’est jamais envoyé par Bluetooth.**
+  L’app du téléphone a besoin pour cela de l’autorisation « Appareils à proximité ».
 
-**Sur le téléphone**
+### Dossiers du téléphone
 
-1. Paramètres → À propos du téléphone → appuie 7× sur *Numéro de build* (mode développeur activé).
-2. Paramètres → Système → Options pour les développeurs → active le **Débogage USB**.
-3. Connecte le téléphone, déverrouille-le et confirme *Autoriser le débogage USB* avec
-   **Toujours autoriser cet ordinateur**.
+**Appareil photo** ajoute le dossier de l’appareil photo d’Android (`DCIM/Camera`). **Choisir des dossiers…** liste les
+dossiers du téléphone – par exemple les captures d’écran (`Pictures/Screenshots`, sur Samsung `DCIM/Screenshots`), les images
+WhatsApp, `Movies`, `Download` – ou te permet d’en saisir un.
 
-**Linux (Pop!_OS / Ubuntu)**
+**Garder la structure de dossiers d’origine** (option) : les fichiers des dossiers autres que celui de l’appareil photo
+gardent leurs dossiers dans la sauvegarde, par exemple *Karen / Pixel 10 Pro / Pictures / Screenshots*. Le
+dossier de l’appareil photo est toujours trié dans des dossiers par année et par mois.
 
-```
-sudo apt install adb
-adb devices          # should show your phone as "device"
-```
+### Disques de sauvegarde et plans de sauvegarde
 
-**Le plus simple (Windows et Linux) :** *Paramètres → Télécharger ADB…* récupère les platform-tools officiels de Google
-directement chez Google dans le dossier propre à l’app (Windows :
-`%LOCALAPPDATA%\phonebackup\platform-tools`, Linux : `~/.local/share/phonebackup/platform-tools`)
-et définit le chemin - sans installation, sans droits d’administrateur. adb n’est pas fourni avec l’app car
-la licence de Google ne permet pas de le redistribuer.
+*Ajouter un disque…* liste les disques externes connectés – aussi les disques branchés mais pas encore
+ouverts (Linux : ils sont ouverts en un clic, sans mot de passe). *Ajouter un dossier…* te permet de choisir n’importe quel dossier. Un
+aperçu montre exactement où iront les fichiers. Pour un téléphone, seuls les disques déjà utilisés avec lui sont affichés,
+déjà cochés.
 
-**Windows (à la main)**
+Chaque disque a un **plan de sauvegarde** :
 
-1. Télécharge *SDK Platform-Tools for Windows* depuis
-   https://developer.android.com/tools/releases/platform-tools
-2. Décompresse-le de sorte que le dossier `platform-tools` se trouve **à côté de `smartphone_media_backup.py`** (trouvé automatiquement),
-   ou saisis le chemin vers `adb.exe` sous *Paramètres*.
-3. Google Pixel : si le téléphone n’est pas trouvé, installe le *Google USB Driver*.
+* **Simple** – un dossier qui grandit ; seules les nouvelles photos et vidéos sont ajoutées.
+* **Grand-père-Père-Fils** – des sauvegardes datées : une sauvegarde **complète** tous les 3 mois, une
+  **différentielle** chaque mois, des **incrémentielles** entre les deux. Les sauvegardes complètes et différentielles contiennent aussi les
+  fichiers antérieurs dont elles ont besoin, donc les photos supprimées du téléphone restent dans chaque sauvegarde complète.
 
-Si ADB ne fonctionne pas, le programme affiche un avertissement clair et passe au **repli MTP** :
+Les deux peuvent être combinés, par exemple *Simple* sur un disque et *Grand-père-Père-Fils* sur l’autre.
 
-* Linux : le téléphone est monté automatiquement via gvfs/`gio`. Choisis *Transfert de fichiers* dans la
-  notification USB du téléphone.
-* Windows : nécessite une fois `py -m pip install pywin32`. L’Explorateur copie alors les fichiers.
-  C’est lent, et cela n’a pas été testé sur du vrai matériel pendant le développement (voir ci-dessous).
+### Ce qui se trouve sur le disque
 
-## App du téléphone (Wi-Fi, sans débogage USB)
+* **PhoneBackups** – le dossier sur le disque
+  * **Karen** – un dossier par propriétaire
+    * **Pixel 10 Pro** – la sauvegarde de ce téléphone
+      * **Logs** – les rapports (`.txt`, `.html`, `.csv`), p. ex. *Backup Pixel 10 Pro Karen 2026-11-02*
+      * **2026**
+        * **26.01 … 26.12** – les photos et vidéos de chaque mois
+        * **raw / 26.01 …** – seulement s’il y a des photos RAW / DNG
+      * **.phonebackup** – ce qui est déjà sauvegardé (merci de ne pas le supprimer)
 
-**Configurer l’app du téléphone…** affiche un code QR. Scanne-le avec l’appareil photo du téléphone : la page (servie par cet
-ordinateur) propose **1. Télécharger l’app** (ouvre le fichier, appuie sur *Installer*) et **2. Connecter l’app**.
-Le téléphone et l’ordinateur affichent le même code à 6 chiffres - confirme-le **sur le téléphone et sur l’ordinateur**
-(le téléphone ne transmet sa clé qu’après ton appui à cet endroit). À faire une seule fois. L’association par le câble USB
-fonctionne de la même manière : les deux écrans affichent un code, n’appuie sur *Associer* sur le téléphone que s’ils correspondent.
+* Dossier du mois = année + mois : `26.02` correspond à février 2026.
+* Les dossiers ne sont créés que lorsqu’un fichier y va – pas de dossiers vides.
+* Le mois vient de la date de prise de la photo ou de la vidéo ; sinon du nom du fichier
+  (`PXL_20261102_…`) ; sinon de la date du fichier.
+* Les photos animées, HEIC, PNG, etc. comptent comme des photos ; les DNG et autres fichiers RAW vont dans `raw`.
+* Même nom, contenu différent → le nouveau fichier est enregistré sous `name_1.jpg`. Les fichiers identiques ne sont stockés
+  qu’une seule fois.
+* Un deuxième rapport le même jour reçoit l’heure en plus dans son nom.
+* Les sauvegardes faites avec d’anciennes versions (dossiers de mois comme `02.February-photos`, dossiers de sauvegarde comme
+  `Pixel 10 Pro - Karen`, rapports à côté des photos) sont converties avant la sauvegarde suivante. Avant
+  de renommer les dossiers de mois, le programme les liste et tu peux garder les anciens noms. Les fichiers sont seulement
+  déplacés, jamais supprimés.
 
-Par le câble, le programme peut aussi installer l’app lui-même – il **demande toujours d’abord** et
-explique quel téléphone, quelle version, pourquoi et ce qui se passe exactement ; rien n’est installé sans
-ton clic.
+### Sécurité
 
-Pour une sauvegarde : ouvre *My Media Backup* sur le téléphone → **Ouvrir maintenant**. L’ordinateur le trouve et
-se connecte ; après la sauvegarde, le téléphone se referme de lui-même (aussi après 5 minutes sans utilisation).
+* **Téléphone → ordinateur :** avec ADB et avec l’app du téléphone, le téléphone calcule l’empreinte
+  (SHA-256) de chaque fichier et le programme la compare avec les données reçues.
+* **Ordinateur → disque :** chaque copie est écrite sur le disque, relue et son empreinte comparée.
+* Les fichiers sont écrits sous un nom temporaire et renommés seulement après la vérification. Une sauvegarde interrompue
+  ne laisse jamais de fichiers à moitié copiés ; la sauvegarde suivante continue simplement.
+* L’espace libre est vérifié d’abord. Si un disque tombe en panne ou est plein, la sauvegarde continue sur l’autre
+  disque et le rapport l’affiche en rouge.
+* **Jamais le mauvais téléphone :** chaque sauvegarde se souvient de son téléphone (modèle, numéro de série, clé de l’app
+  du téléphone). Avant la sauvegarde, le téléphone connecté est vérifié : un autre numéro de série ou une autre clé →
+  **refusé, rien n’est copié**. Si seul le modèle peut être comparé, tu dois confirmer. Juste
+  avant le premier fichier, le téléphone est vérifié une deuxième fois.
 
-**Quand ton ordinateur veut une sauvegarde** (dans l’app du téléphone) :
-* **Me demander** (par défaut) – quand l’ordinateur trouve le téléphone à la maison, le téléphone affiche
-  *Autoriser la sauvegarde ?* ; rien ne démarre sans ton appui.
-* **Démarrer automatiquement** – sans question : quand l’ordinateur trouve le téléphone dans le Wi-Fi, ou
-  que tu branches le câble USB, les photos et vidéos les plus récentes sont sauvegardées – au plus une fois
-  par heure, par la connexion la plus rapide. Si tu branches le câble pendant une sauvegarde par Wi-Fi,
-  elle continue par le câble.
-* **Jamais** – l’ordinateur ne peut pas demander.
+### Gérer les sauvegardes
 
-Un téléphone sur lequel l’app du téléphone est réinstallée est reconnu par son numéro de série (par le
-câble) et n’apparaît jamais deux fois sous *Téléphones connus* ; sans numéro de série, le programme demande
-une fois s’il s’agit du même téléphone. L’app peut seulement lire les photos et vidéos ; la connexion est chiffrée (TLS, certificat
-épinglé lors de l’association). L’ordinateur **récupère** les fichiers : il demande chaque fichier, le téléphone ne
-répond qu’à l’ordinateur associé et n’envoie jamais rien de lui-même. Mêmes fichiers et chemins que par ADB, les sauvegardes existantes continuent donc simplement.
+**Sauvegardes** liste toutes tes sauvegardes. Choisis-en une pour voir ses onglets :
 
-## Sauvegarde par Wi-Fi (sans câble)
+* **Vue d’ensemble** – la dernière sauvegarde, les disques de sauvegarde complets, les sauvegardes Grand-père-Père-Fils
+  et les sauvegardes qui ne se sont pas terminées. Après chaque sauvegarde, le programme vérifie si elle est
+  complète.
+* **Dossiers du téléphone** – les dossiers que *Mettre à jour la sauvegarde* copie.
+* **Disques de sauvegarde** – les disques de cette sauvegarde et leurs plans.
+* **Dossiers à importer** – ajouter d’anciennes photos à cette sauvegarde (voir ci-dessous).
+* **Historique des sauvegardes** – chaque sauvegarde avec son résultat et son rapport.
 
-Utilise le **débogage sans fil** intégré à Android (Android 11+, aucune app sur le téléphone). Tout
-fonctionne comme par USB, y compris la vérification SHA-256 sur le téléphone ; c’est seulement plus lent (selon le
-Wi-Fi, généralement 10–40 MB/s).
+**Anciens téléphones et anciens disques.** *Nouvelle sauvegarde d’un ancien téléphone ou disque…* crée une sauvegarde à part
+(par exemple « Galaxy S7 – Kevin » ou « Old drive – Kevin ») ; *Dossiers à importer* ajoute à une sauvegarde existante.
+Ajoute les dossiers (par exemple la copie d’un ancien téléphone et de sa carte SD) et clique sur *Choisir les dossiers
+à importer…* : chaque dossier contenant des fichiers est listé avec ses photos, vidéos et autres fichiers ; les données d’apps,
+caches, miniatures, corbeilles et dossiers cachés sont laissés de côté. Pour chaque dossier, choisis :
 
-1. Téléphone : *Paramètres → Système → Options pour les développeurs → Débogage sans fil* → activé (autorise-le pour le
-   réseau).
-2. App : **Associer par Wi-Fi…** → sur le téléphone, appuie sur *Associer l’appareil avec un code QR* et scanne le code
-   (ou utilise *Associer l’appareil avec un code d’association* et saisis les 6 chiffres). Nécessaire une seule fois.
-3. À partir de là, le téléphone est trouvé automatiquement dès que le débogage sans fil est activé et que le téléphone et
-   l’ordinateur sont sur le même Wi-Fi. Si l’USB et le Wi-Fi sont tous deux disponibles, l’USB est utilisé.
+* **Trier dans les dossiers année/mois** – trié par date exactement comme une sauvegarde de téléphone.
+* **Garder le dossier tel quel** – copié avec son nom tout en haut de la sauvegarde (par exemple
+  *Holiday Italy 2019 / Day 1*). Les sous-dossiers sont des lignes séparées – coche-les aussi pour garder toute
+  l’arborescence.
 
-**Pas de routeur ? Wi-Fi direct :** **Wi-Fi direct…** permet à l’ordinateur d’ouvrir son propre réseau Wi-Fi
-(Linux : point d’accès NetworkManager, 5 GHz si possible ; Windows : ouvre les paramètres du *Point d’accès mobile*).
-Le téléphone s’y connecte (code QR pour l’appareil photo), et la sauvegarde se fait directement entre le
-téléphone et l’ordinateur. La plupart des adaptateurs Wi-Fi coupent le Wi-Fi normal pendant ce temps ; il revient lorsque le
-Wi-Fi direct est arrêté (l’app le demande quand tu la fermes).
+Chaque fichier est vérifié comme pour une sauvegarde de téléphone, les fichiers identiques ne sont stockés qu’une fois, et les anciens dossiers
+sont seulement lus.
 
-Un vrai Wi-Fi Direct (P2P) nécessiterait une app compagnon sur le téléphone ; c’est prévu pour une étape ultérieure.
+**Sauvegardes sûres (deuxième copie).** Copie une sauvegarde sur un deuxième disque ou sur **Google Drive**. Chaque copie
+reçoit son propre dossier daté.
 
-**Vue d’ensemble et sauvegardes complètes :** après chaque sauvegarde depuis le téléphone, le programme
-demande si cette sauvegarde est complète. *Gérer les sauvegardes → Vue d’ensemble* affiche ensuite pour
-chaque sauvegarde : la dernière sauvegarde, quels disques de sauvegarde sont complets, les sauvegardes
-Grand-père-Père-Fils de la sauvegarde, et les sauvegardes qui ont été démarrées mais ne se sont pas terminées.
-
-## Plan de sauvegarde par disque
-
-Dans la liste des disques de *Nouvelle sauvegarde*, chaque disque de sauvegarde a un **Plan de sauvegarde** :
-
-* **Simple** – un dossier qui grandit, seules les nouvelles photos et vidéos sont ajoutées (comme montré ci-dessus).
-* **Grand-père-Père-Fils** – des sauvegardes datées comme sur un second stockage (voir ci-dessous) : une sauvegarde **complète**
-  tous les 3 mois, une **différentielle** chaque mois, des **incrémentielles** entre les deux.
-  Une sauvegarde complète/différentielle contient aussi les fichiers antérieurs dont elle a besoin (copiés sur le disque et
-  vérifiés), de sorte que les photos supprimées du téléphone restent dans chaque sauvegarde complète.
-
-Les deux peuvent être combinés, p. ex. *Simple* sur un disque dur et *Grand-père-Père-Fils* sur l’autre. Un dossier de
-téléphone conserve le plan avec lequel il a été commencé.
-
-## Second stockage (export)
-
-*Gérer les sauvegardes → Second stockage* copie une sauvegarde vers un autre disque ou vers Google Drive. Chaque export
-reçoit son propre dossier :
-
-```
-PhoneBackups-Export/Sam/Pixel 10 Pro/
-├── 2026-11-02_14-30-00_full/            (with the export report in Logs/)
-├── 2026-11-20_09-12-45_incremental/
-├── 2026-12-01_18-03-10_differential/
-└── .phonebackup-export/catalog.sqlite
-```
-
-| Type          | Copie                                              |
-|---------------|----------------------------------------------------|
-| complète      | tout                                               |
-| différentielle | tout ce qui est nouveau depuis le dernier export **complet** |
-| incrémentielle | tout ce qui est nouveau depuis le **dernier** export (tout type) |
+| Type | Copie |
+|---|---|
+| complète | tout |
+| différentielle | tout ce qui est nouveau depuis la dernière copie **complète** |
+| incrémentielle | tout ce qui est nouveau depuis la **dernière** copie (de n’importe quel type) |
 
 **Automatique – Grand-père-Père-Fils** (par défaut) choisit le type : complète tous les 3 mois
-(grand-père), différentielle chaque mois (père), incrémentielle entre les deux (fils) ; l’app indique
-lequel vient ensuite et pourquoi. Elle conserve les 4 exports complets, 3 différentiels et 6 incrémentiels
-les plus récents ainsi que tout ce dont ils ont besoin pour une restauration ; les plus anciens sont proposés à la suppression et supprimés
-**seulement après ta confirmation** (*Nettoyer les anciens exports…*).
+(grand-père), différentielle chaque mois (père), incrémentielle entre les deux (fils). Il garde les 4 copies complètes,
+3 différentielles et 6 incrémentielles les plus récentes, ainsi que tout ce dont elles ont besoin pour une restauration. Les plus anciennes
+sont proposées à la suppression et supprimées **seulement après ta confirmation** (*Nettoyer les anciens exports…*). Chaque
+fichier copié est comparé avec l’empreinte de la sauvegarde – un fichier endommagé sur le premier
+disque est signalé par un avertissement.
 
-Chaque fichier exporté est vérifié par rapport au SHA-256 enregistré au moment de la sauvegarde. Un fichier qui a été
-endommagé sur le premier disque (dégradation des données) est signalé par un ATTENTION.
-*Restaurer* reconstruit un dossier complet à partir de la chaîne la plus courte (complète + différentielle la plus récente +
-incrémentielles qui la suivent) et vérifie chaque fichier.
+**Google Drive.** *Ajouter au stockage cloud → Google Drive* te connecte via le navigateur. Le programme
+ne voit que les fichiers qu’il a lui-même envoyés ; la connexion reste sur cet ordinateur.
 
-### Google Drive
+* **Copie** – un miroir de la sauvegarde dans *My Drive / My Smartphone Media Backup* : seuls les nouveaux fichiers sont
+  envoyés, rien n’est supprimé ni écrasé.
+* **Grand-père-Père-Fils** – chaque photo n’est stockée qu’**une seule fois** ; les copies suivantes y renvoient
+  (raccourcis, aucun espace supplémentaire). Merci de ne pas y supprimer de photos à la main – chaque copie qui
+  y renvoie les perdrait.
 
-*Ajouter au stockage cloud → Google Drive* te connecte via le navigateur. L’app ne peut voir que les
-fichiers qu’elle a elle-même envoyés (le droit `drive.file` de Google) ; la connexion reste sur cet ordinateur.
-Deux types d’export :
+Chaque envoi est vérifié avec l’empreinte de Google. Politique de confidentialité :
+<https://machetso.github.io/my-smartphone-media-backup/privacy.html>
 
-* **Copie** – un miroir de la sauvegarde dans *My Drive/My Smartphone Media Backup/Phone - Owner* :
-  seuls les nouveaux fichiers sont envoyés, rien n’est supprimé ni écrasé.
-* **Grand-père-Père-Fils** dans *Phone - Owner (Grandfather-Father-Son)* : chaque photo n’est stockée
-  qu’**une seule fois** – les exports complets et différentiels pointent vers des fichiers déjà présents sur Google Drive
-  (raccourcis, sans espace supplémentaire ; y compris vers la Copie). Le nettoyage déplace les fichiers encore utilisés par des exports plus récents
-  dans ceux-ci avant de supprimer quoi que ce soit. La restauration télécharge les fichiers et les vérifie. Merci
-  de ne pas y supprimer de photos isolées à la main – chaque export qui pointe vers elles les perdrait.
+**Restaurer.** Choisis la copie (sur un disque ou sur Google Drive), la date et le dossier cible. Le
+programme reconstruit un dossier complet à partir du plus petit nombre de copies nécessaire et vérifie chaque fichier.
 
-Chaque envoi est vérifié par rapport au SHA-256 propre à Google ; l’espace libre est vérifié avant l’envoi.
-Politique de confidentialité : <https://machetso.github.io/my-smartphone-media-backup/privacy.html>
+### Paramètres du programme
 
-Les builds depuis le code source nécessitent la clé Google de l’app : `python3 tools/set_google_key.py client_secret_….json`
-(écrit le fichier `phonebackup/_gkey.py` ignoré par git) ; les builds de publication la reçoivent des secrets GitHub.
+* **Langue** (aussi via le globe en haut à droite) – change après un redémarrage.
+* **ADB** – trouvé automatiquement ; *Télécharger ADB…* le récupère chez Google.
+* **Forcer l’écriture des données sur le disque avant la vérification** – plus sûr, un peu plus lent (activé par défaut).
+* **Garder l’ordinateur éveillé** pendant la sauvegarde, l’import, la copie et la restauration (activé par défaut). Les
+  paramètres d’alimentation eux-mêmes ne sont pas modifiés. Linux : la mise en veille, la fermeture du capot et l’arrêt sont bloqués
+  pendant une tâche, et l’écran reste allumé. Windows : la mise en veille est empêchée et Windows demande avant
+  de s’éteindre ; le capot et le bouton d’alimentation suivent les paramètres de Windows.
+* **Rechercher une nouvelle version au démarrage** – une fois par jour. *Mettre à jour maintenant* télécharge la nouvelle version, vérifie
+  qu’elle est signée par le projet, remplace le programme et le redémarre. Les paramètres, disques, téléphones
+  et associations sont conservés. Si la nouvelle version ne démarre pas, l’ancienne est remise en place automatiquement.
+* **Téléphones connus** – les téléphones associés, la version de l’app du téléphone et les mises à jour automatiques de l’app.
 
-## Paramètres
+Les paramètres sont enregistrés dans `~/.config/phonebackup/config.json` (Windows :
+`%APPDATA%\PhoneBackup\config.json`).
 
-Enregistrés dans `~/.config/phonebackup/config.json` (Windows : `%APPDATA%\PhoneBackup\config.json`) :
-nom du propriétaire, dossiers du téléphone (par défaut `DCIM/Camera`, d’autres peuvent être sélectionnés dans le programme),
-disques, chemin d’adb.
+**Icône de démarrage (Linux) :** le script *install-linux-desktop.sh* dans le dossier du programme ajoute le programme
+au menu des applications et sur le bureau.
 
-## Tests
+### Testé avec
 
-```
-python3 -m unittest discover tests
-```
-
-## Testé
-
-* Linux (Pop!_OS) avec un Google Pixel 10 Pro (Android 17) via ADB en USB 3 :
-  1372 fichiers / 20 Go sauvegardés simultanément sur deux disques durs externes et vérifiés, environ 24 MB/s.
-* Samsung Galaxy S20 FE par USB (ADB) et par Wi-Fi avec l’app du téléphone 0.3.3 :
-  12,4 MB/s par Wi-Fi, sans erreur ; mise à jour de l’app du téléphone par le câble avec la question d’installation.
-* Google Drive : Copie et Grand-père-Père-Fils avec une sauvegarde de 20 Go (1381 fichiers, environ
-  4 MB/s en envoi), raccourcis, nettoyage et restauration vérifiés.
-* Pas encore testé sur du vrai matériel : le repli MTP (Linux gvfs, Explorateur Windows) et Windows en général.
+* Linux (Pop!_OS) avec un Google Pixel 10 Pro (Android 17) en USB 3 avec ADB : 1372 fichiers / 20 GB
+  vers deux disques externes en même temps, environ 24 MB/s.
+* Samsung Galaxy S20 FE en USB (ADB) et en Wi-Fi avec l’app du téléphone : 12,4 MB/s en Wi-Fi.
+* Google Drive : Copie et Grand-père-Père-Fils avec une sauvegarde de 20 GB, nettoyage et restauration.
+* Pas encore testé sur du vrai matériel : le transfert de fichiers de secours (MTP) et Windows en général.
 
 ## Licence
 
-MIT – voir [LICENSE](LICENSE).
+MIT – voir [LICENSE](LICENSE). Les nouveautés : [CHANGELOG.md](CHANGELOG.md).

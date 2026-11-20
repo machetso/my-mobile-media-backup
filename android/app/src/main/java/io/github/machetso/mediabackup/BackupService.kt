@@ -30,6 +30,19 @@ object AppState {
     var pairings by mutableStateOf(0)        // +1 for every new pairing (closes the pairing card)
     var idleLeft by mutableStateOf("")       // "4:12" until backup mode switches off unused
     var onCable by mutableStateOf(false)     // USB cable in: no timeout (user request 2026-11-17)
+    var copyingAt by mutableStateOf(0L)      // last sign of a running backup (animation, 2026-11-19)
+    // last request of a paired computer, also its "still connected?" check every 10 s
+    // ("Connection established" on the screen, 2026-11-20)
+    @Volatile var contactAt = 0L
+
+    /** Called on every backup request; state changes at most every 5 s (fewer redraws). */
+    fun copying() {
+        val now = System.currentTimeMillis()
+        if (now - copyingAt > 5_000) copyingAt = now
+    }
+    fun copyingStopped() { copyingAt = 0L }
+    /** A backup is running: a request came in the last 75 s (the computer says "still here" every 30 s). */
+    fun isCopying(now: Long) = running && copyingAt > 0 && now - copyingAt < 75_000
 }
 
 /**
@@ -170,6 +183,7 @@ class BackupService : Service() {
 
     private fun onServerEvent(ev: String) {
         if (ev == "DONE") {
+            AppState.copyingStopped()
             finished = true
             AppState.status = tr("Backup finished – backup mode switched off.")
             stopSelf()
@@ -222,6 +236,7 @@ class BackupService : Service() {
         runCatching { wifiLock?.release() }
         runCatching { if (wake?.isHeld == true) wake?.release() }
         AppState.running = false
+        AppState.copyingStopped()
         AppState.port = 0
         if (!finished) AppState.status = tr("Backup mode is off.")
         super.onDestroy()

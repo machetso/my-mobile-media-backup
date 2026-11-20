@@ -124,6 +124,10 @@ def _copy_one(source, sf, cat, targets, hasher, cfg, prog, cancel=None, placemen
                 _remove(t)
             raise
         except Exception as e:  # noqa: BLE001
+            if getattr(e, "abort_backup", False):    # the connection hangs: stop, not file after file
+                for t in temps:
+                    _remove(t)
+                raise
             stream_sha, n, wres = None, -1, None
             last_err = both.tr("reading from the source failed: %s", e)
         if stream_sha is not None and n != sf.size:

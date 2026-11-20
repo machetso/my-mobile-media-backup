@@ -14,9 +14,9 @@ import traceback
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
-from PySide6.QtCore import QObject, QSize, Qt, QTimer, QUrl, Signal
+from PySide6.QtCore import QObject, Qt, QTimer, QUrl, Signal
 from PySide6.QtGui import QActionGroup, QColor, QDesktopServices, QIcon, QPainter, QPainterPath, QPixmap
-from PySide6.QtWidgets import (QAbstractItemView, QFrame, QApplication, QBoxLayout, QButtonGroup, QCheckBox, QComboBox,
+from PySide6.QtWidgets import (QProxyStyle, QAbstractItemView, QFrame, QApplication, QBoxLayout, QButtonGroup, QCheckBox, QComboBox,
                                QDialog, QDialogButtonBox, QFileDialog, QFormLayout, QGroupBox,
                                QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit,
                                QListWidget, QListWidgetItem, QMainWindow, QMenu, QMessageBox,
@@ -27,6 +27,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QFrame, QApplication, QBoxLayo
 from . import APP_NAME, __version__, config, i18n, ui
 from .i18n import N_, tr, trp  # noqa: F401 - used throughout
 from .keepawake import KeepAwake, windows_block_shutdown
+from .backup_anim import BackupArrow, ScannerButton, ScannerLine
 from .backup import SourceSwitch, backup_parent_name, perform_backup
 from .export import Catalog, folder_size, has_catalog, perform_export, perform_restore, remove_runs
 from . import gfs
@@ -49,6 +50,7 @@ from .companion import (APP_NAME as COMPANION_NAME, APP_VERSION_NAME as COMPANIO
 from .gui_setup import ConnectionOverview, UsbDebugGuide
 from .gui_backups import AppUpdateBox, BackupsTabMixin, FolderListEditor, KnownPhonesBox, PhoneAppMixin
 from . import backuplist, completeness, connspeed, migrate, presence
+from . import theme
 
 PHONE_FOLDER_ROOTS = ["DCIM", "Pictures", "Movies", "Download",
                       "Android/media/com.whatsapp/WhatsApp/Media"]
@@ -201,6 +203,7 @@ class Bridge(QObject):
     ble_seen = Signal(object)
     conn_probe = Signal(object)       # background check: which connections are possible (connspeed)
     conn_step = Signal(str)           # what the program is doing while it connects (user 2026-11-17)
+    phone_wants = Signal()            # "Back up now" was tapped on the connected phone (2026-11-20)
 
 
 class GuiHandler:
@@ -243,6 +246,23 @@ class GuiHandler:
 
 GDRIVE = "gdrive:"                 # the Google Drive entry in a location list (second storage only)
 CLOUD_SERVICES = [("gdrive", "Google Drive")]      # more cloud storage in later versions
+
+
+class _OnlyWithText(QLabel):
+    """The progress text: hidden while there is nothing to say (no empty field on the start page)."""
+
+    def setText(self, text):
+        super().setText(text)
+        self.setVisible(bool(text))
+
+
+class _OnlyWhenUsable(QPushButton):
+    """Cancel / Open report / Open backup folder: shown only when they can be used
+    (user request 2026-11-19: greyed-out buttons at the bottom are not needed)."""
+
+    def setEnabled(self, on):
+        super().setEnabled(on)
+        self.setVisible(bool(on))
 
 
 def is_cloud(p):
@@ -821,10 +841,14 @@ def _group(title, widget_or_layout):
     return g
 
 
+_BIG_BUTTON_CSS = "QPushButton{font-weight:600;font-size:15px;padding:6px 22px}"
+
+
 def _big_button(text):
     b = QPushButton(text)
     b.setMinimumHeight(40)
-    b.setStyleSheet("QPushButton{font-weight:600;font-size:15px;padding:6px 22px}")
+    b.setStyleSheet(_BIG_BUTTON_CSS)
+    b.setProperty("role", "primary")          # the Starship look shows start buttons in gold
     return b
 
 
@@ -882,6 +906,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.bridge.conn_step.connect(self._conn_step)
         self.bridge.companion_found.connect(self._on_companion_found)
         self.bridge.companion_lost.connect(self._on_companion_lost)
+        self.bridge.phone_wants.connect(self._on_phone_wants)
         self.bridge.ble_seen.connect(self._on_ble_seen)
         self.bridge.conn_probe.connect(self._on_conn_probe)
         ui.set_handler(GuiHandler(self))
@@ -892,7 +917,11 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.connecting = False
         self.source = None
         self._auto_mode = False          # an automatic backup runs: no dialogs (user request 2026-11-17)
-        self._auto_pending = None        # {"name", "until"}: the phone was asked to start backup mode
+        self._auto_pending = None        # {"name", "until"[, "key"]}: the phone was asked to start backup mode
+        self._one_click = False          # "Update backup" with a nearby phone: no "Start backup?" window
+        self._one_click_waiting = None   # name of the phone that was asked by that click
+        self._new_counts = {}            # backup key → (photos, videos) not backed up yet (from the phone)
+        self._want_seen = 0              # "Back up now" on the phone: the last tap already handled
         self._switch = None              # SourceSwitch of the running backup (cable plugged in → faster)
         self.last_report = None
         self.last_folder = None
@@ -903,7 +932,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self._adb_retry_at = 0.0
         self._stop = threading.Event()
 
-        self.setWindowTitle(f"{APP_NAME} {__version__}")
+        self.setWindowTitle(f"{APP_NAME} {__version__}")   # no "(m³b)" (user request 2026-11-20)
         icon = app_icon()
         self.setWindowIcon(icon if not icon.isNull() else self.style().standardIcon(QStyle.SP_DriveHDIcon))
         self.resize(1040, 860)
@@ -915,7 +944,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         # their own (Menu and the gear on the start screen) - user request 2026-11-10
         self.tabs.addTab(self._scroll_page(self._build_backups_tab(), self.backup_actions), tr("Backups"))
         self.tabs.addTab(self._scroll_page(self._build_export_tab(), self.start_export_btn),
-                         tr("Backup backups"))
+                         tr("Secure backups"))          # was "Backup backups" (user request 2026-11-19)
         self.tabs.addTab(self._scroll_page(self._build_restore_tab(), self.start_restore_btn), tr("Restore"))
         self.tabs.currentChanged.connect(self._tab_changed)
         self.pages = QStackedWidget()
@@ -936,12 +965,31 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         splitter.setStretchFactor(1, 0)
         splitter.setCollapsible(0, False)
         splitter.setSizes([800, 90])
+        # no "Show details" any more (user request 2026-11-20): the log stays hidden – it is
+        # written to the log files anyway
+        self.log.setVisible(False)
         central = QWidget()
         cl = QVBoxLayout(central)
         cl.setContentsMargins(0, 0, 0, 0)
         cl.setSpacing(0)
         cl.addWidget(splitter, 1)
         cl.addWidget(bottom)
+        if theme.starship():            # the control-panel frame with side navigation (2026-11-18)
+            # "Backup" instead of "Start", the gear instead of "Program settings", the language
+            # behind the globe top right (user request 2026-11-19)
+            self.frame = theme.LcarsFrame(central, APP_NAME, __version__, [
+                ("home", tr("Backup")), ("manage", tr("Manage backups")),
+                ("settings", tr("Program settings"), gear_icon(theme.BLACK))],
+                lower=[("manual", tr("Manual"))],          # down, right above About (2026-11-20)
+                bottom=("about", tr("About")))
+            self.frame.globe.setMenu(self.lang_menu)
+            self.frame.globe.setToolTip(tr("Language"))
+            self.frame.globe.setAccessibleName(tr("Language"))
+            self.frame.navigate.connect(self._frame_navigate)
+            self.pages.currentChanged.connect(self._frame_page_changed)
+            self.frame.set_current("home")
+            central = self.frame
+            self.resize(1180, 880)          # the frame takes some width
         self.setCentralWidget(central)
         self._phone_status_text = (tr("Looking for a phone …"), GRAY)
         self._set_phone_status(tr("Looking for a phone …"), GRAY, searching=True)
@@ -999,6 +1047,16 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         lay.addLayout(row)
         return w
 
+    def _frame_navigate(self, key):
+        {"home": self._go_home, "manage": self._open_manage_backups,
+         "settings": self._open_program_settings, "manual": self._show_manual,
+         "about": self._show_about}[key]()
+
+    def _frame_page_changed(self, _index):
+        page = self.pages.currentWidget()
+        self.frame.set_current({id(self.more_page): "manage", id(self.settings_page): "settings"}.get(
+            id(page), "home"))
+
     def _subpage(self, title, content, scroll=False, action=None):
         """A page with '← Back' and a title above `content` (and a fixed start button below)."""
         w = QWidget()
@@ -1028,24 +1086,18 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                       f"color:{GRAY}'>{html.escape(__version__)}</span>")     # version next to the name
         name.setTextFormat(Qt.RichText)
         name.setStyleSheet("font-size:22px;font-weight:700")
-        # Menu and the gear (program settings) top left (user request 2026-11-10)
-        settings = QToolButton()
-        settings.setIcon(gear_icon(self.palette().buttonText().color()))
-        settings.setIconSize(QSize(22, 22))
-        settings.setFixedSize(36, 34)
-        settings.setToolTip(tr("Program settings"))
-        settings.setAccessibleName(tr("Program settings"))
-        settings.clicked.connect(self._open_program_settings)
+        name.setVisible(not theme.starship())     # the frame shows the name already
+        # no Menu and no gear here: the side bar has them, the language is the globe top right
+        # (user request 2026-11-19)
+        self.lang_menu = self._build_language_menu()
         head = QHBoxLayout()
-        head.addWidget(self._build_program_menu())
-        head.addWidget(settings)
-        head.addSpacing(12)
         head.addWidget(name)
         head.addStretch()
         lay.addLayout(head)
         self.home_status = StatusBanner()
         # "Connect phone…" right next to "No phone connected" (user request 2026-11-10)
-        self.connect_phone_btn = QPushButton(tr("Connect phone…"))
+        # the nearby line's light along its top and bottom edge (user request 2026-11-20)
+        self.connect_phone_btn = ScannerButton(tr("Connect phone…"))
         self.connect_phone_btn.setMinimumHeight(40)
         self.connect_phone_btn.setStyleSheet("QPushButton{font-weight:600;padding:6px 16px}")
         self.connect_phone_btn.setToolTip(tr("Without a cable: a QR code to scan with the phone (it also "
@@ -1067,9 +1119,11 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         # a known phone is near (same Wi-Fi / Bluetooth / phone app waits) – user request 2026-11-17
         self.nearby_box = QWidget()
         self.nearby_box.setObjectName("nearbyBox")
-        self.nearby_box.setStyleSheet("#nearbyBox{background:#fff4d6;border:1px solid #e0b84a;border-radius:6px}"
-                                      "#nearbyBox QLabel{color:#4a3800}")
-        nb = QHBoxLayout(self.nearby_box)
+        self.nearby_box.setStyleSheet(theme.notice_css("nearbyBox"))
+        outer = QVBoxLayout(self.nearby_box)
+        theme.bar_margins(outer, 9, 9, 9, 6)
+        nb = QHBoxLayout()
+        outer.addLayout(nb)
         self.nearby_label = QLabel()
         self.nearby_label.setWordWrap(True)
         self.nearby_label.setTextFormat(Qt.RichText)
@@ -1077,6 +1131,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.nearby_btn = QPushButton(tr("Connect over Wi-Fi instead"))
         self.nearby_btn.clicked.connect(self._connect_nearby)
         nb.addWidget(self.nearby_btn, 0, Qt.AlignVCenter)
+        # the light sweeping along a line while the phone is nearby (user request 2026-11-19)
+        self.nearby_scan = ScannerLine(theme.GOLD)
+        outer.addWidget(self.nearby_scan)
         self.nearby_box.hide()
         lay.addWidget(self.nearby_box)
         lay.addSpacing(8)
@@ -1095,58 +1152,42 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         # no ticks and no "Remove" here: that is in Manage backups → Backups (user request 2026-11-10)
         pl = QVBoxLayout()
         pl.addWidget(area)
-        lay.addWidget(_group(tr("Your phones"), pl), 1)
-        self._phone_widgets = {}
-        lay.addSpacing(8)
-
+        # "New backup…" right above "Your phones"; no "Manage backups…" button here – it is in
+        # the sidebar (user request 2026-11-20)
         row = QHBoxLayout()
         new = _big_button(tr("New backup…"))
         new.setToolTip(tr("Another phone, or other folders / drives: choose the connection, folders and "
                           "drives, then start."))
         new.clicked.connect(lambda: self._open_backup_page(True))
-        more = _big_button(tr("Manage backups…"))       # same size and style (user request 2026-11-17)
-        more.setToolTip(tr("Your backups (folders, drives, import of old drives and old phones), copies "
-                           "of the backups on another drive (Backup backups), restore."))
-        more.clicked.connect(self._open_manage_backups)
-        width = max(new.sizeHint().width(), more.sizeHint().width())
-        for b in (new, more):
-            b.setMinimumWidth(width)
         row.addWidget(new)
         row.addStretch()
-        row.addWidget(more)
         lay.addLayout(row)
+        lay.addSpacing(4)
+        lay.addWidget(_group(tr("Your phones"), pl), 1)
+        self._phone_widgets = {}
         return w
 
-    def _build_program_menu(self):
-        """'Menu' at the top right of the start screen (user request 2026-11-07): language, manual
-        and the program settings - reachable right at the first start, not only via Manage backups."""
-        btn = QToolButton()
-        btn.setText("☰ " + tr("Menu"))
-        btn.setToolButtonStyle(Qt.ToolButtonTextOnly)
-        btn.setPopupMode(QToolButton.InstantPopup)
-        btn.setMinimumHeight(34)
-        btn.setAccessibleName(tr("Menu"))
-        menu = QMenu(btn)
-        lang_menu = menu.addMenu(tr("Language"))
-        group = QActionGroup(lang_menu)
+    def _build_language_menu(self):
+        """The languages behind the globe top right of the frame (user request 2026-11-19)."""
+        menu = QMenu(self)
+        group = QActionGroup(menu)
         stored = i18n.stored_choice(self.cfg)
         choices = [(tr("System language (%s)", i18n.resolve(i18n.SYSTEM).name), i18n.SYSTEM)]
         choices += [(lang.name, lang.code) for lang in i18n.languages()]
         for label, code in choices:
-            act = lang_menu.addAction(label)
+            act = menu.addAction(label)
             act.setCheckable(True)
             act.setData(code)
             act.setChecked(code == stored)
             group.addAction(act)
             act.triggered.connect(lambda _c=False, code=code: self._menu_language(code))
         self._lang_actions = group
-        menu.addAction(tr("Manual"), self._show_manual)
-        menu.addAction(tr("Manage backups…"), self._open_manage_backups)
-        menu.addAction(tr("Program settings…"), self._open_program_settings)
-        menu.addSeparator()
-        menu.addAction(tr("About"), self._show_about)
-        btn.setMenu(menu)
-        return btn
+        return menu
+
+    def _restart(self):
+        from PySide6.QtCore import QProcess
+        args = sys.argv[1:] if getattr(sys, "frozen", False) else [os.path.abspath(sys.argv[0]), *sys.argv[1:]]
+        QProcess.startDetached(sys.executable, args)
 
     def _menu_language(self, code):
         """Language from the start-screen menu: the same path as the combo box in Settings."""
@@ -1167,9 +1208,52 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.pages.setCurrentWidget(self.more_page)
 
     def _show_about(self):
-        QMessageBox.about(self, tr("About"), f"<b>{html.escape(APP_NAME)}</b> {html.escape(__version__)}<br>"
-                          "<a href='https://github.com/machetso/my-smartphone-media-backup'>"
-                          "github.com/machetso/my-smartphone-media-backup</a>")
+        """About: what the program is, its key features, version, licence and web page
+        (user request 2026-11-19: the red button at the foot of the side bar)."""
+        features = [
+            tr("Only new photos and videos are copied – the next backup takes minutes, not hours."),
+            tr("Every file is checked: the phone calculates a fingerprint (SHA-256) of each file, the "
+               "program compares it with what arrived and with what was written to the drive."),
+            tr("Several drives at the same time – the phone is read only once."),
+            tr("Sorted automatically into year and month folders, RAW photos separately."),
+            tr("Nothing is ever deleted – not on the phone, not in the backup."),
+            tr("Always the fastest connection – USB cable, Wi-Fi or the computer's own Wi-Fi."),
+            tr("Never the wrong phone – every backup knows its phone."),
+            tr("Automatic backups when a known phone comes home."),
+            tr("A second copy on another drive or on Google Drive, with older states kept, and restore "
+               "with one click."),
+            tr("Old phones and old drives can be added to a backup."),
+            tr("A report after every backup."),
+        ]
+        url = "https://github.com/machetso/my-mobile-media-backup"
+        text = (f"<h2>{html.escape(APP_NAME)}</h2>"
+                f"<p>{html.escape(tr('Version %s', __version__))}</p>"
+                f"<p>{html.escape(tr('Backs up the photos and videos of your Android phone to one or more '
+                                     'external drives – checked file by file, sorted by year and month, '
+                                     'with a report after every backup. For Windows and Linux.'))}</p>"
+                f"<h3>{html.escape(tr('Key features'))}</h3><ul>"
+                + "".join(f"<li>{html.escape(f)}</li>" for f in features) + "</ul>"
+                # author and licence in short (user request 2026-11-19)
+                "<p>© 2026 Alex Vulcu (github.com/machetso)</p>"
+                f"<h3>{html.escape(tr('MIT License – in short'))}</h3>"
+                f"<p>{html.escape(tr('Free and open source. You may use, copy, change and pass on the program '
+                                     'freely, also commercially, as long as the copyright notice and the licence '
+                                     'text stay with it. It comes without any warranty.'))}<br>"
+                f"<a href='{url}'>github.com/machetso/my-mobile-media-backup</a></p>")
+        dlg = QDialog(self)
+        dlg.setWindowTitle(tr("About"))
+        lay = QVBoxLayout(dlg)
+        lab = QLabel(text)
+        lab.setTextFormat(Qt.RichText)
+        lab.setWordWrap(True)
+        lab.setOpenExternalLinks(True)
+        lab.setTextInteractionFlags(Qt.TextBrowserInteraction)
+        lab.setMinimumSize(600, lab.heightForWidth(600))     # all of it visible, no cut-off lines
+        lay.addWidget(lab)
+        box = QDialogButtonBox(QDialogButtonBox.Close)
+        box.rejected.connect(dlg.reject)
+        lay.addWidget(box)
+        dlg.exec()
 
     def _show_manual(self):
         """The README as the manual, in the chosen language if there is a README.<code>.md."""
@@ -1181,10 +1265,25 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         view = QTextBrowser()
         view.setOpenExternalLinks(True)
         if text:
+            import re           # always the exact version of the running program (2026-11-18)
+            text = re.sub(r"^\*\*Version [^*\n]*\*\*", f"**Version {__version__}**", text, count=1, flags=re.M)
             view.setMarkdown(text)
+            if theme.starship():           # headings in the panel colours
+                from PySide6.QtGui import QTextCharFormat, QTextCursor
+                block = view.document().begin()
+                while block.isValid():
+                    level = block.blockFormat().headingLevel()
+                    if level:
+                        fmt = QTextCharFormat()
+                        fmt.setForeground(QColor(theme.ORANGE if level <= 2 else theme.LILAC))
+                        cur = QTextCursor(block)
+                        cur.setPosition(block.position())
+                        cur.setPosition(block.position() + block.length() - 1, QTextCursor.KeepAnchor)
+                        cur.mergeCharFormat(fmt)
+                    block = block.next()
         else:
             view.setPlainText(tr("The manual was not found. It is on the project page: %s",
-                                 "https://github.com/machetso/my-smartphone-media-backup"))
+                                 "https://github.com/machetso/my-mobile-media-backup"))
         lay.addWidget(view, 1)
         box = QDialogButtonBox(QDialogButtonBox.Close)
         box.rejected.connect(dlg.reject)
@@ -1257,7 +1356,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                                        "phone joins it directly."))
         self.hotspot_btn.clicked.connect(self._direct_wifi)
         self.app_btn = QPushButton(tr("Set up phone app over Wi-Fi…"))
-        self.app_btn.setToolTip(tr("Phone app 'My Media Backup': backups over Wi-Fi without USB debugging. "
+        self.app_btn.setToolTip(tr("Phone app 'My Mobile Media Backup': backups over Wi-Fi without USB debugging. "
                                    "It may only read photos and videos."))
         self.app_btn.clicked.connect(self._setup_phone_app)
         self.fastest_btn = QPushButton(tr("Find the fastest connection"))
@@ -1470,11 +1569,18 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         row = QHBoxLayout()
         self.restore_set = QComboBox()
         self.restore_set.currentIndexChanged.connect(self._refresh_restore_runs)
-        b = QPushButton(tr("Browse…"))
-        b.clicked.connect(self._browse_restore_set)
+        # not only what is found by itself: any folder, drive, network drive or Google Drive
+        # (user request 2026-11-19)
+        b = QPushButton(tr("Choose…"))
+        menu = QMenu(b)
+        menu.addAction(tr("On a drive or in a folder…"), self._browse_restore_set)
+        menu.addAction(tr("On a network drive (NAS)…"), self._browse_restore_set)
+        for key_, name in CLOUD_SERVICES:
+            menu.addAction(name + "…", lambda k=key_: self._restore_from_cloud(k))
+        b.setMenu(menu)
         row.addWidget(self.restore_set, 1)
         row.addWidget(b)
-        lay.addWidget(_group(tr("Export set on the second storage"), row))
+        lay.addWidget(_group(tr("External backup set"), row))     # user request 2026-11-19
         self.restore_runs = QListWidget()
         lay.addWidget(_group(tr("Restore the state of which export (newest = complete current state)"),
                              self.restore_runs), 1)
@@ -1505,9 +1611,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         box.addButton(no, QMessageBox.RejectRole)
         box.exec()
         if box.clickedButton() is restart and not self.busy and self.close():
-            from PySide6.QtCore import QProcess
-            args = sys.argv[1:] if getattr(sys, "frozen", False) else [os.path.abspath(sys.argv[0]), *sys.argv[1:]]
-            QProcess.startDetached(sys.executable, args)
+            self._restart()
 
     def _build_settings_tab(self):
         w = QWidget()
@@ -1609,7 +1713,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.progress.setRange(0, 1000)
         self.progress.setValue(0)
         self.progress.setTextVisible(False)
-        self.progress_label = QLabel(tr("Ready."))
+        self.progress.hide()                         # only while a job runs
+        self.progress_label = _OnlyWithText()        # no "Ready." (user request 2026-11-19)
+        self.progress_label.setText("")
         self.progress_label.setWordWrap(True)
         self.progress_label.setTextFormat(Qt.RichText)
         self.progress_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
@@ -1620,13 +1726,13 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.log.setReadOnly(True)
         self.log.setMinimumHeight(60)
         row = QHBoxLayout()
-        self.cancel_btn = QPushButton(tr("Cancel"))
+        self.cancel_btn = _OnlyWhenUsable(tr("Cancel"))
         self.cancel_btn.setEnabled(False)
         self.cancel_btn.clicked.connect(self._cancel)
-        self.report_btn = QPushButton(tr("Open report"))
+        self.report_btn = _OnlyWhenUsable(tr("Open report"))
         self.report_btn.setEnabled(False)
         self.report_btn.clicked.connect(lambda: self._open(self.last_report))
-        self.folder_btn = QPushButton(tr("Open backup folder"))
+        self.folder_btn = _OnlyWhenUsable(tr("Open backup folder"))
         self.folder_btn.setEnabled(False)
         self.folder_btn.clicked.connect(lambda: self._open(self.last_folder))
         row.addWidget(self.cancel_btn)
@@ -1635,20 +1741,26 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         row.addStretch()
         lay.setContentsMargins(9, 6, 9, 6)
         lay.addWidget(self.progress)
-        lay.addWidget(self.progress_label)
+        status = QHBoxLayout()
+        self.backup_anim = BackupArrow()          # rising ring on the icon's arrow while a backup runs
+        status.addWidget(self.backup_anim, 0, Qt.AlignTop)
+        status.addWidget(self.progress_label, 1)
+        lay.addLayout(status)
         lay.addLayout(row)
         return w
 
     # ------------------------------------------------------------------ jobs
-    def run_job(self, func, on_done, busy=True, awake=None, log_dir=None):
+    def run_job(self, func, on_done, busy=True, awake=None, log_dir=None, quiet=False):
         """awake = name of a long job ("Backup", ...): the computer is kept from sleeping meanwhile.
         log_dir = the backup folder the job works on: its job log goes into <log_dir>/Logs."""
         if busy:
-            self._set_busy(True)
+            self._set_busy(True, quiet)
         if awake:                       # long job: summary + log file at the end
             self._job = {"name": awake, "t0": time.monotonic(), "started": time.time(), "log_dir": log_dir,
                          "log_from": len(self.log.toPlainText().split("\n")) if self.log.toPlainText() else 0}
             ui.last_transfer = None
+        if awake == N_("Backup"):
+            self.backup_anim.start()
         keep = awake is not None and bool(self.cfg.get("keep_awake", True))
         if keep:
             windows_block_shutdown(self.winId(), True)
@@ -1667,6 +1779,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self.executor.submit(wrapper)
 
     def _on_done(self, on_done, res, err, busy):
+        self.backup_anim.stop()
         if busy:
             self._set_busy(False)
         windows_block_shutdown(self.winId(), False)
@@ -1674,6 +1787,8 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             self.connecting = False
             self._end_conn_steps()                    # never stuck on "wait for it"
             last = err.strip().splitlines()[-1]
+            if last.startswith("phonebackup.sources.MtpStalled: "):   # plain words, no class name
+                last = last.split(": ", 1)[1]
             self._on_log("error", err)
             log = self._save_job_log(tr("stopped with an error")) if getattr(self, "_job", None) else None
             if getattr(self, "_switched_to", None) is not None:
@@ -1697,14 +1812,19 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         if self._close_when_idle and not self.busy:
             self.close()
 
-    def _set_busy(self, busy):
+    def _set_busy(self, busy, quiet=False):
+        """quiet: a short job the status line at the top explains already (connecting the phone):
+        no progress bar and no "Working …" at the bottom (user 2026-11-19)."""
         self.busy = busy
         self.pages.setEnabled(not busy)
         self.cancel_btn.setEnabled(busy)
+        self.progress.setVisible(busy and not quiet)
+        if not busy and self.progress_label.text() == tr("Working …"):
+            self.progress_label.setText("")       # nothing was reported: no "Working …" left behind
         if busy:
             self.cancel_event.clear()
             self.progress.setValue(0)
-            self.progress_label.setText(tr("Working …"))
+            self.progress_label.setText("" if quiet else tr("Working …"))
 
     def _cancel(self):
         self.cancel_event.set()
@@ -1872,10 +1992,10 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             if isinstance(src, AdbSource) and not src.wireless:
                 return "fast", tr("Fast connection established: %s · %s", phone, conn)
             return "slow", tr("Connected (slower connection): %s · %s", phone, conn)
-        if self.connecting:
-            return "possible", tr("Phone found – connecting …")
-        if color == ORANGE:
-            return "possible", tr("Phone found – not connected yet")
+        # not connected is not connected (user 2026-11-20): the headline stays "No phone connected"
+        # while the program connects or the phone needs something – the line below says what
+        if color == ORANGE and not self.connecting:
+            return "possible", tr("No phone connected")
         return "none", tr("No phone connected")
 
     # ------------------------------------------------------------------ start screen
@@ -1888,8 +2008,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         2026-11-17: nothing more – why the button cannot be used yet is in its tooltip)."""
         w = QWidget()
         w.setObjectName("phoneRow")
-        w.setStyleSheet("#phoneRow{border:1px solid palette(mid);border-radius:6px}")
+        w.setStyleSheet(theme.card_css("phoneRow"))
         g = QHBoxLayout(w)
+        theme.bar_margins(g, 9, 9, 9, 9)
         text = QVBoxLayout()
         w.title = QLabel()
         w.title.setStyleSheet("font-size:16px;font-weight:600")
@@ -1897,7 +2018,10 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         w.model = QLabel()
         for x in (w.info, w.model):
             x.setStyleSheet(f"color:{GRAY}")
-        for x in (w.title, w.info, w.model):
+        w.nearby = QLabel()                 # "Nearby – 23 new photos and videos …" (2026-11-20)
+        w.nearby.setStyleSheet(f"color:{GREEN};font-weight:600")
+        w.nearby.hide()
+        for x in (w.title, w.info, w.model, w.nearby):
             text.addWidget(x)
         # outdated phone app → shown right here with an update button (user request 2026-11-17)
         w.app_update = AppUpdateBox()
@@ -1964,9 +2088,10 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     attached = ()
             ok, hint = lastbackup.check(e, connected, attached_labels=attached)
             if not connected:
-                hint += " " + tr("Fastest: open “My Media Backup” on the phone, tap “Allow fast connection (ADB)”"
-                                 " and plug in the USB cable (Wi-Fi: “Open now” in the app).")
-            w.button.setEnabled(ok and not self.busy)
+                hint += " " + tr("Fastest: open “My Mobile Media Backup” on the phone, switch on “Allow backup”"
+                                 " and plug in the USB cable (or over the Wi-Fi).")
+            # clickable also without a drive: the click explains / lets you choose one (user request 2026-11-19)
+            w.button.setEnabled(not self.busy)
             w.button.setToolTip(tr("Same phone, folders and drives as last time – only new photos and "
                                    "videos are copied.") + "\n\n" + hint)
 
@@ -1982,6 +2107,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                 return
             phone, owner = Path(copies[0]).name, Path(copies[0]).parent.name
         dests = backuplist.drives(self.cfg, key, e, copies)
+        dests = self._update_ready(key, e, phone, owner, dests)
+        if dests is None:
+            return
         known = self.cfg.get("destinations", [])
         for d in dests:
             if d not in known:
@@ -1999,6 +2127,58 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         self._load_profile()
         self.dest_list.rebuild()
         self._start_backup(folders_once=folders_once)
+
+    def _update_ready(self, key, e, phone, owner, dests):
+        """Before "Update backup": the right phone connected? A backup drive there? Says what is
+        missing and offers the way out; returns the destinations to use (None = not now)."""
+        connected = self._connected_phone()
+        if not connected and self.source is None:
+            near = self._nearby_for(e) if e is not None else None
+            if near is not None:                 # one click (user request 2026-11-20): no window
+                self._one_click_start(key, near)
+                return None
+        if not connected:
+            box = QMessageBox(QMessageBox.Information, tr("Update backup"),
+                              tr("Connect %s first.", phone), parent=self)
+            conn = box.addButton(tr("Connect phone…"), QMessageBox.AcceptRole)
+            box.addButton(QMessageBox.Cancel)
+            box.exec()
+            if box.clickedButton() is conn:
+                self._connect_phone_dialog()
+            return None
+        if e is not None and not (lastbackup._same_phone(connected, e.get("model"))
+                                  or lastbackup._same_phone(connected, e["phone"])):
+            QMessageBox.information(self, tr("Update backup"), tr(
+                "The connected phone is a %s, the last backup was of a %s – use “New backup” for this "
+                "phone.", connected, e["phone"]))
+            return None
+        try:
+            attached = {d["label"] for d in detect_unmounted()}
+        except Exception:  # noqa: BLE001
+            attached = set()
+        if any(os.path.isdir(d) or lastbackup._label(d) in attached for d in dests):
+            return dests
+        names = ", ".join(lastbackup._short(d) for d in dests) or tr("none")
+        box = QMessageBox(QMessageBox.Question, tr("Update backup"), tr(
+            "No backup drive of this backup is connected (%s).\n\nPlug the drive in and click “Update "
+            "backup” again – or choose another drive or folder for the backup now.", names), parent=self)
+        choose = box.addButton(tr("Choose drive or folder…"), QMessageBox.AcceptRole)
+        box.addButton(QMessageBox.Cancel)
+        box.exec()
+        if box.clickedButton() is not choose:
+            return None
+        p = QFileDialog.getExistingDirectory(self, tr("Back up to which drive or folder?"))
+        if not p:
+            return None
+        base = Path(p)
+        rel = Path(setfolders.rel(phone, owner))
+        if len(base.parts) > len(rel.parts) and Path(*base.parts[-len(rel.parts):]) == rel:
+            base = Path(*base.parts[:-len(rel.parts)])     # the backup folder itself was chosen
+        chosen = str(base)
+        ui.info(tr("Backup destination for %s added: %s", lastbackup.title(e) if e else key, chosen))
+        new = dests + [chosen] if chosen not in dests else dests
+        backuplist.save_profile(self.cfg, key, destinations=new)   # remembered for the next update
+        return [chosen]
 
     # ------------------------------------------------------------------ connection settings
     def _debug_off_changed(self, on):
@@ -2148,7 +2328,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     link = None
                 if state == "outdated":
                     ui.warn(tr("The update restarted the phone app, so its safety countdown for USB "
-                               "debugging starts anew: on the phone tap “Allow fast connection (ADB)” once "
+                               "debugging starts anew: on the phone switch on “Allow backup” once "
                                "more (USB debugging stays on), then start the backup."))
             src.control("companion_open")
             step(tr("starting the phone app"))
@@ -2198,7 +2378,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                    "paired phone. Fast mode with hash check on the phone.",
                    src.manufacturer, src.device_name, src.android), GREEN)
 
-        self.run_job(job, done, busy=True)
+        self.run_job(job, done, busy=True, quiet=True)      # the status line says what happens
 
     def _adb_poller(self):
         """Background: watch `adb devices` so a plugged-in phone is picked up automatically.
@@ -2206,7 +2386,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         Without a phone it also looks every ~10 s for a paired phone with Wireless debugging
         in the same Wi-Fi and connects it.
         """
-        next_wifi = next_app = next_check = next_ble = next_cable = next_switch = 0.0
+        next_wifi = next_app = next_check = next_ble = next_cable = next_switch = next_status = 0.0
         cable_cache = ""
         while not self._stop.is_set():
             now = time.monotonic()
@@ -2223,6 +2403,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     self._hotspot_info = self._hotspot_check()
                 except Exception:  # noqa: BLE001 - only a progress display
                     self._hotspot_info = None
+            if self.source is not None and not self.busy and not self.connecting and now >= next_status:
+                next_status = now + 5             # the connected phone app: counts, "Back up now"
+                self._status_to_phone(self.source)
             if isinstance(self.source, CompanionSource) and not self.busy and now >= next_check:
                 next_check = now + 10
                 if not self.source.is_connected():
@@ -2345,7 +2528,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         text = tr("The phone has joined Direct Wi-Fi (%s). Now on the phone:", info["clients"][0]) + "\n" + tr(
             "• if it asks “Allow wireless debugging on this network?”, tap “Allow” "
             "(tick “Always allow on this network”), or\n"
-            "• open “My Media Backup” and tap “Open now”.")
+            "• open “My Mobile Media Backup” and switch on “Allow backup”.")
         if waited > 30:
             text += "\n" + tr("Still nothing after %d s? Look at the phone's notifications – the question may "
                               "be hidden there.", int(waited))
@@ -2357,10 +2540,8 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             return
         on_cable = adbsetup.detect_usb_phone()
         if on_cable:                  # the phone on the cable comes first - never take another one
-            self._set_phone_status(tr(
-                "%s is on the USB cable, but USB debugging is off. Tap “Allow fast connection (ADB)”"
-                " in the phone app (or switch on USB debugging). Phones in the Wi-Fi are not "
-                "used while a phone is on the cable.", on_cable), ORANGE)
+            self._set_phone_status(tr("A phone is on the USB cable: switch on “Allow backup” in the "
+                                      "phone app."), ORANGE)
             return
         self.connecting = True
         self._set_phone_status(tr("Phone app found – connecting …"), GRAY, searching=True)
@@ -2402,9 +2583,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
 
     def _on_ble_seen(self, entry):
         if self.source is None and not self.busy and not self.connecting:
-            self._set_phone_status(tr("%s found over Bluetooth, but it cannot "
-                                      "be reached over Wi-Fi. Connect it with the USB cable or to the "
-                                      "same Wi-Fi as this computer (Bluetooth is only used to find it).",
+            self._set_phone_status(tr("%s is nearby – connect it with the USB cable.",
                                       entry.get('name') or tr("Your phone")), ORANGE)
 
     def _setup_phone_app(self):
@@ -2415,6 +2594,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         adb, devs, cable = state
         if cable != self._cable_no_debug:
             self._cable_no_debug = cable
+            self._cable_since = time.monotonic()
             self._update_conn_hints()
         if self.busy or self.connecting:
             return
@@ -2484,9 +2664,13 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         itself – the simple way that works on every phone, without app, debugging or network (user
         request 2026-11-10). Slower; a faster connection replaces it as soon as there is one."""
         app = bool(self.cfg.get("companion_phones"))
-        faster = (tr("Faster: open “My Media Backup” on the phone and tap “Allow fast connection (ADB)”.") if app
-                  else tr("Faster later: USB debugging or the phone app (Program settings)."))
         if time.monotonic() < getattr(self, "_mtp_next", 0.0):
+            return
+        # with the phone app the fast cable connection (ADB) usually follows within seconds: wait
+        # for it instead of mounting the file transfer first – that only blocked the fast connection
+        # and showed "Mounting mtp://…" for nothing (user 2026-11-19)
+        if app and time.monotonic() - getattr(self, "_cable_since", 0.0) < 25:
+            self._set_phone_status(tr("%s is on the USB cable – connecting …", cable), GRAY, searching=True)
             return
         self._mtp_next = time.monotonic() + 8
         first = not getattr(self, "_mtp_tried", False)
@@ -2505,10 +2689,12 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                 self._on_connected(src)
                 self._offer_app_by_file_transfer(src)
                 return
-            self._set_phone_status(
-                tr("%s is on the USB cable, but its photos cannot be read yet. On the phone: unlock it, tap "
-                   "the notification “Charging this device via USB” / “File transfer” and choose “File "
-                   "transfer”.", cable) + (f" ({why})" if why else "") + " " + faster, ORANGE)
+            # short (user 2026-11-20: "way too long", the USB device name does not matter); the reason
+            # is in the log
+            if why:
+                ui.info(tr("File transfer not possible yet: %s", why))
+            self._set_phone_status(tr("Unlock the phone and choose “File transfer” in its USB notification."),
+                                   ORANGE)
 
         self.run_job(find_mtp, done, busy=False)
 
@@ -2656,7 +2842,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             tip = QLabel(self._faster_hint_html())
             tip.setWordWrap(True)
             tip.setTextFormat(Qt.RichText)
-            tip.setStyleSheet("QLabel{background:#fff4c2;color:#3a2e00;border-radius:6px;padding:8px}")
+            tip.setStyleSheet(theme.tip_css())
             lay.addWidget(tip)
             how = QPushButton(tr("Show me how (step by step)…"))
             how.clicked.connect(self._show_usb_guide)
@@ -2837,9 +3023,9 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             return
         on_cable = adbsetup.detect_usb_phone()
         ui.info(tr("Connection: %s (%s) – not the fastest.", tr(conn.short), conn.speed_short) + " "
-                + (tr("The %s is on the USB cable: tap “Allow fast connection (ADB)” in the phone "
+                + (tr("The %s is on the USB cable: switch on “Allow backup” in the phone "
                       "app – the program then switches to the cable by itself.", on_cable) if on_cable else
-                   tr("Faster: plug the phone in with a USB cable and tap “Allow fast connection (ADB)” in "
+                   tr("Faster: plug the phone in with a USB cable and switch on “Allow backup” in "
                       "the phone app – the program switches to the cable by itself.")))
 
     def _faster_hint_html(self):
@@ -2851,7 +3037,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     "USB cable with USB debugging is about 2–4× faster than file transfer or Wi-Fi, and every "
                     "file is checked on the phone itself.")) + "<br><br>"
                 + ("<b>" + html.escape(tr("With the phone app (easiest):")) + "</b> " + html.escape(tr(
-                    "plug in the USB cable, open “My Media Backup” on the phone and tap “Allow fast connection (ADB)”"
+                    "plug in the USB cable, open “My Mobile Media Backup” on the phone and switch on “Allow backup”"
                     ". The program switches by itself; USB debugging goes off again after the "
                     "backup.")) + "<br>" if app else "")
                 + "<b>" + html.escape(tr("By hand (once):")) + "</b> " + html.escape(tr(
@@ -2862,8 +3048,8 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
     def _usb_debug_hint(self):
         """How to get from file transfer to the much faster USB debugging."""
         if paired_phones(self.cfg):
-            return tr("Much faster (about 2–4×): USB debugging. On the phone open “My Media Backup” and tap "
-                      "“Allow fast connection (ADB)” – the program then switches by itself.")
+            return tr("Much faster (about 2–4×): USB debugging. On the phone open “My Mobile Media Backup” and switch on "
+                      "“Allow backup” – the program then switches by itself.")
         return tr("Much faster (about 2–4×): USB debugging. Switch it on once in the phone's Developer "
                   "options – “Faster: USB debugging…” shows how, step by step. The program then switches "
                   "by itself.")
@@ -3165,6 +3351,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                 if guards[0]:
                     guards[0].end(switch_off=bool(self.cfg.get("debugging_off_after", True)))
 
+        self._backup_t0 = time.time()        # "since" of the next "how many are new?" question
         self.run_job(job, self._backup_done, awake=N_("Backup"), log_dir=self.last_folder)
 
     def _check_folders(self, src, folders, keep_list=True):
@@ -3257,6 +3444,10 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             box.exec()
             if box.clickedButton() is not yes:
                 return None
+        one_click, self._one_click = getattr(self, "_one_click", False), False
+        if one_click:                        # the click on "Update backup" was the "yes"
+            ui.info(tr("Backup of %s starts – connection: %s.", pid.label, pid.connection))
+            return pid, results
         on_cable = adbsetup.detect_usb_phone() if pid.connection != "usb-adb" else ""
         fastest, advice = phoneid.speed_advice(
             pid, phoneid.usb_speed_mbit() if (pid.connection == "usb-adb" or on_cable) else None,
@@ -3290,7 +3481,8 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         lastbackup.record(self.cfg, phone, owner, folders, dests, len(new),
                           sum(r.sf.size for r in new), status,
                           model=getattr(self.source, "device_name", "") or "",
-                          keep_structure=bool(self.cfg.get("keep_structure", False)))
+                          keep_structure=bool(self.cfg.get("keep_structure", False)),
+                          started=getattr(self, "_backup_t0", None))
         if isinstance(self.source, CompanionSource):     # switch backup mode off on the phone
             src, self.source = self.source, None
             threading.Thread(target=src.finish, daemon=True).start()
@@ -3988,6 +4180,21 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             config.save(self.cfg)
         self._fill_restore_sets(select=p)
 
+    def _restore_from_cloud(self, service):
+        """Restore from a cloud storage: signed in → its backup sets are listed in the box;
+        not signed in → the same sign-in as for "Add to cloud storage"."""
+        if service != "gdrive":
+            return
+        if gdrive.is_configured(self.cfg) and gdrive.signed_in_email():
+            self._gdrive_sets = None
+            self._fill_restore_sets()
+            idx = next((i for i in range(self.restore_set.count())
+                        if str(self.restore_set.itemData(i)).startswith(gdrive_gfs.PREFIX)), -1)
+            if idx >= 0:
+                self.restore_set.setCurrentIndex(idx)
+            return
+        self._add_cloud(service)
+
     def _refresh_restore_runs(self):
         self.restore_runs.clear()
         p = self.restore_set.currentData()
@@ -4288,6 +4495,7 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         src = self.source
         if src is not None:
             self._nearby = []
+            self._nearby_seen = {}
             addr = (getattr(src, "address", None) if isinstance(src, CompanionSource)
                     else getattr(src, "serial", None) if getattr(src, "wireless", False) else None)
             if addr and getattr(self, "_presence_remembered", None) != addr:
@@ -4302,7 +4510,10 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     found = presence.scan(self.cfg)
                 except Exception:  # noqa: BLE001 - only a hint; never disturb the program
                     found = []
-                self._nearby = found
+                self._count_new(found)
+                if not hasattr(self, "_nearby_seen"):
+                    self._nearby_seen = {}
+                self._nearby = presence.keep_seen(self._nearby_seen, found)
                 self._presence_next = time.monotonic() + self.PRESENCE_EVERY
                 self._presence_running = False
             threading.Thread(target=work, daemon=True).start()
@@ -4328,12 +4539,26 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         pend = self._auto_pending
         if pend and time.monotonic() > pend["until"]:
             self._auto_pending = pend = None
+            if pend is None and self.source is None and getattr(self, "_one_click_waiting", None):
+                self._nearby_info = tr("%s did not connect – plug in the USB cable or use “Connect phone…”.",
+                                       self._one_click_waiting)
+            self._one_click_waiting = None
         src = self.source
         if src is not None:
             name = src.device_name or ""
             if pend and lastbackup._same_phone(name, pend["name"]):
                 self._auto_pending = None
-                self._run_auto_backup(name)
+                if pend.get("key"):                 # one click on "Update backup" (2026-11-20)
+                    self._one_click_waiting = None
+                    self._nearby_info = ""
+                    self._one_click = True
+                    try:
+                        self._update_latest(pend["key"])
+                    finally:
+                        if not self.busy:
+                            self._one_click = False
+                else:
+                    self._run_auto_backup(name)
             elif (isinstance(src, AdbSource) and not src.wireless and name in presence.auto_phones(self.cfg)
                     and getattr(self, "_auto_cable_seen", None) != src.serial):
                 self._auto_cable_seen = src.serial          # once per plug-in
@@ -4345,11 +4570,11 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         nearby = list(getattr(self, "_nearby", []) or [])
         for f in nearby:
             if f["how"] == "app":
-                presence.note_auto(self.cfg, f["name"], bool(f.get("auto")))
+                presence.note_auto(self.cfg, f["name"], bool(f.get("self")))
         if pend or getattr(self, "_auto_asking", False):
             return
         for f in nearby:
-            if not (f.get("auto") and f.get("ask") and f.get("entry")):
+            if not (f.get("self") and f.get("ask") and f.get("entry")):     # "Also start by itself"
                 continue
             if not presence.auto_due(self.cfg, f["name"]) or not self._auto_target(f["name"]):
                 continue
@@ -4381,7 +4606,171 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
             if not self.busy:                   # did not start (the log says why)
                 self._auto_mode = False
 
+    # ------------------------------------------------------------------ one click (2026-11-20)
+    def _backup_of(self, name):
+        """(key, entry) of the one backup of phone `name` on the start screen, else None."""
+        hits = [e for e in lastbackup.phones(self.cfg)
+                if lastbackup._same_phone(name, e.get("model")) or lastbackup._same_phone(name, e.get("phone"))]
+        return (backup_parent_name(hits[0]["phone"], hits[0].get("owner", "")), hits[0]) if len(hits) == 1 else None
+
+    def _nearby_for(self, e):
+        """The nearby phone (with the phone app listening) of backup entry `e`, else None."""
+        for f in list(getattr(self, "_nearby", []) or []):
+            if f.get("ask") and f.get("entry") and (lastbackup._same_phone(f["name"], e.get("model"))
+                                                    or lastbackup._same_phone(f["name"], e.get("phone"))):
+                return f
+        return None
+
+    def _count_new(self, found):
+        """Background thread: ask each nearby phone app how many photos and videos are new since
+        the last complete backup (f["new"]: number, or None = not known)."""
+        for f in found:
+            f["new"] = None
+            if not (f.get("ask") and f.get("entry")):
+                continue
+            key, since, folders, ready = self._phone_news(f["name"])
+            try:
+                f["new"] = presence.ask_new(self.cfg, f["entry"], f["ask"], since, folders, ready)
+            except Exception:  # noqa: BLE001 - only a hint
+                f["new"] = None
+            if key and f["new"] is not None:
+                self._new_counts[key] = f["new"]
+
+    def _phone_news(self, name):
+        """What this computer tells phone `name` (one-click backup, 2026-11-20): (backup key or None,
+        since, folders, ready). ready: "" a backup can start, "no_backup", "no_drive", "busy"."""
+        hit = self._backup_of(name)
+        if not hit:                      # no backup yet: everything on the phone is new
+            return None, 0, backuplist.default_folders(self.cfg), "no_backup"
+        key, e = hit
+        folders = backuplist.profile(self.cfg, key).get("folders") or e.get("folders") or []
+        return key, lastbackup.since(e) or 0, folders, self._ready_code(key, e)
+
+    def _ready_code(self, key, e):
+        if self.busy:
+            return "busy"
+        dests = list(e.get("destinations") or []) + list(backuplist.profile(self.cfg, key).get("destinations") or [])
+        if any(os.path.isdir(d) for d in dests):
+            return ""
+        try:                             # plugged in, not mounted yet: the backup mounts it
+            attached = {d["label"] for d in detect_unmounted()}
+        except Exception:  # noqa: BLE001
+            attached = set()
+        return "" if any(lastbackup._label(d) in attached for d in dests) else "no_drive"
+
+    def _status_to_phone(self, src):
+        """Background (poller): tell the connected phone app this computer's news, get its counts
+        and whether "Back up now" was tapped there."""
+        client = (src.client if isinstance(src, CompanionSource)
+                  else getattr(getattr(src, "link", None), "client", None))
+        if client is None:
+            return
+        key, since, folders, ready = self._phone_news(src.device_name or "")
+        try:
+            ans = client.request("POST", "/status", {"s": int(since), "f": folders, "r": ready}) or {}
+        except Exception:  # noqa: BLE001 - older phone app / gone: nothing to show
+            return
+        counts = presence.counts_of(ans)
+        if key and counts is not None:
+            self._new_counts[key] = counts
+        want = ans.get("want") or 0
+        if want and want != self._want_seen:       # once per tap on the phone
+            self._want_seen = want
+            self.bridge.phone_wants.emit()
+
+    def _on_phone_wants(self):
+        """"Back up now" on the phone: the same as one click on "Update backup" here."""
+        src = self.source
+        if src is None or self.busy or self._auto_mode:
+            return
+        hit = self._backup_of(src.device_name or "")
+        if not hit:
+            self._set_phone_status(tr("The phone asks for a backup, but there is no backup of it yet – click "
+                                      "“New backup…”."), ORANGE)
+            return
+        ui.info(tr("“Back up now” was tapped on %s.", src.device_name))
+        self._one_click = True
+        try:
+            self._update_latest(hit[0])
+        finally:
+            if not self.busy:
+                self._one_click = False
+
+    def _one_click_start(self, key, f):
+        """"Update backup" while the phone is only nearby: open backup mode on the phone (no tap
+        when the app allows it, else "Allow backup?" there), wait for the connection – the cable
+        if plugged in (the phone switches USB debugging on), else the phone app's Wi-Fi – then
+        the backup starts by itself (_auto_check)."""
+        name = f["name"]
+        if self._auto_pending or getattr(self, "_auto_asking", False):
+            return
+        self._auto_asking = True
+        self._nearby_info = tr("Opening the phone for the backup …")
+        self._show_nearby()
+
+        def work():
+            try:
+                state = presence.send_ask(self.cfg, f["entry"], f["ask"], auto=True)
+                if state == "not_auto":              # "Ask me" on the phone: one tap there
+                    state = presence.send_ask(self.cfg, f["entry"], f["ask"])
+                wait = 300 if state == "asked" else 120
+                self._one_click_waiting = name
+                self._auto_pending = {"name": name, "until": time.monotonic() + wait, "key": key}
+                self._nearby_info = (tr("Tap “Allow” on %s – the backup then starts by itself.", name)
+                                     if state == "asked" else
+                                     tr("%s is open – the backup starts as soon as it is connected.", name))
+            except Exception as e:  # noqa: BLE001 - short on the screen, the details only in the log
+                ui.warn(tr("%s did not answer: %s", name, e))
+                self._nearby_info = tr("%s did not answer – a VPN on the phone can block it. Plug in the USB "
+                                       "cable or use “Connect phone…”.", name)
+            finally:
+                self._auto_asking = False
+        threading.Thread(target=work, daemon=True).start()
+
+    def _new_text(self, f):
+        return self._counts_text(f.get("new"))
+
+    @staticmethod
+    def _counts_text(counts):
+        """(photos, videos, bytes) → "23 photos and 4 videos (1.5 GB) not backed up yet" (user
+        requests 2026-11-20)."""
+        if not counts:
+            return ""
+        p, v, size = counts
+        if p == 0 and v == 0:
+            return tr("everything is backed up")
+        both = tr("%s and %s", trp("%d photo", "%d photos", p, p), trp("%d video", "%d videos", v, v))
+        if size is not None:
+            both += f" ({ui.short_size(size)})"
+        return tr("%s not backed up yet", both)
+
+    def _fill_phone_rows(self):
+        """Each phone row: "Nearby – 23 photos and 4 videos not backed up yet" (or connected), and
+        "Update backup" grey while one click cannot start the backup (user request 2026-11-20 – a
+        click then says what is missing)."""
+        connected = self._connected_phone()
+        for key, w in getattr(self, "_phone_widgets", {}).items():
+            e = (self.cfg.get("phones") or {}).get(key)
+            if e is None:
+                continue
+            here = bool(connected) and (lastbackup._same_phone(connected, e.get("model"))
+                                        or lastbackup._same_phone(connected, e.get("phone")))
+            g = None if here or self.source is not None else self._nearby_for(e)
+            counts = self._new_counts.get(key) if (here or g is not None) else None
+            news = self._counts_text(counts)
+            text = (tr("Connected") if here else tr("Nearby") if g is not None else "")
+            if text and news:
+                text += " – " + news
+            w.nearby.setText(text)
+            w.nearby.setVisible(bool(text))
+            dests = list(e.get("destinations") or []) + list(backuplist.profile(self.cfg, key).get("destinations") or [])
+            ready = (here or g is not None) and any(os.path.isdir(d) for d in dests) and not self.busy
+            want = _BIG_BUTTON_CSS + ("" if ready else "QPushButton{background:#5a5a5a;color:#c8c8c8}")
+            if w.button.styleSheet() != want:
+                w.button.setStyleSheet(want)
+
     def _show_nearby(self):
+        self._fill_phone_rows()
         found = [] if self.source is not None or self.busy else list(getattr(self, "_nearby", []) or [])
         self.nearby_box.setVisible(bool(found))
         if not found:
@@ -4390,15 +4779,29 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         how = {"app": tr("the phone app waits for a backup request"), "wifi": tr("same Wi-Fi"),
                "bluetooth": tr("found over Bluetooth")}[f["how"]]
         info = getattr(self, "_nearby_info", "")
+        # whose phone (user request 2026-11-19): the owner of the backup of this phone, if it is clear
+        owners = {e.get("owner", "") for e in lastbackup.phones(self.cfg)
+                  if presence._norm(e.get("phone")) == presence._norm(f["name"])} - {""}
+        head = (tr("%s’s %s is nearby (%s).", owners.pop(), f["name"], how) if len(owners) == 1
+                else tr("%s is nearby (%s).", f["name"], how))
+        new = self._new_text(f)
+        if new:
+            head += " " + new[0].upper() + new[1:] + "."
         self.nearby_label.setText(
-            "<b>" + html.escape(tr("%s is nearby (%s).", f["name"], how)) + "</b><br>"
+            "<b>" + html.escape(head) + "</b><br>"
             + html.escape(tr("Recommended: connect the USB cable – fastest and most reliable."))
             + (f"<br><i>{html.escape(info)}</i>" if info else ""))
-        self.nearby_btn.setText(tr("Ask the phone for a backup") if f.get("ask") else tr("Connect over Wi-Fi instead"))
+        self.nearby_btn.setText(tr("Back up now") if f.get("ask") and self._backup_of(f["name"])
+                                else tr("Ask the phone for a backup") if f.get("ask")
+                                else tr("Connect over Wi-Fi instead"))
 
     def _connect_nearby(self):
         found = list(getattr(self, "_nearby", []) or [])
         f = found[0] if found else None
+        hit = self._backup_of(f["name"]) if f and f.get("ask") and f.get("entry") else None
+        if hit:                                  # "Back up now": the same one click as "Update backup"
+            self._update_latest(hit[0])
+            return
         if f and f.get("ask") and f.get("entry"):
             self._nearby_info = tr("Asking the phone …")
             self._show_nearby()
@@ -4409,18 +4812,19 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
                     self._nearby_info = (tr("Backup mode is already on – the backup can start.") if state == "running"
                                          else tr("Request sent – tap “Allow” on the phone."))
                     self._presence_next = time.monotonic() + 15        # look again soon
-                except Exception as e:  # noqa: BLE001
-                    self._nearby_info = tr("The phone did not accept the request (%s) – use the cable or "
-                                           "“Connect phone…”.", e)
+                except Exception as e:  # noqa: BLE001 - short on the screen, the details only in the log
+                    ui.warn(tr("%s did not answer: %s", f["name"], e))
+                    self._nearby_info = tr("%s did not answer – a VPN on the phone can block it. Plug in the "
+                                           "USB cable or use “Connect phone…”.", f["name"])
             threading.Thread(target=work, daemon=True).start()
             return
         QMessageBox.information(self, tr("Connect over Wi-Fi"), tr(
             "The phone must allow the connection once:\n\n"
-            "• Phone app: open “My Media Backup” and tap “Open now”, or\n"
-            "• Wireless debugging: switch it on (quick-settings tile, or “Allow fast connection (ADB)” in the app).\n\n"
+            "• Phone app: open “My Mobile Media Backup” and switch on “Allow backup”, or\n"
+            "• Wireless debugging: switch it on (quick-settings tile, or “Allow backup” in the app).\n\n"
             "The program connects by itself as soon as the phone is ready. Tip: in the phone app, "
             "choose “Ask me” under “When your computer wants a backup” – then the program can ask the "
-            "phone and you only tap “Allow” (or “Start automatically”: no tap at all)."))
+            "phone and you only tap “Allow” (or “Allow without asking”: no tap at all)."))
         self._connect_phone_dialog()
 
     def resizeEvent(self, event):
@@ -4469,6 +4873,27 @@ class MainWindow(BackupsTabMixin, PhoneAppMixin, QMainWindow):
         event.accept()
 
 
+def _apply_theme(app, name):
+    """The look (Starship / Classic) for the whole program - before any window is built."""
+    theme.apply(app, name)
+    if not theme.starship():
+        return
+    from . import gui_backups, gui_setup, gui_wireless
+    theme.recolor(sys.modules[__name__], gui_backups, gui_setup, gui_wireless)
+    StatusBanner.SYMBOL = {GREEN: "●", ORANGE: "▲", RED: "✕", GRAY: "○"}
+    StatusBanner.LEVELS = theme.banner_levels(StatusBanner.LEVELS)
+
+
+class PlainButtonsStyle(QProxyStyle):
+    """Yes / No / OK / Cancel without the desktop theme's round coloured icons – just the words
+    (user request 2026-11-20)."""
+
+    def styleHint(self, hint, option=None, widget=None, data=None):
+        if hint == QStyle.SH_DialogButtonBox_ButtonsHaveIcons:
+            return 0
+        return super().styleHint(hint, option, widget, data)
+
+
 def main():
     app = QApplication.instance() or QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
@@ -4480,7 +4905,8 @@ def main():
             ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(DESKTOP_ID)
         except Exception:  # noqa: BLE001
             pass
-    app.setStyle("Fusion")
+    app.setStyle(PlainButtonsStyle("Fusion"))
+    _apply_theme(app, theme.choice(config.load()))
     if i18n.current().rtl:               # right-to-left interface language
         app.setLayoutDirection(Qt.RightToLeft)
     from . import selfupdate

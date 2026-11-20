@@ -60,6 +60,7 @@ API = "https://www.googleapis.com/drive/v3"
 UPLOAD_API = "https://www.googleapis.com/upload/drive/v3/files"
 FOLDER_MIME = "application/vnd.google-apps.folder"
 SHORTCUT_MIME = "application/vnd.google-apps.shortcut"
+# the program's old name – kept: existing Google Drive backups live in this folder (renamed 2026-11-20)
 ROOT_NAME = "My Smartphone Media Backup"
 REPORTS_FOLDER = "Google Drive export reports"
 CHUNK = 8 * 1024 * 1024            # resumable upload chunk (multiple of 256 KiB)

@@ -1,4 +1,4 @@
-"""The phone app ("My Media Backup" companion): backups without ADB.
+"""The phone app ("My Mobile Media Backup" companion): backups without ADB.
 
 The phone app only has Android's permission to READ photos and videos. It runs a small TLS server
 while "backup mode" is on; this module talks to it:
@@ -59,7 +59,17 @@ def version_code(version):
 # the phone app has the same version as this program (user request 2026-11-17)
 APP_VERSION_NAME = _PROGRAM_VERSION    # versionName of the bundled assets/companion/MediaBackup.apk
 APP_VERSION_CODE = version_code(APP_VERSION_NAME)
-APP_NAME = "My Media Backup"
+APP_NAME = "My Mobile Media Backup"
+# the phone app as a file of every GitHub release (since 0.9.9.0): the "Install the app" QR code
+# downloads it from there – works on any network, also where the phone's browser cannot reach this
+# computer (Android 17 local network permission, user request 2026-11-20)
+APP_RELEASE_FILE = "My-Mobile-Media-Backup-phone-app.apk"   # no short name (user 2026-11-20)
+
+
+def app_download_url(version=None):
+    """Download link of the phone app with this program's version (the same version)."""
+    from .updatecheck import REPO
+    return f"https://github.com/{REPO}/releases/download/v{version or APP_VERSION_NAME}/{APP_RELEASE_FILE}"
 DEFAULT_PORT = 47823
 SETUP_PORT = 47824
 
@@ -125,7 +135,7 @@ def install_question(state, phone, serial, installed_version, apk_size):
         + tr("3. The app is opened on the phone; the first time you pair it with this computer (tap "
              "“Pair” on the phone).") + "\n\n"
         + does + " "
-        + tr("it switches USB debugging on only when you tap “Allow fast connection (ADB)”"
+        + tr("it switches USB debugging on only when you switch on “Allow backup”"
              ", and off again after the backup. While the cable stays plugged in it stays on; "
              "it switches off automatically 5 minutes after the cable is unplugged, 5 minutes after "
              "“Allow” if the cable is never plugged in, and after a restart. It reads photos and "
@@ -772,7 +782,7 @@ class CableLink:
 
 def link_over_cable(adb_source, cfg):
     """Verify the phone on the cable: (CableLink, None) or (None, reason).
-    Needs the phone app in backup mode (it runs after 'Allow fast connection (ADB)')."""
+    Needs the phone app in backup mode (it runs after 'Allow backup')."""
     entries = phones(cfg)
     if not entries:
         return None, tr("no phone paired with the phone app yet")

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Linux: put a start icon for My Smartphone Media Backup on the desktop and in the app menu.
+# Linux: put a start icon for My Mobile Media Backup on the desktop and in the app menu.
 # Run again after moving the project folder.   Remove:  ./install-linux-desktop.sh --remove
 set -e
 DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -28,7 +28,7 @@ cat > "$DATA/applications/$ID.desktop" <<EOF
 [Desktop Entry]
 Type=Application
 Version=1.5
-Name=My Smartphone Media Backup
+Name=My Mobile Media Backup
 GenericName=Phone photo backup
 Comment=Verified backup of photos and videos from an Android phone to external drives
 Exec="$DIR/start-linux.sh"

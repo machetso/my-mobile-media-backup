@@ -95,7 +95,7 @@ def stable_archive(manifest, platform=None):
 
 
 def _fetch(url, limit):
-    req = urllib.request.Request(url, headers={"User-Agent": "my-smartphone-media-backup"})
+    req = urllib.request.Request(url, headers={"User-Agent": "my-mobile-media-backup"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         data = resp.read(limit + 1)
     if len(data) > limit:
@@ -157,7 +157,7 @@ def download_adb(cancel=None, url=None, expect=None):
     try:
         zpath = work / "platform-tools.zip"
         ui.info(tr("Downloading the Android platform-tools from Google:") + f"\n  {url}")
-        req = urllib.request.Request(url, headers={"User-Agent": "my-smartphone-media-backup"})
+        req = urllib.request.Request(url, headers={"User-Agent": "my-mobile-media-backup"})
         digest = hashlib.sha1()           # Google's manifest gives SHA-1 (+ size) – both are checked
         with urllib.request.urlopen(req, timeout=60) as resp, open(zpath, "wb") as out:
             total = int(resp.headers.get("Content-Length") or 0)

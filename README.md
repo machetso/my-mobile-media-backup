@@ -1,429 +1,341 @@
-# My Smartphone Media Backup
+# My Mobile Media Backup
 
-Verified, incremental backup of photos and videos from an Android phone to one or more
-external drives, sorted by year and month, with a report after every run.
-Python 3.8+, runs on Linux and Windows. The graphical interface needs PySide6; the terminal
-version needs no extra packages.
+**Version 0.9.9.0**
 
-## Download
+Backs up the photos and videos of your Android phone to one or more external drives – checked
+file by file, sorted by year and month, with a report after every backup. For Windows and Linux.
 
-Ready-to-run programs for Linux and Windows are on the
-[Releases page](../../releases) - no Python installation needed.
-Windows: download `My-Smartphone-Media-Backup-v….exe` and double-click it (or the `.zip` with
-README and license); Linux: the `.tar.gz`.
-See [CHANGELOG.md](CHANGELOG.md) for what is new.
+## Key features
 
-**Updates:** at start the program looks whether a newer version is out (once a day; can be
-switched off in Settings) and offers **Update now** or **Not now**. *Update now* downloads the new
-version, checks that it is signed with the project's release key, swaps the program and restarts
-it – settings, drives, phones and pairings stay. If the new version does not start, the old one is
-put back automatically. (Started from the source code: update with `git pull` instead.)
+* **One click** – phone and computer show how many photos and videos are not backed up yet (and how
+  big they are); one tap on the phone or one click on the computer updates the backup.
+* **Only new photos and videos are copied** – the second backup takes minutes, not hours.
+* **Every file is checked.** The phone calculates a fingerprint (SHA-256) of each file, the
+  program compares it with what arrived and again with what was written to the drive.
+* **Several drives at the same time** – the phone is read only once.
+* **Sorted automatically** into year and month folders (`2026/26.11`), RAW photos separately.
+* **Nothing is ever deleted** – not on the phone, not in the backup.
+* **Always the fastest connection** – USB cable, Wi-Fi or the computer's own Wi-Fi; the program
+  chooses by itself.
+* **Never the wrong phone** – every backup knows its phone; another phone is refused.
+* **Automatic backups** – when a known phone comes home, the program can back it up by itself.
+* **Second copy** on another drive or on Google Drive, with older states kept
+  (Grandfather-Father-Son), and **restore** with one click.
+* **Old phones and old drives** can be added to a backup or get a backup of their own.
+* A report (text, web page and table) after every backup.
+* In German, English, French, Spanish, Romanian, Hebrew and Klingon.
 
-**Making a release (maintainer):** push the tag → GitHub Actions builds the draft release →
-`python3 tools/sign_release.py sign vX.Y.Z` on the maintainer's computer (adds the signed
-`update-manifest.json`; the private key never goes to GitHub) → publish the release.
+## How it works – in short
 
-## Start from source
+The program copies the photos and videos from your phone to an external drive (for example a USB
+hard disk). Each phone gets its own folder on the drive: *Owner / Phone*, for example
+*Karen / Pixel 10 Pro*. Inside, the photos and videos are sorted into one folder per month.
 
-**Graphical interface** (needs PySide6):
+The program remembers what is already on the drive. Every later backup only adds what is new –
+this is why you can simply press **Update backup** once a week.
 
-```
-./start-linux.sh                   # Linux (uses the project's .venv, PySide6 is already installed there)
-start-windows.pyw                 # Windows: double-click (after: py -m pip install PySide6)
-```
+### Your first backup
 
-**Start screen:** **Your phones** – one entry per backup (e.g. *Sam's Pixel 10 Pro*,
-*Kim's Galaxy A55*) with the date of its last backup and its own **Update backup** button,
-enabled when exactly that phone and one of its drives are connected (same folders and drives,
-only new photos and videos). Backups made before this list existed are found on the connected
-drives. *Select all* / *Remove from list* hide phones (their backups stay on the drives). Below:
-**New backup…** (another phone, or other folders / drives), **Backup settings…** and
-**Manage backups…** (the tabs below).
+1. **Download** the program from the [Releases page](https://github.com/machetso/my-mobile-media-backup/releases)
+   and start it – nothing has to be installed. Windows: the `.exe` file. Linux: the `.tar.gz` file.
+2. **Plug in the external drive.**
+3. **Plug in the phone with its USB cable** and unlock it. If the phone asks what the USB
+   connection is for, choose **File transfer**. The coloured bar at the top shows whether the
+   phone is connected.
+4. Click **New backup…**, enter your name as the **owner** (the phone's name is filled in by
+   itself), check the **phone folders** (the camera folder is already there) and tick the
+   **backup drive**.
+5. Click **Start backup**. The bar at the bottom shows how far it is and how long it takes.
+6. When it is done, **Open report** shows what was copied, **Open backup folder** opens the
+   photos on the drive.
 
-**☰ Menu** (top right of the start screen, there from the very first start): **Language**, **Manual** (this text, in the chosen language), **Program settings…** and **About**.
+### Every next backup
 
-**Backup settings** (subpage):
+Plug in the drive. On the start screen, your phone has its own **Update backup** button – click it.
+Only new photos and videos are copied. With the phone app (see *Tips*) the phone does not even have
+to be plugged in: when it is in the same Wi-Fi, its line says for example *Nearby – 23 photos and
+4 videos (1.5 GB) not backed up yet*, and one click is enough. Or tap **Back up now** on the phone.
 
-* **Phone connection** – the program **always uses the fastest connection it finds**; you do not
-  choose one. The overview shows the speed of each way to connect, the one in use is marked, and
-  the log says whether it is the fastest and what would be faster. If the phone turns up with USB
-  debugging on the cable while it is connected over Wi-Fi, the program switches to the cable by
-  itself. **Find the fastest connection** checks the cable, the Wi-Fi and Bluetooth and shows
-  what is available.
+### Tips
 
-  **Simple view:** only the connection status and, when it helps, a tip below it. A phone without
-  a backup yet: the tip suggests the USB cable with USB debugging (the first backup copies all
-  photos and videos). A phone on the cable without USB debugging, or connected over Wi-Fi / file
-  transfer: the tip says how much faster USB debugging is – *How to switch on USB debugging…*
-  opens the step-by-step guide (see below), *Continue without (slower file transfer)* uses the
-  phone's normal file transfer. Tick **Advanced connection settings** to see the speed overview,
-  all connection buttons and *Switch … off after the backup*.
+* **Faster:** switch on *USB debugging* on the phone once (the program shows you how, step by step,
+  for your phone model). The backup is then two to four times faster.
+* **Without a cable:** install the phone app *My Mobile Media Backup* (*Connect phone…* on the start
+  screen shows a QR code). Then the backup works over Wi-Fi, and phone and computer find each other
+  by themselves.
+* **Two drives** are safer than one: tick both, they are written at the same time.
 
-  | Connection | Speed |
-  |---|---|
-  | USB cable + USB debugging (switched on by the phone app, or by hand) | 45–50 MB/s (USB 3), ~20–30 MB/s (USB 2) |
-  | USB cable, normal file transfer (MTP – only on request) | 10–20 MB/s |
-  | Wi-Fi: phone app or Wireless debugging | 10–40 MB/s, depends on the Wi-Fi |
-  | Wi-Fi directly to this computer (no router) | 10–30 MB/s |
+## Detailed manual
 
-  *Switch on USB debugging (first time)…* is a step-by-step guide: it reads the model of the
-  phone on the cable (works before USB debugging is on), has the steps for Pixel, Samsung,
-  Xiaomi / Redmi / POCO, OnePlus / OPPO / realme, Motorola, Huawei / Honor, Sony and Nothing, and
-  *Search the web for this phone* for any other. Android requires this once by hand – no program
-  can switch USB debugging on before that.
-  **Phone app switches it:** at the first USB-debugging connection the program offers to install
-  the phone app *My Media Backup* and give it the right to switch USB debugging (Android's
-  `WRITE_SECURE_SETTINGS`, granted over the cable – the app cannot get it by itself). From then
-  on: open the app → **Allow fast connection (ADB)** (switches on USB debugging and Wireless
-  debugging) → plug in, or stay in the Wi-Fi. **Enable standard connection** switches ADB off
-  again and opens Android's USB settings, where you choose *File transfer*. After every backup the
-  computer switches USB debugging (or Wireless debugging) off again (*Switch … off after the
-  backup*, on by default). Only debugging is switched off; the Developer options stay.
-  The phone app has the same version number as the program. When the phone app on the phone is
-  older, the start page and *Manage backups → Overview* say so, with an **Update phone app**
-  button (one click while the phone is connected over ADB). Older copies of the phone app are
-  removed automatically.
+### The window
 
-  **Rules for switching debugging off** (the phone app enforces them even if the computer is gone):
-  1. Wi-Fi backups normally run through the phone app with debugging off; Wireless debugging
-     only for phones without the app.
-  2. One connection per backup: over the cable → Wireless debugging is switched off at the start;
-     through the app over Wi-Fi → USB debugging is switched off at the start.
-  3. While the USB cable stays plugged in, debugging stays on; 5 minutes after the cable is
-     unplugged → off (countdown on the phone).
-  4. Cable never plugged in: 5 minutes after *Allow fast connection (ADB)* without a backup
-     start → off.
-  5. Over Wi-Fi the computer says "still here" every 30 s during a backup; nothing for 2 minutes → off.
-  6. Right after the backup the computer switches it off (and ends backup mode on the phone).
+* **Start screen:** the connection status (red = no phone connected, yellow = something to do on
+  the phone, green = connected), **Connect phone…** and **Possible connections**. A known phone in
+  the same Wi-Fi is shown as *nearby*, with **Back up now**. **New backup…** starts a backup of
+  another phone, or with other folders or drives. Below it **Your phones** – one entry per backup
+  with the date of the last backup, how many photos and videos are not backed up yet (when the
+  phone is nearby or connected) and its own **Update backup** button. The button is grey while
+  one click cannot start the backup; a click then says what is missing.
+* **Side bar:** Backup, Manage backups, the gear (program settings), Manual and About. The globe
+  top right changes the language.
+* **Bottom:** progress, speed and remaining time, with **Cancel** (stops after the current file),
+  **Open report** and **Open backup folder**. Every job also writes a log file.
 
-  **Recognising the phone securely:** at pairing the phone app creates a key in the phone's
-  security chip; the computer stores its fingerprint. Model, serial number or names are never
-  trusted – every connection checks that key (TLS with the pinned certificate) before the
-  computer's secret is sent.
-  * **Cable:** while the app runs, the computer reaches it through the cable (`adb forward`) and
-    checks the key – the status then says *verified*. First time: the computer installs the app,
-    opens it and asks to pair over the cable; you tap **Pair** on the phone (no code needed, the
-    cable is the proof).
-  * **Wi-Fi:** the app announces itself anonymously: a random name and a code that changes every
-    10 minutes, which only a paired computer can recognise (HMAC of the pairing secret). Strangers
-    in the same network cannot see which phone it is or follow it.
-  * **Bluetooth (last resort, only to find the phone):** the same changing code plus the phone's
-    Wi-Fi address (encrypted) in a Bluetooth LE signal. If the computer can reach that address it
-    connects over Wi-Fi; otherwise it says so. **No files are ever sent over Bluetooth.**
-    Needs the Python package `bleak` (in requirements.txt) and the phone's "Nearby devices"
-    permission.
-* **Folders on the phone** – **Camera** adds Android's standard camera folder `DCIM/Camera`;
-  *Choose folders…* lists the phone's folders (screenshots `Pictures/Screenshots`, Samsung
-  `DCIM/Screenshots`, WhatsApp `Android/media/com.whatsapp/WhatsApp/Media`, `Movies`, `Download`
-  …) or lets you type one (*Select all* / *Select none*); *Remove*.
-  **Keep the phone's folder structure** (option): files from folders other than the camera
-  folder land in the same folders in the backup, e.g. `Sam/Pixel 10 Pro/Pictures/Screenshots/`;
-  the camera folder is always sorted into year/month folders. Files already backed up stay
-  where they are; identical files are still stored only once.
-* **Backup destinations** – the list of destination drives; long folder names can be scrolled
-  sideways (full name as a tooltip).
-  Tick one or more. *Add drive…* lists the connected external drives, including drives that are
-  attached but not mounted yet (Linux: they are mounted with one click, no password). *Add
-  folder…* opens a folder picker. A ticked drive that is attached but not mounted is mounted
-  automatically when the backup starts. A preview shows exactly where the files will go. The phone
-  is detected automatically as soon as it is plugged in via ADB. The list shows only the drives
-  used before with this phone (and owner), already ticked; a phone without a backup starts with an
-  empty list. *Add drive…* also offers the backup folders used before with other phones.
+### Connecting the phone
 
-**Never the wrong phone.** Every backup folder remembers its phone in `.phonebackup/phone.json`
-(model, the phone's serial number, the phone app's key id; for older backups the program reads
-them from the reports). When you click *Start backup* the connected phone is identified live and
-compared: a different serial number or key → **refused, nothing copied**. If only the model can be
-compared, or the model does not match the backup's name, you have to confirm it. Right before the
-first file the phone is identified a second time (a swapped phone stops the backup). A phone that
-connects never replaces the smartphone name you set, and while a phone is on the USB cable no
-other phone is taken over Wi-Fi. The confirmation shows the connection and, if it is not the
-fastest, how to make it faster (cable + USB debugging; USB 3 cable instead of USB 2).
+The program always uses the **fastest connection it finds**. If the phone turns up on the USB cable
+during a Wi-Fi backup, the backup continues over the cable. **Possible connections** shows every way
+to reach the phone with its speed; **Find the fastest connection** checks the cable, the Wi-Fi and
+Bluetooth.
 
-**Manage backups…** has four tabs:
+| Connection | Speed |
+|---|---|
+| USB cable + USB debugging (switched on by the phone app, or by hand) | 45–50 MB/s (USB 3), about 20–30 MB/s (USB 2) |
+| USB cable, normal file transfer (MTP) | 10–20 MB/s |
+| Wi-Fi: phone app or Wireless debugging | 10–40 MB/s, depends on the Wi-Fi |
+| Wi-Fi directly to this computer (no router) | 10–30 MB/s |
 
-* **Old drive / old phone** – back up the photos and videos of an old hard drive or an old
-  phone like a phone backup. Two ways:
-  * *Add to an existing backup* – adds old backups or any folders (mixed photos, videos, RAW,
-    nested folders, duplicates) to one of your backups.
-  * *New backup (old phone or old drive)* – gets a backup of its own (e.g. “Galaxy S7 - Sam” or
-    “Old drive - Sam”): enter a name and the owner and tick the destination drive(s).
+**USB debugging (ADB).** ADB (Android Debug Bridge) is Google's own USB tool for Android. It is the
+fastest and safest way: the phone itself calculates the fingerprint of every file. Android requires
+switching it on once by hand – no program can do that before:
 
-  Add one or more folders (e.g. the copy of the old phone and of its SD card, or the photo folders
-  of the old drive) and click *Choose folders to import…*: every folder with files is listed with
-  its photos / videos / other files; app data, caches, thumbnails, trash and hidden folders are
-  left out. Tick the folders and choose for each one:
-  * *Sort into year/month folders* – the photos and videos are sorted by date exactly like a phone
-    backup (`2019/19.07`, RAW → `2019/raw/19.07`).
-  * *Keep folder as it is* – the folder is copied 1:1 with its name and path to the top of the
-    backup (e.g. `Urlaub Italien 2019/Tag 1/`). Each folder is imported with its own files, its
-    sub-folders are separate lines – tick them too to keep the whole folder tree.
+1. On the phone: *Settings → About phone* → tap *Build number* 7 times (developer options on).
+2. *Settings → System → Developer options* → switch on **USB debugging**.
+3. Plug in the phone, unlock it and confirm *Allow USB debugging* with **Always allow from this
+   computer**.
 
-  For an old phone the camera folders are suggested for sorting, normal picture/movie/download
-  folders for keeping; messenger and screenshot folders are not pre-ticked. Every file is hashed at
-  the source and verified after writing, identical files are stored only once (also against what is
-  already in the backup), the old folders are only read. Skipped files are listed in the report
-  “Import <name> <date>”. (Imports made before version 0.9.8.3 put kept folders under
-  `Year/other/pictures | movies | other-files/` – they stay there.)
-* **Second storage (export)** – pick the backup, a second drive or **Google Drive** and the export
-  type (*Automatic – Grandfather-Father-Son* by default). Earlier exports are listed; old ones can
-  be cleaned up (only after you confirm). See *Second storage* below.
-* **Restore** – pick the export set (on a drive or on Google Drive), the state and the target
-  folder.
-* **Settings** – adb path (normally empty = found automatically), waiting time, fsync, keep the
-  computer awake. Hover over a setting for an explanation.
+*Switch on USB debugging (first time)…* is a step-by-step guide. It recognises the phone on the
+cable and has the steps for Pixel, Samsung, Xiaomi / Redmi / POCO, OnePlus / OPPO / realme,
+Motorola, Huawei / Honor, Sony and Nothing; for other phones *Search the web for this phone*.
 
-**Why ADB?** ADB (Android Debug Bridge, Google's USB tool for Android) is the fast and safe way:
-about 45–50 MB/s over a USB 3 cable (measured with a Pixel 10 Pro), while MTP - the normal
-"file transfer" mode - typically reaches 10–20 MB/s. With ADB every file is also checked with
-SHA-256 on the phone itself. If ADB does not work the app falls back to MTP and says so.
+The ADB program itself comes from Google and may not be shipped with this program.
+*Program settings → Download ADB…* fetches it directly from Google into the program's own folder –
+one click, no installation, no administrator rights. On Linux the system's `adb` package works too.
 
-**Keep the computer awake:** while a backup, import, export or restore runs, the computer is
-kept from going to standby (on by default, switch off under *Settings*). The power settings
-themselves are not changed – the block ends automatically with the job, even after a crash.
-Linux: standby, idle suspend, closing the lid and a normal shutdown are blocked (logind
-inhibitor), and the desktop's own idle timer is paused (D-Bus `org.freedesktop.ScreenSaver`
-inhibit, like a video player does - needed on COSMIC and other desktops that suspend by
-themselves after inactivity). While a job runs the screen therefore stays on.
-Windows: sleep on inactivity is prevented and Windows asks before shutting down;
-closing the lid and the power button still follow the Windows power settings.
+If ADB does not work, the program says so clearly and uses the phone's normal **file transfer**
+(MTP) instead. On Linux the phone is opened automatically; choose *File transfer* in the phone's USB
+notification. MTP is slower, and the phone cannot calculate fingerprints – the report says so.
 
-**Desktop icon (Linux):** `./install-linux-desktop.sh` puts a start icon on the desktop and in
-the app menu (run it again after moving the folder, `--remove` takes it away again).
-The icons are built from `assets/PhoneBKP_Logo.webp` with `.venv/bin/python tools/make_icons.py`.
+**The phone app *My Mobile Media Backup*.** With the app, backups work over Wi-Fi without USB
+debugging, the app switches the fastest connection on and off for you, and phone and computer show
+what is not backed up yet.
 
-The progress bar, speed, remaining time and the log are at the bottom, with *Cancel* (stops
-after the current file), *Open report* and *Open backup folder*.
+* **Install:** *Connect phone…* shows two QR codes: one connects the app, the other downloads it
+  from the Releases page. Over the USB cable the program can install the app itself; it always
+  **asks first** and says which phone, which version and why.
+* **Backup:** shows how many photos and videos are not backed up yet and how big they are, for
+  example *23 photos and 4 videos (1.5 GB) not backed up yet*. **Back up now** starts the backup:
+  the phone connects, the computer updates the backup by itself. When something is missing (the
+  computer program is not running, the backup drive is not connected, …) the button is grey and a
+  tap says what to do.
+* **Allow backup:** one switch. On = the fastest connection – USB debugging and Wireless debugging
+  where the app may switch them, and the app's own read-only access over the Wi-Fi. Next to it:
+  *Connection established* or *Not connected*; below it how long it stays on. **Disconnect**
+  switches everything off. After every backup the computer switches debugging off again
+  (*Switch … off after the backup*, on by default). The developer options stay on.
+* **When your computer wants a backup:**
+  * **Ask me** (default) – the phone asks *Allow backup?*; nothing starts without your tap.
+  * **Allow without asking** – one click on the computer starts the backup, no tap on the phone.
+    With **Also start by itself**, the newest photos and videos are backed up when the computer
+    finds the phone in the Wi-Fi or you plug in the cable (at most once per hour).
+  * **Never** – the computer cannot ask and does not find the phone nearby.
+* **VPN on the phone:** a VPN that sends everything through the tunnel stops the computer from
+  reaching the app over the Wi-Fi. The app shows a hint: exclude *My Mobile Media Backup* from the
+  VPN, or use the cable.
+* **Same version:** the phone app has the same version number as the program. When it is older,
+  the start screen and *Manage backups → Overview* show **Update phone app**. Older copies of the
+  app are removed automatically.
+* The app can only read photos and videos. The computer asks for every file; the phone answers only
+  the paired computer and never sends anything by itself.
 
-**Terminal version** (no extra packages): `python3 smartphone_media_backup.py --cli`
-or directly `smartphone_media_backup.py backup | export | restore | settings`.
-If PySide6 is missing, `smartphone_media_backup.py` starts the terminal version automatically.
+**When debugging is switched off again** (the phone app does this even if the computer is gone):
 
-## Result on the drive
+1. Wi-Fi backups normally run through the phone app with debugging off; Wireless debugging is only
+   used for phones without the app.
+2. One connection per backup: over the cable, Wireless debugging is switched off at the start;
+   through the app over Wi-Fi, USB debugging is switched off at the start.
+3. While the USB cable is plugged in, debugging stays on; 5 minutes after unplugging it is switched
+   off (countdown on the phone).
+4. Cable never plugged in: off 5 minutes after *Allow backup* if no backup started.
+5. During a Wi-Fi backup the computer says "still here" every 30 seconds; nothing for 2 minutes → off.
+6. Right after the backup the computer switches it off.
 
-```
-PhoneBackups/
-└── Sam/                                     ← one folder per owner
-    └── Pixel 10 Pro/                        ← the backup of this phone
-        ├── Logs/                            ← reports and logs
-        │   └── Backup Pixel 10 Pro Sam 2026-11-02.txt / .html / .csv
-        ├── 2026/
-        │   ├── 26.01/  …  26.12/            (photos + videos of each month)
-        │   ├── raw/26.01/ …  raw/26.12/     (only if RAW/DNG files exist)
-        │   └── other/pictures|movies|other-files/<original folder>/   (only old phone imports)
-        └── .phonebackup/index.sqlite        ← what is already backed up (do not delete)
-```
+**Wi-Fi without the app (Wireless debugging, Android 11 and newer).** Everything works as over the
+cable, including the fingerprints on the phone – only slower.
 
-* Month folder name = year + month: `26.02` is February 2026. Backups made with older versions
-  (`02.February-photos` / `02.February-videos`) are converted before the next backup or export –
-  first the program lists the old month folders and you untick those that should **keep their old
-  name and structure** (they are never changed). The choice applies to every drive and to Google
-  Drive; files are only moved, never deleted. Your own folders and "keep folder structure" folders
-  are never touched.
-* Year and month folders are only created when a file goes into them - no empty folders.
-* Month = capture date from the photo/video metadata → otherwise the filename
-  (`PXL_20261102_…`) → otherwise the file date.
-* Motion photos (`*.MP.jpg`), HEIC, PNG, … count as photos; DNG and other RAW files go to `raw/`.
-* Backup folder = owner / phone (`Sam/Pixel 10 Pro`). Backups made with older versions
-  (`Pixel 10 Pro - Sam`) are moved there automatically; if both exist, they are merged – nothing is
-  overwritten or deleted.
-* Reports (`.txt` / `.html` / `.csv`) and the log of a job that ended without a report go into the
-  `Logs` folder next to the year folders. Reports of older versions are moved there automatically
-  before the next backup, import or export.
+1. Phone: *Settings → System → Developer options → Wireless debugging* → on.
+2. Program: **Pair over Wi-Fi…** → on the phone *Pair device with QR code* and scan the code (or
+   *Pair device with pairing code* and type the 6 digits). Needed only once.
+3. From then on the phone is found whenever Wireless debugging is on and both are in the same Wi-Fi.
+
+**No router? Direct Wi-Fi.** **Direct Wi-Fi…** lets the computer open its own Wi-Fi network (Linux:
+a hotspot, 5 GHz if possible; Windows: opens the *Mobile hotspot* settings). The phone joins it with
+a QR code. Most computers leave the normal Wi-Fi meanwhile; it comes back when Direct Wi-Fi is
+stopped.
+
+**How the phone is recognised securely.** When the app is paired, it creates a key in the phone's
+security chip; the computer stores its fingerprint. Model, serial number or names alone are never
+trusted – every connection checks this key (encrypted connection with the remembered certificate)
+before anything else is sent.
+
+* **Cable:** the computer reaches the app through the cable and checks the key – the status then
+  says *verified*. Pairing over the cable needs no code: you tap **Pair** on the phone.
+* **Wi-Fi:** the app announces itself with a random name and a code that changes every 10 minutes
+  and that only a paired computer can recognise. Others in the same network cannot see which phone
+  it is.
+* **Bluetooth** (only to find the phone): the same changing code plus the phone's Wi-Fi address,
+  encrypted. The computer then connects over Wi-Fi. **No files are ever sent over Bluetooth.**
+  The phone app needs the "Nearby devices" permission for this.
+
+### Phone folders
+
+**Camera** adds Android's camera folder (`DCIM/Camera`). **Choose folders…** lists the phone's
+folders – for example screenshots (`Pictures/Screenshots`, on Samsung `DCIM/Screenshots`), WhatsApp
+pictures, `Movies`, `Download` – or lets you type one.
+
+**Keep the original folder structure** (option): files from folders other than the camera folder
+keep their folders in the backup, for example *Karen / Pixel 10 Pro / Pictures / Screenshots*. The
+camera folder is always sorted into year and month folders.
+
+### Backup drives and backup plans
+
+*Add drive…* lists the connected external drives – also drives that are plugged in but not opened
+yet (Linux: they are opened with one click, no password). *Add folder…* lets you pick any folder. A
+preview shows exactly where the files will go. A phone shows only the drives used before with it,
+already ticked.
+
+Each drive has a **backup plan**:
+
+* **Simple** – one folder that grows; only new photos and videos are added.
+* **Grandfather-Father-Son** – dated backups: a **full** backup every 3 months, a **differential**
+  one every month, **incremental** ones in between. Full and differential backups also contain the
+  earlier files they need, so photos deleted from the phone stay in every full backup.
+
+Both can be mixed, for example *Simple* on one drive and *Grandfather-Father-Son* on the other.
+
+### What is on the drive
+
+* **PhoneBackups** – the folder on the drive
+  * **Karen** – one folder per owner
+    * **Pixel 10 Pro** – the backup of this phone
+      * **Logs** – the reports (`.txt`, `.html`, `.csv`), e.g. *Backup Pixel 10 Pro Karen 2026-11-02*
+      * **2026**
+        * **26.01 … 26.12** – the photos and videos of each month
+        * **raw / 26.01 …** – only if there are RAW / DNG photos
+      * **.phonebackup** – what is already backed up (please do not delete)
+
+* Month folder = year + month: `26.02` is February 2026.
+* Folders are only created when a file goes into them – no empty folders.
+* The month comes from the date the photo or video was taken; otherwise from the file name
+  (`PXL_20261102_…`); otherwise from the file date.
+* Motion photos, HEIC, PNG and so on count as photos; DNG and other RAW files go to `raw`.
+* Same name, different content → the new file is saved as `name_1.jpg`. Identical files are stored
+  only once.
 * A second report on the same day gets the time added to its name.
-* Nothing is ever deleted: not on the phone, not in the backup.
-* Same name but different content → the new file is saved as `name_1.jpg`. Identical content
-  is stored only once.
+* Backups made with older versions (month folders like `02.February-photos`, backup folders like
+  `Pixel 10 Pro - Karen`, reports next to the photos) are converted before the next backup. Before
+  month folders are renamed, the program lists them and you can keep the old names. Files are only
+  moved, never deleted.
 
-## Safety
+### Safety
 
-* **Phone → computer:** with ADB, the phone calculates the SHA-256 itself and it is compared
-  with the received data. With MTP this is not possible, and the report says so.
-* **Computer → drive:** each copy is forced onto the disk, read back and its SHA-256 compared.
-* Files are written as temporary files and only renamed after the check. An interrupted backup
-  never leaves half files; the next run simply continues.
-* Two (or more) drives are written **at the same time**. The phone is read only once.
-* Free space is checked first. If a drive fails or fills up, the backup continues on the
-  other drive and the report shows it in red.
+* **Phone → computer:** with ADB and with the phone app, the phone calculates the fingerprint
+  (SHA-256) of every file and the program compares it with the received data.
+* **Computer → drive:** every copy is written to the disk, read back and its fingerprint compared.
+* Files are written under a temporary name and renamed only after the check. An interrupted backup
+  never leaves half files; the next backup simply continues.
+* Free space is checked first. If a drive fails or fills up, the backup continues on the other
+  drive and the report shows it in red.
+* **Never the wrong phone:** every backup remembers its phone (model, serial number, the phone
+  app's key). Before the backup the connected phone is checked: a different serial number or key →
+  **refused, nothing is copied**. If only the model can be compared, you have to confirm. Right
+  before the first file the phone is checked a second time.
 
-## ADB setup (once). This makes the phone usable in ~2 seconds instead of waiting for MTP
+### Manage backups
 
-**On the phone**
+**Backups** lists all your backups. Pick one to see its tabs:
 
-1. Settings → About phone → tap *Build number* 7× (developer mode on).
-2. Settings → System → Developer options → switch on **USB debugging**.
-3. Connect the phone, unlock it and confirm *Allow USB debugging* with
-   **Always allow from this computer**.
+* **Overview** – the latest backup, which backup drives are complete, the Grandfather-Father-Son
+  backups and backups that did not finish. After every backup the program asks whether it is
+  complete.
+* **Phone folders** – the folders that *Update backup* copies.
+* **Backup drives** – the drives of this backup and their plans.
+* **Import folders** – add old photos to this backup (see below).
+* **Backup history** – every backup with its result and report.
 
-**Linux (Pop!_OS / Ubuntu)**
+**Old phones and old drives.** *New backup of an old phone or drive…* creates a backup of its own
+(for example "Galaxy S7 – Kevin" or "Old drive – Kevin"); *Import folders* adds to an existing backup.
+Add the folders (for example the copy of an old phone and of its SD card) and click *Choose folders
+to import…*: every folder with files is listed with its photos, videos and other files; app data,
+caches, thumbnails, trash and hidden folders are left out. For each folder choose:
 
-```
-sudo apt install adb
-adb devices          # should show your phone as "device"
-```
+* **Sort into year/month folders** – sorted by date exactly like a phone backup.
+* **Keep folder as it is** – copied with its name to the top of the backup (for example
+  *Holiday Italy 2019 / Day 1*). Sub-folders are separate lines – tick them too to keep the whole
+  tree.
 
-**Easiest (Windows and Linux):** *Settings → Download ADB…* fetches Google's official
-platform-tools directly from Google into the app's own folder (Windows:
-`%LOCALAPPDATA%\phonebackup\platform-tools`, Linux: `~/.local/share/phonebackup/platform-tools`)
-and sets the path - no installation, no admin rights. adb is not shipped with the app because
-Google's licence does not allow passing it on.
+Every file is checked like a phone backup, identical files are stored only once, and the old folders
+are only read.
 
-**Windows (by hand)**
+**Secure backups (second copy).** Copies a backup to a second drive or to **Google Drive**. Each copy
+gets its own dated folder.
 
-1. Download *SDK Platform-Tools for Windows* from
-   https://developer.android.com/tools/releases/platform-tools
-2. Unzip it so that the folder `platform-tools` is **next to `smartphone_media_backup.py`** (found automatically),
-   or enter the path to `adb.exe` under *Settings*.
-3. Google Pixel: if the phone isn't found, install the *Google USB Driver*.
+| Type | Copies |
+|---|---|
+| full | everything |
+| differential | everything new since the last **full** copy |
+| incremental | everything new since the **last** copy (any type) |
 
-If ADB doesn't work, the program shows a clear warning and switches to the **MTP fallback**:
+**Automatic – Grandfather-Father-Son** (default) chooses the type: full every 3 months
+(grandfather), differential every month (father), incremental in between (son). It keeps the newest
+4 full, 3 differential and 6 incremental copies and everything they need for a restore. Older ones
+are suggested for removal and deleted **only after you confirm** (*Clean up old exports…*). Every
+copied file is compared with the fingerprint from the backup – a file that was damaged on the first
+drive is reported as a warning.
 
-* Linux: the phone is mounted automatically via gvfs/`gio`. Choose *File transfer* in the
-  phone's USB notification.
-* Windows: needs `py -m pip install pywin32` once. Explorer then copies the files.
-  This is slow, and it was not tested on real hardware during development (see below).
+**Google Drive.** *Add to cloud storage → Google Drive* signs in through the browser. The program
+can only see the files it uploaded itself; the sign-in stays on this computer.
 
-## Phone app (Wi-Fi, no USB debugging)
+* **Copy** – a mirror of the backup in *My Drive / My Smartphone Media Backup*: only new files are
+  uploaded, nothing is deleted or overwritten.
+* **Grandfather-Father-Son** – every photo is stored only **once**; later copies link to it
+  (shortcuts, no extra space). Please do not delete single photos there by hand – every copy that
+  links to them would lose them.
 
-**Set up phone app…** shows a QR code. Scan it with the phone camera: the page (served by this
-computer) offers **1. Download the app** (open the file, tap *Install*) and **2. Connect app**.
-Phone and computer show the same 6-digit code - confirm it **on the phone and on the computer**
-(the phone hands out its key only after your tap there). Done once. Pairing over the USB cable
-works the same way: both screens show a code, tap *Pair* on the phone only if they match.
+Every upload is checked against Google's own fingerprint. Privacy policy:
+<https://machetso.github.io/my-smartphone-media-backup/privacy.html>
 
-Over the cable the program can also install the app itself – it always **asks first** and
-explains which phone, which version, why and exactly what happens; nothing is installed without
-your click.
+**Restore.** Pick the copy (on a drive or on Google Drive), the date and the target folder. The
+program rebuilds one complete folder from the fewest copies needed and checks every file.
 
-For a backup: open *My Media Backup* on the phone → **Open now**. The computer finds it and
-connects; after the backup the phone closes again by itself (also after 5 minutes unused).
+### Program settings
 
-**When your computer wants a backup** (in the phone app):
-* **Ask me** (default) – when the computer finds the phone at home, the phone shows *Allow
-  backup?*; nothing starts without your tap.
-* **Start automatically** – no question: when the computer finds the phone in the Wi-Fi, or you
-  plug in the USB cable, the newest photos and videos are backed up – at most once per hour, over
-  the fastest connection. If you plug in the cable during a Wi-Fi backup, it continues over the
-  cable.
-* **Never** – the computer cannot ask.
+* **Language** (also behind the globe top right) – changes after a restart.
+* **ADB** – found automatically; *Download ADB…* fetches it from Google.
+* **Force data onto the disk before verifying** – safer, slightly slower (on by default).
+* **Keep the computer awake** during backup, import, copy and restore (on by default). The power
+  settings themselves are not changed. Linux: standby, closing the lid and shutting down are blocked
+  while a job runs, and the screen stays on. Windows: sleep is prevented and Windows asks before
+  shutting down; the lid and the power button follow the Windows settings.
+* **Check for a new version at start** – once a day. *Update now* downloads the new version, checks
+  that it is signed by the project, replaces the program and restarts it. Settings, drives, phones
+  and pairings stay. If the new version does not start, the old one is put back automatically.
+* **Known phones** – the paired phones, the phone app version and automatic updates of the app.
 
-A phone that gets the phone app installed again is recognised by its serial number (over the
-cable) and never listed twice under *Known phones*; without a serial number the program asks
-once whether it is the same phone. The app can only read photos and videos; the connection is encrypted (TLS, certificate
-pinned while pairing). The computer **pulls** the files: it asks for every file, the phone only
-answers the paired computer and never sends anything by itself. Same files and paths as over ADB, so existing backups simply continue.
+The settings are stored in `~/.config/phonebackup/config.json` (Windows:
+`%APPDATA%\PhoneBackup\config.json`).
 
-## Backup over Wi-Fi (no cable)
+**Start icon (Linux):** the script *install-linux-desktop.sh* in the program folder puts the program
+into the app menu and on the desktop.
 
-Uses Android's built-in **Wireless debugging** (Android 11+, no app on the phone). Everything
-works as over USB, including the SHA-256 check on the phone; it is only slower (depends on the
-Wi-Fi, typically 10–40 MB/s).
+### Tested with
 
-1. Phone: *Settings → System → Developer options → Wireless debugging* → on (allow it for the
-   network).
-2. App: **Pair over Wi-Fi…** → on the phone tap *Pair device with QR code* and scan the code
-   (or use *Pair device with pairing code* and type the 6 digits). Needed only once.
-3. From then on the phone is found automatically whenever Wireless debugging is on and phone and
-   computer are in the same Wi-Fi. If both USB and Wi-Fi are available, USB is used.
-
-**No router? Direct Wi-Fi:** **Direct Wi-Fi…** lets the computer open its own Wi-Fi network
-(Linux: NetworkManager hotspot, 5 GHz if possible; Windows: opens the *Mobile hotspot*
-settings). The phone joins it (QR code for the camera), and the backup runs directly between
-phone and computer. Most Wi-Fi adapters drop the normal Wi-Fi meanwhile; it returns when the
-direct Wi-Fi is stopped (the app asks when you close it).
-
-Real Wi-Fi Direct (P2P) would need a companion app on the phone; it is planned as a later step.
-
-**Overview and complete backups:** after every backup from the phone the program asks whether
-this backup is complete. *Manage backups → Overview* then shows for each backup: the latest
-backup, which backup drives are complete, the Grandfather-Father-Son backups of the backup, and
-backups that were started but did not finish.
-
-## Backup plan per drive
-
-In the drive list of *New backup* each backup drive has a **Backup plan**:
-
-* **Simple** – one folder that grows, only new photos and videos are added (as shown above).
-* **Grandfather-Father-Son** – dated backups like on a second storage (see below): a **full**
-  backup every 3 months, a **differential** one every month, **incremental** ones in between.
-  A full/differential backup also contains the earlier files it needs (copied on the drive and
-  verified), so photos deleted from the phone stay in every full backup.
-
-Both can be mixed, e.g. *Simple* on one HDD and *Grandfather-Father-Son* on the other. A phone
-folder keeps the plan it was started with.
-
-## Second storage (export)
-
-*Manage backups → Second storage* copies a backup to another drive or to Google Drive. Each export
-gets its own folder:
-
-```
-PhoneBackups-Export/Sam/Pixel 10 Pro/
-├── 2026-11-02_14-30-00_full/            (with the export report in Logs/)
-├── 2026-11-20_09-12-45_incremental/
-├── 2026-12-01_18-03-10_differential/
-└── .phonebackup-export/catalog.sqlite
-```
-
-| Type          | Copies                                             |
-|---------------|----------------------------------------------------|
-| full          | everything                                         |
-| differential  | everything new since the last **full** export      |
-| incremental   | everything new since the **last** export (any type) |
-
-**Automatic – Grandfather-Father-Son** (default) picks the type: full every 3 months
-(grandfather), differential every month (father), incremental in between (son); the app shows
-which one comes next and why. It keeps the newest 4 full, 3 differential and 6 incremental
-exports plus everything they need for a restore; older ones are suggested for removal and deleted
-**only after you confirm** (*Clean up old exports…*).
-
-Every exported file is checked against the SHA-256 recorded at backup time. A file that was
-damaged on the first drive (bit rot) is reported as a WARNING.
-*Restore* rebuilds one complete folder from the shortest chain (full + newest differential +
-incrementals after it) and verifies every file.
-
-### Google Drive
-
-*Add to cloud storage → Google Drive* signs in through the browser. The app may only see the
-files it uploaded itself (Google's `drive.file` right); the sign-in stays on this computer.
-Two export types:
-
-* **Copy** – a mirror of the backup in *My Drive/My Smartphone Media Backup/Phone - Owner*:
-  only new files are uploaded, nothing is deleted or overwritten.
-* **Grandfather-Father-Son** in *Phone - Owner (Grandfather-Father-Son)*: every photo is stored
-  only **once** – full and differential exports link to files already on Google Drive
-  (shortcuts, no extra space; also to the Copy). Cleanup moves files that newer exports still
-  use into them before deleting anything. Restore downloads the files and verifies them. Please
-  do not delete single photos there by hand – every export that links to them would lose them.
-
-Every upload is checked against Google's own SHA-256; free space is checked before the upload.
-Privacy policy: <https://machetso.github.io/my-smartphone-media-backup/privacy.html>
-
-Builds from source need the app's Google key: `python3 tools/set_google_key.py client_secret_….json`
-(writes the git-ignored `phonebackup/_gkey.py`); release builds get it from GitHub secrets.
-
-## Settings
-
-Saved in `~/.config/phonebackup/config.json` (Windows: `%APPDATA%\PhoneBackup\config.json`):
-owner name, phone folders (default `DCIM/Camera`, more can be selected in the program),
-drives, adb path.
-
-## Tests
-
-```
-python3 -m unittest discover tests
-```
-
-## Tested
-
-* Linux (Pop!_OS) with a Google Pixel 10 Pro (Android 17) via ADB over USB 3:
-  1372 files / 20 GB backed up to two external HDDs at the same time and verified, about 24 MB/s.
-* Samsung Galaxy S20 FE over USB (ADB) and over Wi-Fi with the phone app 0.3.3:
-  12.4 MB/s over Wi-Fi, no errors; phone app update over the cable with the install question.
-* Google Drive: Copy and Grandfather-Father-Son with a 20 GB backup (1381 files, about
-  4 MB/s upload), shortcuts, cleanup and restore verified.
-* Not yet tested on real hardware: the MTP fallback (Linux gvfs, Windows Explorer) and Windows in general.
+* Linux (Pop!_OS) with a Google Pixel 10 Pro (Android 17) over USB 3 with ADB: 1372 files / 20 GB
+  to two external drives at the same time, about 24 MB/s.
+* Samsung Galaxy S20 FE over USB (ADB) and over Wi-Fi with the phone app: 12.4 MB/s over Wi-Fi.
+* Google Drive: Copy and Grandfather-Father-Son with a 20 GB backup, cleanup and restore.
+* Not yet tested on real hardware: the file transfer fallback (MTP) and Windows in general.
 
 ## License
 
-MIT – see [LICENSE](LICENSE).
+MIT – see [LICENSE](LICENSE). What is new: [CHANGELOG.md](CHANGELOG.md).

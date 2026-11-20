@@ -1,8 +1,9 @@
-"""My Smartphone Media Backup - verified photo/video backup from Android phones to external drives."""
+"""My Mobile Media Backup - verified photo/video backup from Android phones to external drives."""
 
-APP_NAME = "My Smartphone Media Backup"
+# renamed 2026-11-20 (was "My Smartphone Media Backup"; phone app "My Media Backup")
+APP_NAME = "My Mobile Media Backup"
 
-__version__ = "0.9.8.5"
+__version__ = "0.9.9.0"
 
 
 def _start_language():

@@ -51,6 +51,15 @@ object UsbDebug {
         return b.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0) == BatteryManager.BATTERY_PLUGGED_USB
     }
 
+    /** The cable is plugged in AND the computer uses it for the fast connection (USB configured
+     *  with debugging) – "Connection established" on the screen. */
+    fun connectedOverCable(context: Context): Boolean {
+        val usb = runCatching { context.registerReceiver(null, IntentFilter("android.hardware.usb.action.USB_STATE")) }
+            .getOrNull() ?: return false
+        return usb.getBooleanExtra("connected", false) && usb.getBooleanExtra("configured", false) &&
+            usb.getBooleanExtra("adb", false)
+    }
+
     fun canSwitch(context: Context): Boolean =
         context.checkSelfPermission(PERMISSION) == PackageManager.PERMISSION_GRANTED
 
@@ -201,6 +210,25 @@ object UsbDebug {
             startDeadline = 0L; lastAlive = 0L; channel = ""; text = ""
             cableMode = false; cableSeen = false; unpluggedAt = 0L
             save(context)
+        }
+
+        /** The fast connection in plain words for the screen (user request 2026-11-20: no
+         *  technical terms, a countdown of the time left). "" when it is off. */
+        fun plainStatus(context: Context): String {
+            restore(context)
+            val now = System.currentTimeMillis()
+            fun mmss(ms: Long) = "%d:%02d".format(ms.coerceAtLeast(0) / 60_000, ms.coerceAtLeast(0) / 1000 % 60)
+            if (engaged && cableRule()) {
+                if (cableSeen && unpluggedAt == 0L && cableIn(context))
+                    return tr("Stays on while the cable is plugged in.")
+                if (cableSeen && unpluggedAt != 0L)
+                    return tr("Cable unplugged – switches off in %s.", mmss(unpluggedAt + UNPLUGGED_MS - now))
+            }
+            return when {
+                startDeadline != 0L -> tr("Switches off in %s if no backup starts.", mmss(startDeadline - now))
+                lastAlive != 0L -> tr("Backup running – switches off when it is done.")
+                else -> ""
+            }
         }
 
         /** Every second (and from the alarm). Returns a message when it switched debugging off. */

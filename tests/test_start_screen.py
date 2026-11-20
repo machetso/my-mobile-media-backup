@@ -60,8 +60,8 @@ class SetupGuideTest(unittest.TestCase):
     def test_steps_and_search(self):
         steps = adbsetup.guide_steps(adbsetup.GUIDES["samsung"])
         self.assertTrue(any("Auto Blocker" in s for s in steps))
-        self.assertTrue(any("My Media Backup" in s for s in steps))
-        self.assertFalse(any("My Media Backup" in s
+        self.assertTrue(any("My Mobile Media Backup" in s for s in steps))
+        self.assertFalse(any("My Mobile Media Backup" in s
                              for s in adbsetup.guide_steps(adbsetup.GUIDES["google"], with_app=False)))
         self.assertIn("Pixel+10+Pro", adbsetup.search_url("Pixel 10 Pro"))
 

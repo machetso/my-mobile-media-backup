@@ -43,6 +43,22 @@ def _label(text, rich=True):
     return lab
 
 
+def _qr_column(qr, title, text):
+    """A QR code with a bold title above and a short line below (centred)."""
+    col = QVBoxLayout()
+    head = _label(f"<b>{html.escape(title)}</b>")
+    head.setAlignment(Qt.AlignHCenter)
+    col.addWidget(head)
+    qr.setAlignment(Qt.AlignHCenter)
+    col.addWidget(qr)
+    small = _label(html.escape(text))
+    small.setAlignment(Qt.AlignHCenter)
+    small.setStyleSheet(f"color:{GRAY}")
+    col.addWidget(small)
+    col.addStretch()
+    return col
+
+
 def _status_html(text, color):
     return f"<span style='color:{color};font-weight:600'>{html.escape(text)}</span>"
 
@@ -417,7 +433,7 @@ class PhoneAppDialog(QDialog):
                 "The program connects by itself (slower, but nothing to install).") + "<br><br><b>"
                 + tr("Without a cable – phone app over Wi-Fi:") + "</b>"))
         lay.addWidget(_label(tr(
-            "The phone app <b>My Media Backup</b> backs up without USB debugging or developer options. "
+            "The phone app <b>My Mobile Media Backup</b> backs up without USB debugging or developer options. "
             "It may only <b>read photos and videos</b> – nothing else – and the connection is "
             "encrypted. Phone and computer must be in the same Wi-Fi (or the phone in the computer's "
             "Direct Wi-Fi).")))
@@ -449,6 +465,18 @@ class PhoneAppDialog(QDialog):
         else:
             row.addWidget(_label(_status_html(tr("Could not start: %s", err), RED)))
         lay.addLayout(row)
+        # install from the internet – works where the phone's browser cannot reach this computer
+        # (user request 2026-11-20)
+        net = QHBoxLayout()
+        install = QLabel()
+        pm = qr_pixmap(companion.app_download_url(), scale=4)
+        if pm is not None:
+            install.setPixmap(pm)
+            net.addWidget(install)
+            net.addWidget(_label("<b>" + tr("No app yet: scan to install it") + "</b><br>" + tr(
+                "Downloads the app (version %s) from the internet – then tap “Install”.",
+                companion.APP_VERSION_NAME)), 1)
+            lay.addLayout(net)
         vpn = _label(tr("The phone cannot open the page? Then it is not in the same Wi-Fi as this computer – or a VPN on "
                  "the phone (e.g. Tailscale) sends it elsewhere: switch the VPN off for a moment, or allow "
                  "“local network access” in the VPN app."))
@@ -580,47 +608,33 @@ class ConnectPhoneDialog(QDialog):
             lay.addWidget(bb)
             return
         self.server = wake.ConnectServer(cfg, lambda e, a: self.found.emit((e, a))).start()
-        cable = _label("<b>" + tr("Easiest – USB cable:") + "</b> " + tr(
-            "plug the phone in, unlock it and choose “File transfer” on the phone – the program connects "
-            "by itself. Without a cable:"))
-        lay.addWidget(cable)
+        # simple (user 2026-11-20): cable first, then two QR codes – connect / install the app
+        lay.addWidget(_label("<b>" + tr("Easiest: the USB cable.") + "</b> " + tr(
+            "Plug the phone in and unlock it – the program connects by itself.")))
         row = QHBoxLayout()
         self.qr = QLabel()
         self._show_qr()
-        row.addWidget(self.qr, 0, Qt.AlignTop)
-        right = QVBoxLayout()
-        right.addWidget(_label("<b>" + tr("1. Scan with the phone's camera") + "</b><br>" + tr(
-            "The phone app “My Media Backup” opens, switches backup mode on and connects to this computer "
-            "(same Wi-Fi). Needs the app version %s or newer on the phone.", "0.7.0") + "<br>" + tr(
-            "The phone says the app or the link is not found? Then the app is missing or too old: plug "
-            "the phone in with the USB cable, choose “File transfer” and use Program settings → “Install "
-            "/ update over USB cable…”.")))
-        right.addSpacing(10)
+        row.addLayout(_qr_column(self.qr, tr("App on the phone: scan to connect"),
+                                 tr("Same Wi-Fi as this computer.")), 1)
+        install = QLabel()
+        pm = qr_pixmap(companion.app_download_url(), scale=5)
+        if pm is not None:
+            install.setPixmap(pm)
+        row.addLayout(_qr_column(install, tr("No app yet: scan to install it"),
+                                 tr("Downloads the app (version %s) from the internet – then tap "
+                                    "“Install”.", companion.APP_VERSION_NAME)), 1)
+        lay.addLayout(row)
+        self.status = _label("")
+        lay.addWidget(self.status)
         # Bluetooth ONLY to get the app onto the phone, as a last resort (user 2026-11-10)
-        right.addWidget(_label("<b>" + tr("2. The code does not work (no shared Wi-Fi)?") + "</b><br>"
-                               + tr("Send the phone app over Bluetooth, install it on the phone, then pair it.")))
         self.bt_btn = QPushButton(tr("Send the app over Bluetooth…"))
         self.bt_btn.setToolTip(tr("Last resort: only the app file goes over Bluetooth – never photos or videos."))
         self.bt_btn.clicked.connect(lambda: parent._install_app_bluetooth())
-        right.addWidget(self.bt_btn, 0, Qt.AlignLeft)
-        self.status = _label("")
-        right.addWidget(self.status)
-        right.addStretch()
-        row.addLayout(right, 1)
-        lay.addLayout(row)
-        vpn = _label(tr("The phone cannot open the page? Then it is not in the same Wi-Fi as this computer – or a VPN on "
-                 "the phone (e.g. Tailscale) sends it elsewhere: switch the VPN off for a moment, or allow "
-                 "“local network access” in the VPN app."))
-        vpn.setStyleSheet(f"color:{ORANGE}")
-        lay.addWidget(vpn)
-        tip = _label(tr("Fastest is still the USB cable: the program switches to it by itself when the "
-                        "phone is plugged in."))
-        tip.setStyleSheet(f"color:{GRAY}")
-        lay.addWidget(tip)
         bb = QDialogButtonBox(QDialogButtonBox.Close)
+        bb.addButton(self.bt_btn, QDialogButtonBox.ActionRole)
         bb.rejected.connect(self.reject)
         lay.addWidget(bb)
-        self.resize(720, 420)
+        self.resize(640, 420)
         self.found.connect(lambda _x: self._say(tr("The phone answered – connecting …"), GREEN))
         self.timer = QTimer(self)
         self.timer.timeout.connect(self._tick)
@@ -629,7 +643,7 @@ class ConnectPhoneDialog(QDialog):
     def _show_qr(self):
         # the app link itself, not a web page: Chrome on Android 17 may not reach the computer
         # (local network permission), the phone app may (user test 2026-11-10)
-        pm = qr_pixmap(self.server.link(), scale=5)
+        pm = qr_pixmap(self.server.link(), scale=7)          # short link → big, easy to read squares
         if pm is not None:
             self.qr.setPixmap(pm)
         else:

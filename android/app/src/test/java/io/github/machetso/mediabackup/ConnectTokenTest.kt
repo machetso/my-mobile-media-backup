@@ -8,7 +8,13 @@ class ConnectTokenTest {
     private val secret = "ab".repeat(32)
 
     @Test fun connectToken() =
-        assertEquals("72f512fc3fe80b65", Connect.hmacHex(secret, "fmb-connect:0123456789abcdef:1800000000", 8))
+        assertEquals("3edbd42c", Connect.token(secret, "0123abcd"))
+
+    @Test fun matchFindsTheRightComputer() {
+        val pcs = listOf("A" to "11".repeat(32), "B" to secret)
+        assertEquals("B", Connect.match(pcs, "0123abcd", listOf("00000000", Connect.token(secret, "0123abcd"))))
+        assertEquals(null, Connect.match(pcs, "0123abcd", listOf("00000000")))
+    }
 
     @Test fun hereProof() =
         assertEquals("8b712f5ad5b7178a521ff0a5dc00862e",

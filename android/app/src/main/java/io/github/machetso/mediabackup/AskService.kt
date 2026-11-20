@@ -38,6 +38,15 @@ import kotlin.concurrent.thread
  *              "p": HMAC-SHA256(secret, "fmb-ask:<pc>:<n>:<e>")[:16] as hex}
  *   → 200 {"state": "asked" | "running"}  /  403 for anything not from a paired computer
  *
+ *   POST /new {"pc", "n", "e", "s": <the computer's last complete backup, unix s>,
+ *              "f": [<standard folders, e.g. "DCIM/Camera">], "r": <ready code, see BackupStatus>,
+ *              "p": HMAC-SHA256(secret, "fmb-new:<pc>:<n>:<e>:<s>:<f joined with |>:<r>")[:16] as hex}
+ *   → 200 {"new": <photos+videos added to these folders since s>, "photos", "videos"; -1 = no access}
+ *   "Is a backup needed?" (user request 2026-11-20) – only a number leaves the phone, no names.
+ *
+ * TXT of the announcement: v=2, a=1 "Allow without asking" (a click on the computer opens backup
+ * mode without a tap), s=1 "Also start by itself" (automatic backup). Version 1 had only a=1 (= both).
+ *
  * Same format in phonebackup/presence.py.
  */
 class AskService : Service() {
@@ -46,10 +55,12 @@ class AskService : Service() {
         const val PORT = 47825
         private const val PREFS = "settings"
         private const val KEY = "ask_enabled"
-        private const val KEY_AUTO = "auto_backup"
+        private const val KEY_AUTO = "auto_backup"       // "Allow without asking"
+        private const val KEY_SELF = "auto_self"         // "Also start by itself"
         private const val CHANNEL_ON = "ask_listen"
         private const val CHANNEL_ASK = "ask_request"
         const val ASK_NOTIFICATION = 3
+        const val EXTRA_ASK = "ask_from"             // the app opened from "Allow backup?": who asks
         const val CABLE_NOTIFICATION = 4
         const val PLUG_OUT_MS = 3_000L               // out at least this long = really unplugged
         const val QUIET_AFTER_SWITCH_MS = 15_000L    // ADB on/off re-connects USB: not a new plug-in
@@ -63,11 +74,28 @@ class AskService : Service() {
             if (on) startIfEnabled(ctx) else ctx.stopService(Intent(ctx, AskService::class.java))
         }
 
-        /** "Automatic backup": the computer may start backup mode without the "Allow" tap. */
+        /** "Allow without asking" (user request 2026-11-20, was "Automatic backup"): a paired
+         *  computer may start backup mode without the "Allow" tap – one click on the computer. */
         fun autoEnabled(ctx: Context) = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_AUTO, false)
 
+        /** "Also start by itself": the computer starts a backup on its own when it finds the phone
+         *  (at most once per hour) or the cable is plugged in. Only together with autoEnabled.
+         *  Not saved yet (app before 0.9.9.0): "Automatic backup" meant both – kept. */
+        fun selfEnabled(ctx: Context): Boolean {
+            val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            return autoEnabled(ctx) && p.getBoolean(KEY_SELF, p.getBoolean(KEY_AUTO, false))
+        }
+
+        fun setSelf(ctx: Context, on: Boolean) {
+            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_SELF, on).apply()
+            ctx.stopService(Intent(ctx, AskService::class.java)).also { startIfEnabled(ctx) }   // new TXT
+        }
+
         fun setAuto(ctx: Context, on: Boolean) {
-            ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_AUTO, on).apply()
+            val p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            // chosen now: "Also start by itself" starts unticked (only the old setting keeps it on)
+            if (on && !p.getBoolean(KEY_AUTO, false) && !p.contains(KEY_SELF)) p.edit().putBoolean(KEY_SELF, false).apply()
+            p.edit().putBoolean(KEY_AUTO, on).apply()
             if (on) setEnabled(ctx, true)                  // automatic needs the listener
             else ctx.stopService(Intent(ctx, AskService::class.java)).also { startIfEnabled(ctx) }   // new TXT
         }
@@ -80,6 +108,11 @@ class AskService : Service() {
         /** The proof a paired computer sends (also used by the unit test). */
         fun proof(secret: String, pc: String, nonce: String, expiry: Long, auto: Boolean = false) =
             Connect.hmacHex(secret, "fmb-ask:$pc:$nonce:$expiry" + (if (auto) ":auto" else ""), 16)
+
+        /** Proof of a "what is new?" question (POST /new). */
+        fun newProof(secret: String, pc: String, nonce: String, expiry: Long, since: Long, folders: List<String>,
+                     ready: String = "") =
+            Connect.hmacHex(secret, "fmb-new:$pc:$nonce:$expiry:$since:" + folders.joinToString("|") + ":$ready", 16)
     }
 
     private var socket: ServerSocket? = null
@@ -112,7 +145,7 @@ class AskService : Service() {
     }
 
     private fun cablePluggedIn() {
-        if (!autoEnabled(this) || !UsbDebug.canSwitch(this)) return
+        if (!selfEnabled(this) || !UsbDebug.canSwitch(this)) return
         UsbDebug.Guard.restore(this)
         if (UsbDebug.Guard.engaged) return                 // fast connection is on already
         if (UsbDebug.switchOnAdb(this) != null) return
@@ -183,8 +216,9 @@ class AskService : Service() {
             serviceName = "FMBASK-${Announce.hex(rnd)}"
             serviceType = SERVICE_TYPE
             port = s.localPort
-            setAttribute("v", "1")
-            if (autoEnabled(this@AskService)) setAttribute("a", "1")     // automatic backup allowed
+            setAttribute("v", "2")
+            if (autoEnabled(this@AskService)) setAttribute("a", "1")     // allowed without asking
+            if (selfEnabled(this@AskService)) setAttribute("s", "1")     // also starts by itself
             setAttribute("t", Identity.computers(this@AskService).take(16)
                 .joinToString(".") { Announce.hex(Announce.token(it.secret, w)) })
         }
@@ -217,6 +251,13 @@ class AskService : Service() {
         c.soTimeout = 10_000
         val req = Request.read(BufferedInputStream(c.getInputStream())) ?: return
         val out = c.getOutputStream()
+        if (req.method == "POST" && req.path == "/new") {
+            val n = checkNew(req.body)
+            if (n == null) Response.json(out, 403, "{}", false)
+            else Response.json(out, 200, JSONObject().put("new", if (n.photos < 0) -1 else n.photos + n.videos)
+                .put("photos", n.photos).put("videos", n.videos).put("bytes", n.bytes).toString(), false)
+            return
+        }
         if (req.method != "POST" || req.path != "/ask") { Response.json(out, 404, "{}", false); return }
         val auto = runCatching { JSONObject(String(req.body, Charsets.UTF_8)).optBoolean("auto") }.getOrDefault(false)
         val pc = check(req.body, auto)
@@ -224,10 +265,42 @@ class AskService : Service() {
         val state = when {
             BackupService.server != null -> "running"
             auto && !autoEnabled(this) -> "not_auto"       // no surprise notification
-            auto && startBackupMode() -> "started"
+            auto && startForComputer() -> "started"
             else -> { main.post { ask(pc) }; "asked" }
         }
         Response.json(out, 200, JSONObject().put("state", state).toString(), false)
+    }
+
+    /** One click on the computer / automatic backup: backup mode on without a tap. USB cable
+     *  plugged in (user request 2026-11-20: "if it's connected by cable use it"): USB debugging on
+     *  as well – the computer then backs up over the cable; the guard switches it off again. */
+    private fun startForComputer(): Boolean {
+        if (UsbDebug.cableIn(this) && UsbDebug.canSwitch(this)) {
+            UsbDebug.Guard.restore(this)
+            if (!UsbDebug.Guard.engaged) UsbDebug.switchOnAdb(this)
+        }
+        return startBackupMode()
+    }
+
+    /** "What is new?": (photos, videos) added to the computer's standard folders since its last
+     *  complete backup – (-1, -1) without access – or null (not a valid question of a paired
+     *  computer). The computer's news is kept for the phone's own display (BackupStatus). */
+    private fun checkNew(body: ByteArray): MediaIndex.NewMedia? {
+        val o = runCatching { JSONObject(String(body, Charsets.UTF_8)) }.getOrNull() ?: return null
+        val pcId = o.optString("pc")
+        val nonce = o.optString("n")
+        val expiry = o.optLong("e")
+        val (since, folders, ready) = BackupStatus.fromJson(o) ?: return null
+        val now = System.currentTimeMillis() / 1000
+        if (!Regex("[0-9a-f]{16}").matches(nonce) || expiry < now || expiry > now + MAX_AHEAD_S) return null
+        val pc = Identity.computers(this).firstOrNull { it.id == pcId } ?: return null
+        val mine = newProof(pc.secret, pcId, nonce, expiry, since, folders, ready)
+        if (!MessageDigest.isEqual(mine.toByteArray(), o.optString("p").toByteArray())) return null
+        synchronized(seen) {
+            if (!seen.add(nonce)) return null
+            while (seen.size > 200) seen.remove(seen.first())
+        }
+        return BackupStatus.update(this, pcId, since, folders, ready)
     }
 
     /** Automatic backup: backup mode on without a tap. Android only allows this from the
@@ -265,7 +338,10 @@ class AskService : Service() {
         lastAsk = now
         val allow = PendingIntent.getForegroundService(this, 1, Intent(this, BackupService::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-        val open = PendingIntent.getActivity(this, 2, Intent(this, MainActivity::class.java),
+        // a tap on the notification itself opens the app WITH the question – the "Allow" button of
+        // the notification is hidden while it is collapsed (user 2026-11-19: "I cannot allow a backup")
+        val open = PendingIntent.getActivity(this, 2, Intent(this, MainActivity::class.java)
+            .putExtra(EXTRA_ASK, pc.name).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val n = Notification.Builder(this, CHANNEL_ASK)
             .setSmallIcon(android.R.drawable.stat_sys_upload)

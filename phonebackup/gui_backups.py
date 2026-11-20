@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (QAbstractItemView, QApplication, QButtonGroup, QC
 from . import (APP_NAME, backuplist, companion, completeness, config, generations, history, lastbackup,
                plans, setfolders, ui)
 from .i18n import N_, tr, trp
+from . import theme
 from .importer import CAMERA, OTHER, check_selection, guess_kind, scan_folder
 from .index import backup_totals, describe_totals
 from .locations import detect_drives, find_backups, mount_for_paths_status
@@ -461,7 +462,7 @@ class KnownPhonesBox(QWidget):
         row.addWidget(sel_all)
         row.addWidget(delete)
         row.addStretch()
-        lab = QLabel(tr("Phones paired with this computer (phone app “My Media Backup”). "
+        lab = QLabel(tr("Phones paired with this computer (phone app “My Mobile Media Backup”). "
                         "Select one or more (Ctrl- or Shift-click) to delete them."))
         lab.setWordWrap(True)
         lab.setStyleSheet(f"color:{GRAY}")
@@ -807,7 +808,7 @@ class BackupsTabMixin:
                      f"({esc(tr('connected') if os.path.isdir(t) else tr('not connected'))})</span>")
             rows.append([esc(name) + state, _generations_html(s)])
         if not rows:
-            rows.append([esc(tr("None yet – make one in the tab “Backup backups”."))])
+            rows.append([esc(tr("None yet – make one in the tab “Secure backups”."))])
         table(rows)
 
         # ---- not finished
@@ -1328,10 +1329,9 @@ class AppUpdateBox(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setObjectName("appUpdateBox")
-        self.setStyleSheet("#appUpdateBox{background:#fff4d6;border:1px solid #e0b84a;border-radius:6px}"
-                           "#appUpdateBox QLabel{color:#4a3800}")
+        self.setStyleSheet(theme.notice_css("appUpdateBox"))
         lay = QHBoxLayout(self)
-        lay.setContentsMargins(8, 4, 8, 4)
+        theme.bar_margins(lay, 8, 4, 8, 4)
         self.label = QLabel()
         self.label.setWordWrap(True)
         self.button = QPushButton()
@@ -1358,12 +1358,12 @@ class PhoneAppMixin:
         lay.addWidget(self.versions_label)
         info = QLabel(
             "<b>" + tr("What the phone app does") + "</b><br>"
-            + tr("“My Media Backup” is a small app for the phone. It may only <b>read</b> photos and videos – "
+            + tr("“My Mobile Media Backup” is a small app for the phone. It may only <b>read</b> photos and videos – "
                  "it cannot delete or change anything, reads no other files, contacts or messages, has no "
                  "ads and talks to no server on the internet. It only answers the computer it is paired "
                  "with (encrypted).") + "<br><br><b>" + tr("What you gain") + "</b><ul>"
             + "<li>" + tr("Backups over Wi-Fi – no cable, no USB debugging, no Developer options.") + "</li>"
-            + "<li>" + tr("Fast cable backups: one tap “Allow fast connection (ADB)” switches USB debugging on "
+            + "<li>" + tr("Fast cable backups: “Allow backup” switches USB debugging on "
                           "just for the backup – and off again afterwards.") + "</li>"
             + "<li>" + tr("“Connect phone…”: scan a QR code instead of searching settings.") + "</li>"
             + "<li>" + tr("The phone is recognised by its own key – a backup never lands in the wrong "
@@ -1554,7 +1554,7 @@ class PhoneAppMixin:
         if now:
             name = f"{getattr(src, 'manufacturer', '')} {src.device_name or ''}".strip() or tr("the connected phone")
             lines.append(tr("Phone app on %s: %s", html.escape(name), f"<b>{html.escape(now)}</b>")
-                         + (f" <span style='color:#c76a00'>– {tr('an update is available')}</span>"
+                         + (f" <span style='color:{ORANGE}'>– {tr('an update is available')}</span>"
                             if _older(now, APP_VERSION_NAME) else ""))
         self.versions_label.setText("<br>".join(lines))
         auto = self.cfg.get("companion_auto", [])

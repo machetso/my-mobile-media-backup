@@ -74,7 +74,7 @@ class GuiSmokeTest(unittest.TestCase):
                     self.assertEqual(i18n.stored_choice(w.cfg), "de")
                     self.assertEqual(w.lang_combo.currentData(), "de")
                     self.assertEqual([a.data() for a in w._lang_actions.actions() if a.isChecked()], ["de"])
-                    self.assertIn("# My Smartphone Media Backup", gui.manual_text("de"))
+                    self.assertIn("# My Mobile Media Backup", gui.manual_text("de"))
                     w._show_manual()
                     w._connect_phone_dialog()
                     w._choose_connection()         # opens at once (no waiting for the check)
@@ -82,7 +82,7 @@ class GuiSmokeTest(unittest.TestCase):
                     w._open_program_settings()
                     self.assertIs(w.pages.currentWidget(), w.settings_page)
                     self.assertEqual([w.tabs.tabText(i) for i in range(w.tabs.count())],
-                                     ["Backups", "Backup backups", "Restore"])
+                                     ["Backups", "Secure backups", "Restore"])
                 finally:
                     i18n.use("en")
                     w._stop.set()

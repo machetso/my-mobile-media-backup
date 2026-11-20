@@ -129,7 +129,7 @@ async def _send(address, path, progress, cancel):
 
 
 def send_apk(address, apk, version, progress=None, cancel=None):
-    """Send the bundled phone app (as 'My Media Backup <version>.apk') to a paired device."""
+    """Send the bundled phone app (as 'My Mobile Media Backup <version>.apk') to a paired device."""
     if Path(apk).name != "MediaBackup.apk" or not Path(apk).is_file():
         raise BtSendError("refused: only the bundled phone app is sent")
     with tempfile.TemporaryDirectory() as d:

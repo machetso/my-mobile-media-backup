@@ -1,419 +1,319 @@
-# My Smartphone Media Backup
+# My Mobile Media Backup
 
-HablI' Android mIlloghmey HaStamey je pa' De' jengva' wa' pagh law'Daq polghach nIDlu'bogh, chu'
-neH. DIS jar je lanlu'. Hoch Qu' rIn QIn ghaj.
-Python 3.8+, Linux Windows je Dung Qap. HaSta interface PySide6 poQ; terminal
-Segh ghun latlh poQbe'.
+**Version 0.9.9.0**
 
-## Suq
+Android HablI'lIj mIlloghmey HaStamey je pa' De' jengva' wa' pagh law'Daq pol – Hoch ghItlh
+nIDlu', DIS jar je lanlu', Hoch polghach rInDI' QIn. Windows Linux je vaD.
 
-Linux Windows je vaD ghunmey ghuHpu'bogh
-[Releases page](../../releases) Daq tu'lu' - Python jombe'lu'.
-Windows: `My-Smartphone-Media-Backup-v….exe` yISuq 'ej cha'logh yIHot (pagh `.zip` README
-chaw' je ghajbogh); Linux: `.tar.gz`.
-chu'mey: [CHANGELOG.md](CHANGELOG.md) yIlegh.
+## Dotlhmey potlh
 
-**chu'moH:** taghDI' ghun Segh chu' law' tu'lu''a' nej (jaj Hoch wa'logh; ghuHmeyDaq
-Qempa'laH) 'ej **DaH yIchu'moH** pagh **DaH be'** nob. *DaH yIchu'moH* Segh chu' Suq,
-ghunmoHwI' ngoq Dung ponglu''a' nID, ghun choH 'ej taghqa'
-– ghuHmey, De' jengva'mey, HablI'mey rapmoHghachmey je ratlh. Segh chu' taghbe'chugh, Segh ngo'
-ghaH ta' cheghmoHlu'. (Hal ngoq vo' taghlu'pu'chugh: `git pull` yIlo'.)
+* **wa' Hot** – mIlloghmey HaStamey je polbe'lu'bogh mI' (tIn je) 'agh HablI' De'wI' je; HablI'Daq
+  wa' Hot pagh De'wI'Daq wa' Hot polghach chu'qa'moH.
+* **mIlloghmey HaStamey chu' neH ghItlhqa'lu'** – cha'DIch polghach tupmey neH poQ, repmey poQbe'.
+* **Hoch ghItlh nIDlu'.** Hoch ghItlh ngoq (SHA-256) 'ar HablI', 'ej ghun De' tlhaplu'bogh rap
+  nID, De' jengva'Daq ghItlhlu'bogh rap nIDqa' je.
+* **De' jengva' law' rapDaq poH** – HablI' wa'logh neH laDlu'.
+* **ghaH ta' lanlu'** DIS jar je 'aplo'meyDaq (`2026/26.11`), RAW mIlloghmey latlh Daq.
+* **pagh teqlu' reH** – HablI'Daq pagh, polghachDaq pagh.
+* **reH rarghach nomqu'** – USB tlhegh, Wi-Fi pagh De'wI' Wi-Fi Daj; ghun SoH wIv.
+* **HablI' Qagh pagh reH** – Hoch polghach HablI' Daj Sov; latlh HablI' lajQo'lu'.
+* **ghaH ta' polghach** – HablI' Sovlu'bogh juHDaq cheghDI', ghun SoH pollaH.
+* **cha'DIch ghItlhqa'** latlh De' jengva'Daq pagh Google DriveDaq, Dotlh ngo' pollu'
+  (vav'a'-vav-puqloD), 'ej wa' Hot Dung **cheghmoH**.
+* **HablI'mey ngo' De' jengva'mey ngo' je** polghachDaq chellaH pagh polghach Daj Suq.
+* Hoch polghach rInDI' QIn (ghItlh, web ghItlh, tetlh je).
+* Deutsch, English, Français, Español, Română, עברית, tlhIngan Hol je.
 
-**ghun chu' nobmeH (ghunmoHwI'):** tag yIngeH → GitHub Actions ghun chu' nab chenmoH →
-ghunmoHwI' De'wI'Daq `python3 tools/sign_release.py sign vX.Y.Z` (ponglu'bogh
-`update-manifest.json` chel; ngoq pegh GitHubDaq ngeHlu'be' reH) → ghun chu' yInob.
+## chay' Qap – Qu'meH De'
 
-## Hal ngoq vo' yItagh
+HablI'lIj mIlloghmey HaStamey je pa' De' jengva'Daq (rur USB De' jengva') ghItlhqa' ghun. De'
+jengva'Daq Hoch HablI' 'aplo' Daj Suq: *ghajwI' / HablI'*, rur *Karen / Pixel 10 Pro*. qoDDaq
+Hoch jar wa' 'aplo'Daq mIlloghmey HaStamey je lanlu'.
 
-**HaSta interface** (PySide6 poQ):
+De' jengva'Daq nuq tu'lu' 'e' qaw ghun. polghach veb Hoch chu' neH chel – vaj Hoch Hogh wa'logh
+**polghach yIchu'qa'** DaHotlaH neH.
 
-```
-./start-linux.sh                   # Linux (uses the project's .venv, PySide6 is already installed there)
-start-windows.pyw                 # Windows: double-click (after: py -m pip install PySide6)
-```
+### polghachlIj wa'DIch
 
-**tagh 'agh:** **HablI'mey** – polghach Hoch wa' tetlh Doch (rur *Sam's Pixel 10 Pro*,
-*Kim's Galaxy A55*) polghach Qav jaj 'ej **polghach yIchu'qa'** Hot Daj ghaj;
-HablI' vam 'ej De' jengva' Daj wa' rarlu'DI' neH Qap ('aplo'mey De' jengva'mey je rap,
-mIlloghmey HaStamey chu' neH). tetlh vam ghajbe'DI' polghachmey chenmoHlu'pu'bogh rarlu'bogh
-De' jengva'meyDaq tu'lu'. *Hoch yIwIv* / *tetlhvo' yIteq* HablI'mey So' (polghachmeychaj De' jengva'meyDaq ratlh). bIng:
-**polghach chu'…** (latlh HablI', pagh latlh 'aplo'mey / De' jengva'mey), **polghach ghuHmey…** 'ej
-**polghachmey yIlo'…** (bIngDaq tabmey).
+1. [Releases ghItlh](https://github.com/machetso/my-mobile-media-backup/releases) vo' ghun
+   **yISuq** 'ej yItagh – pagh jomnISbe'. Windows: `.exe` ghItlh. Linux: `.tar.gz` ghItlh.
+2. **pa' De' jengva' yIrar.**
+3. **USB tlhegh Daj Dung HablI' yIrar** 'ej yIpoSmoH. USB rarghach qatlh 'e' tlhobchugh HablI',
+   **File transfer** yIwIv. Dung ngoS SIrgh nguv HablI' rarlu''a' 'agh.
+4. **polghach chu'…** yIHot, **ghajwI'** rur ponglIj yIghItlh (HablI' pong SoH ghItlhlu'),
+   **HablI' 'aplo'mey** yInID (camera 'aplo' tu'lu' ngo') 'ej **polghach De' jengva'** yIwIv.
+5. **polghach yItagh** yIHot. bIng ngoS SIrgh nuq rIn 'ej poH 'ar poQ 'agh.
+6. rInDI', **QIn yIpoSmoH** nuq ghItlhqa'lu' 'agh, **polghach 'aplo' yIpoSmoH** De' jengva'Daq
+   mIlloghmey poSmoH.
 
-**☰ DIr** (tagh HaSta' nIHDaq Dung, wa'DIch taghDaq): **Hol**, **ghojmeH paq** (ghItlhvam, Hol wIvlu'pu'bogh), **ghunmeH mIw…** **De'** je.
+### polghach veb Hoch
 
-**polghach ghuHmey** (ghItlh bIng):
+De' jengva' yIrar. tagh 'echletDaq, HablI'lIj **polghach yIchu'qa'** Hot Daj ghaj – yIHot.
+mIlloghmey HaStamey je chu' neH ghItlhqa'lu'. HablI' ghun lo'lu'chugh (*qeSmey* yIlegh) HablI'
+rarnISbe': Wi-Fi rapDaq ghaHchugh, tetlh Daj ja' rur *Sum – 23 mIllogh 4 HaSta je (1.5 GB)
+polbe'lu' wej*, 'ej wa' Hot yap. pagh HablI'Daq **DaH yIpol** yIHot.
 
-* **HablI' rarghach** – ghun **rarghach nomqu' tu'bogh lo' reH**; rarghach DawIvbe'.
-  Hoch rarmeH mIw Do 'agh, lo'lu'bogh tu'lu', 'ej ghItlh tetlh nomqu''a' 'ej nuq nom law' 'e' ja'.
-  Wi-Fi Dung rarlu'taHvIS HablI' tlheghDaq USB debugging chu'lu'bogh tu'lu'chugh, ghun tlhegh
-  lo' ghaH ta'. **rarghach nomqu' yInej** tlhegh, Wi-Fi, Bluetooth je nID 'ej nuq tu'lu' 'agh.
+### qeSmey
 
-  **nab ngeD:** rarghach Dotlh neH, 'ej QaHchugh bIngDaq qeS. HablI' polghach ghajbe'bogh: USB
-  tlhegh USB debugging je qeS (wa'DIch polghach Hoch mIllogh HaSta je ghItlh). tlheghDaq HablI'
-  USB debugging Hutlhbogh, pagh Wi-Fi / De' noH Dung rarlu'bogh: USB debugging nom law' 'e' qeS
-  ja' – *USB QaghHa'moHwI' chu'meH mIw…* mIw tetlh poSmoH (bIng yIlegh), *Hutlh yItaH (De' noH
-  QIt)* HablI' De' noH motlh lo'. **rar SeHlaw Dun** yIwIv: Do 'agh, Hoch rarghach leQmey, *…
-  polghach pItlhDI' yIchu'Ha'* je.
+* **nom law':** HablI'Daq wa'logh *USB debugging* yIchu' (HablI' SeghlIjvaD Hoch mIw 'agh ghun).
+  vaj polghach cha'logh loSlogh je nom law'.
+* **tlhegh Hutlh:** HablI' ghun *My Mobile Media Backup* yIjom (tagh 'echletDaq *HablI' yIrar…*
+  QR ngoq 'agh). vaj Wi-Fi Dung Qap polghach, 'ej HablI' De'wI' je SoH ja'chuq tu'.
+* **De' jengva' cha'** wa' QaD law': cha' yIwIv, rapDaq poH ghItlhlu'.
 
-  | rarghach | Do |
-  |---|---|
-  | USB tlhegh + USB debugging (HablI' ghun chu', pagh ghop chu'lu') | 45–50 MB/s (USB 3), ~20–30 MB/s (USB 2) |
-  | USB tlhegh, ghItlh vIH motlh (MTP – tlhoblu'DI' neH) | 10–20 MB/s |
-  | Wi-Fi: HablI' ghun pagh Wireless debugging | 10–40 MB/s, Wi-Fi Dotlh lo' |
-  | Wi-Fi De'wI'vamDaq (router ghajbe') | 10–30 MB/s |
+## ghojmeH paq naQ
 
-  *USB debugging yIchu' (wa'DIch)…* Hoch Hergh ghItlh: tlheghDaq HablI' Segh laD
-  (USB debugging chu'be'taHvIS Qap), Pixel, Samsung,
-  Xiaomi / Redmi / POCO, OnePlus / OPPO / realme, Motorola, Huawei / Honor, Sony, Nothing je Hergh ghaj, 'ej
-  latlh HablI'vaD *HablI' vam vaD web yInej*. Android wa'logh ghop poQ – pa' ghun pagh
-  USB debugging chu'laH.
-  **HablI' ghun chu':** USB debugging rarghach wa'DIchDaq ghun
-  HablI' ghun *My Media Backup* jom 'ej USB debugging choHmeH chaw' nob 'e' tlhob (Android
-  `WRITE_SECURE_SETTINGS`, tlhegh Dung nob – ghun Hutlh 'oH SuqlaHbe'). vaj
-  reH: ghun yIpoSmoH → **rarghach nom yIchaw' (ADB)** (USB debugging Wireless debugging je chu')
-  → yIrar, pagh Wi-FiDaq yIratlh. **rarghach motlh yIchu'** ADB Qempa'qa' 'ej Android USB ghuHmey
-  poSmoH; pa' *File transfer* DawIv. Hoch polghach rIn De'wI'
-  USB debugging (pagh Wireless debugging) Qempa'qa' (*polghach rIn 'e' HablI'Daq … yIQempa'*,
-  motlh chu'). debugging neH Qempa'lu'; Developer options ratlh.
-  HablI' ghun mI' ghun mI' rap. HablI'Daq HablI' ghun ngo'chugh, tagh 'agh *polghachmey yIlo' → Hoch
-  bey'* je ja', **HablI' ghun yIchu'moH** leQ je (HablI' ADB Dung rarlu'taHvIS wa'logh yI'uy). HablI' ghun
-  ngo' lutlh Hutlh teqlu'.
+### Qorwagh
 
-  **debugging Qempa'meH chutmey** (De'wI' tu'lu'be'chugh je HablI' ghun chutmey pab):
-  1. Wi-Fi polghachmey motlh HablI' ghun lo' debugging Qempa'lu'taHvIS; Wireless debugging
-     HablI'mey ghun ghajbe'bogh vaD neH.
-  2. polghach Hoch wa' rarghach: tlhegh Dung → tagh DI' Wireless debugging Qempa'lu';
-     ghun Wi-Fi Dung → tagh DI' USB debugging Qempa'lu'.
-  3. USB tlhegh rarlu'taHvIS debugging chu'taH; tlhegh teqlu'DI' 5 rep ret → Qempa' (HablI'Daq poH
-     togh).
-  4. tlhegh rarlu'be' reH: *rarghach nom yIchaw' (ADB)* 5 rep ret polghach tagh'be'chugh → Qempa'.
-  5. Wi-Fi Dung polghach poHvIS 30 lup Hoch De'wI' "naDev jIHtaH" ja'; 2 rep pagh → Qempa'.
-  6. polghach rInDI' De'wI' Qempa' SIbI' (HablI'Daq polmeH Dotlh rInmoH je).
+* **tagh 'echlet:** rarghach Dotlh (Doq = HablI' rarlu'be', SuD = HablI'Daq vay' ta'nIS,
+  SuDqu' = rarlu'), **HablI' yIrar…** **rarghachmey DuHbogh** je. Wi-Fi rapDaq HablI' Sovlu'bogh
+  *Sum* 'oH 'aghlu', **DaH yIpol** je. **polghach chu'…** latlh HablI' polghach tagh, pagh latlh
+  'aplo'mey pagh De' jengva'mey lo'. bIngDaq **HablI'mey** – polghach Hoch wa' Doch, polghach Qav
+  jaj, mIlloghmey HaStamey je polbe'lu'bogh mI' (HablI' Sum pagh rarlu'chugh) 'ej **polghach
+  yIchu'qa'** Hot Daj je. wa' Hot polghach taghlaHbe'taHvIS Hot qIj; yIHotchugh nuq tu'lu'be' ja'.
+* **retlh ngoS:** polghach, polghachmey yIlo', mIr (ghunmeH mIw), ghojmeH paq, De' je. nIH Dung
+  yuQ Hol choH.
+* **bIng:** ghIH, Do, poH ratlhbogh je, **yImev** (ghItlh DaH rInDI' mev), **QIn yIpoSmoH**
+  **polghach 'aplo' yIpoSmoH** je. Hoch Qu' ghItlh tetlh ghItlh je.
 
-  **HablI' QaD ngu'ghach:** rapmoHDI' HablI' ghun HablI' QaD chipDaq ngoq chenmoH;
-  De'wI' ngoq ghIH pol. Segh, mI', pongmey je voqlu'be' reH
-  – Hoch rarghach ngoq nID (TLS, certificate ngaQ) De'wI' pegh
-  ngeHlu'pa'.
-  * **tlhegh:** ghun Qu'taHvIS, De'wI' tlhegh Dung ghoS (`adb forward`) 'ej
-    ngoq nID – vaj Dotlh *nIDlu'* 'agh. wa'DIch: De'wI' ghun jom,
-    poSmoH 'ej tlhegh Dung rapmoH 'e' tlhob; HablI'Daq **yIrapmoH** DaHot (ngoq poQbe',
-    tlhegh 'oH tob).
-  * **Wi-Fi:** ghun pong Sovbe'lu'bogh Dung ja': pong Sumbe' 'ej ngoq Hoch
-    10 rep choHbogh, De'wI' rapmoHlu'bogh neH ngu'laH (rapmoH pegh HMAC). nuvpu' Sovbe'lu'bogh
-    Dup rapDaq nuq HablI' 'oH 'e' leghlaHbe', tlha'laHbe' je.
-  * **Bluetooth (Qav mIw, HablI' nejmeH neH):** ngoq choHbogh rap 'ej HablI'
-    Wi-Fi Daq (So'lu'bogh) Bluetooth LE QIn Dung. De'wI' Daq vam ghoSlaHchugh
-    Wi-Fi Dung rar; ghoSlaHbe'chugh, ja'. **Bluetooth Dung ghItlh ngeHlu'be' reH.**
-    Python ghun `bleak` (requirements.txtDaq) 'ej HablI' "Nearby devices"
-    chaw' poQ.
-* **HablI'Daq 'aplo'mey** – **Camera** Android camera 'aplo' motlh `DCIM/Camera` chel;
-  *'aplo'mey yIwIv…* HablI' 'aplo'mey tetlh 'agh (screenshots `Pictures/Screenshots`, Samsung
-  `DCIM/Screenshots`, WhatsApp `Android/media/com.whatsapp/WhatsApp/Media`, `Movies`, `Download`
-  …) pagh wa' DaghItlhlaH (*Hoch yIwIv* / *pagh yIwIv*); *yIteq*.
-  **HablI' 'aplo' tlhegh pol** (DuH): camera 'aplo' latlh 'aplo'mey vo' ghItlhmey
-  polghachDaq 'aplo'mey rapDaq ratlh, rur `Sam/Pixel 10 Pro/Pictures/Screenshots/`;
-  camera 'aplo' DIS/jar 'aplo'meyDaq lanlu' reH. ghItlhmey polta'pu'bogh
-  Daqchajvo' vIHbe'; ghItlh rap wa'logh neH pollu'.
-* **polghach Daqmey** – Daq De' jengva'mey tetlh; 'aplo' pongmey tIq
-  poS nIH je vIHlaH (pong naQ tooltip 'oH).
-  wa' pagh law' yIwIv. *De' jengva' yIchel…* rarlu'bogh pa' De' jengva'mey tetlh 'agh, De'
-  jengva'mey rarlu'bogh 'ach chu'lu'be'bogh je (Linux: wa' Hot Dung chu'lu', mu'ngoq poQbe').
-  *'aplo' yIchel…* 'aplo' wIvwI' poSmoH. De' jengva' wIvlu'bogh rarlu'bogh 'ach chu'lu'be'bogh
-  polghach taghDI' ghaH ta' chu'lu'. nuqDaq ghItlhmey jaH 'e' lughbe'qu' 'agh. ADB Dung HablI'
-  rarlu'DI' SIbI' ghaH ta' tu'lu'. HablI'vam (ghaH ghajwI' je) lo'pu'bogh De' jengva'mey neH 'agh
-  tetlh, wIvlu'pu'; HablI' polghach ghajbe'bogh tetlh chIm tagh. *De' jengva' yIchel…* latlh
-  HablI'mey lo'pu'bogh polghach 'aplo'mey je nob.
+### HablI' rarghach
 
-**HablI' Qagh pagh reH.** Hoch polghach 'aplo' HablI' Daj qaw `.phonebackup/phone.json`Daq
-(Segh, HablI' mI', HablI' ghun ngoq ID; polghachmey ngo'vaD ghun QInmey vo'
-laD). *polghach yItagh* DaHotDI' HablI' rarlu'bogh DaH ngu'lu' 'ej
-rap nIDlu': mI' pagh ngoq latlh → **lajQo'lu', ghItlhqa'lu'be'**. Segh neH rap nIDlaHchugh,
-pagh Segh polghach pong rapbe'chugh, DaHarqang. ghItlh wa'DIch
-ret HablI' cha'logh ngu'lu' (HablI' choHlu'chugh polghach mev). HablI'
-rarbogh HablI' pong DaghuHmoHbogh choHbe' reH, 'ej HablI' USB tlheghDaq taHvIS latlh
-HablI' Wi-Fi Dung tlhaplu'be'. Harqang 'agh rarghach 'ej, nomqu'be'chugh,
-nom law'moHmeH mIw (tlhegh + USB debugging; USB 2 tlhegh Daq USB 3 tlhegh).
+ghun reH **rarghach nomqu' tu'bogh** lo'. Wi-Fi polghach poHvIS USB tlheghDaq HablI' tu'lu'chugh,
+tlhegh Dung polghach taH. **rarghachmey DuHbogh** HablI' ghoSmeH Hoch mIw Do Daj je 'agh;
+**rarghach nomqu' yInej** tlhegh, Wi-Fi, Bluetooth je nID.
 
-**polghachmey yIlo'…** loS tabmey ghaj:
+| rarghach | Do |
+|---|---|
+| USB tlhegh + USB debugging (HablI' ghun chu', pagh ghop chu'lu') | 45–50 MB/s (USB 3), ~20–30 MB/s (USB 2) |
+| USB tlhegh, ghItlh vIH motlh (MTP) | 10–20 MB/s |
+| Wi-Fi: HablI' ghun pagh Wireless debugging | 10–40 MB/s, Wi-Fi Dotlh |
+| Wi-Fi De'wI'vamDaq (router ghajbe') | 10–30 MB/s |
 
-* **Daq ngo' / ghogh HablI' ngo'** – De' jengva' ngo' pagh HablI' ngo' mIlloghmey HaStamey je
-  HablI' polghach rur yIpol. cha' mIw:
-  * *polghach ghajbogh yIchel* – polghachmey ngo' pagh 'aplo'mey Hoch (mIlloghmey, HaStamey, RAW,
-    'aplo'mey qoDbogh, ghItlh rap) polghachlIj wa'Daq chel.
-  * *qawHaq chu' (ghogh HablI' ngo' pagh Daq ngo')* – polghach Daj Suq (rur “Galaxy S7 - Sam” pagh
-    “Old drive - Sam”): pong ghajwI' je yIghItlh 'ej Daq De' jengva'(mey) yIwIv.
+**USB debugging (ADB).** ADB (Android Debug Bridge) Android vaD Google USB jan Daj 'oH. mIw nomqu'
+QaDqu' je 'oH: Hoch ghItlh ngoq 'ar HablI' Daj. wa'logh ghop chu'nIS Android – vaj neH ghun
+chu'laH:
 
-  'aplo' wa' pagh law' yIchel (rur HablI' ngo' ghItlhqa' 'ej SD card Daj ghItlhqa', pagh De' jengva'
-  ngo' mIllogh 'aplo'mey) 'ej *lIHmeH 'aplo'mey yIwIv…* yIHot: ghItlh ghajbogh Hoch 'aplo' tetlhDaq
-  'agh, mIlloghmey / HaStamey / latlh ghItlhmey je; ghun De', cache, mIllogh mach, veQ, 'aplo'mey
-  So'lu'bogh je Qoylu'. 'aplo'mey yIwIv 'ej Hoch vaD wa' yIwIv:
-  * *DIS/jar qawHaq Daq yIlInmoH* – HablI' polghach rur jaj Dung mIlloghmey HaStamey je lanlu'
-    (`2019/19.07`, RAW → `2019/raw/19.07`).
-  * *qawHaq yIchoHQo'* – 'aplo' 1:1 ghItlhqa'lu', pong He je, polghach Dung Daq
-    (rur `Urlaub Italien 2019/Tag 1/`). Hoch 'aplo' ghItlhmeyDaj neH lIHlu'; 'aplo'mey bIngDaj
-    tetlh latlh – 'aplo' Sor naQ polmeH, chaH je yIwIv.
+1. HablI'Daq: *Settings → About phone* → *Build number* Soch logh yIHot (developer options chu').
+2. *Settings → System → Developer options* → **USB debugging** yIchu'.
+3. HablI' yIrar, yIpoSmoH 'ej *Allow USB debugging* yIHarqang **Always allow from this
+   computer** Dung.
 
-  HablI' ngo'vaD camera 'aplo'mey lanmeH chup, mIllogh/qon/Suq 'aplo'mey motlh polmeH chup;
-  QIn QumwI' 'aplo'mey screenshot 'aplo'mey je wIvlu'be'. Hoch ghItlh Hal Daq hash chenmoHlu' 'ej
-  ghItlhDI' nIDlu', ghItlh rap wa'logh neH pollu' (polghachDaq ghItlh ghajbogh rap nIDlu' je),
-  'aplo'mey ngo' laDlu' neH. ghItlhmey Qoylu'bogh QIn “Import <name> <date>”Daq tetlhlu'.
-  (mI' 0.9.8.3 retlhDaq lIHghachmey 'aplo'mey polbogh `Year/other/pictures | movies | other-files/`
-  bIngDaq lan – pa' ratlh.)
-* **latlh Daq (lel)** – polghach, cha'DIch De' jengva' pagh **Google Drive**, lel
-  Segh je yIwIv (motlh *Automatic – vav'a'-vav-puqloD*). lel ngo' tetlhlu'; ngo'mey
-  teqlaH (DaHarqangDI' neH). bIngDaq *latlh Daq* yIlegh.
-* **cheghmoH** – lel ghom (De' jengva'Daq pagh Google DriveDaq), Dotlh, Daq 'aplo' je
-  yIwIv.
-* **ghuHmey** – adb He (motlh chIm = ghaH ta' tu'lu'), loSmeH poH, fsync,
-  De'wI' yIQotlh. QIjmeH ghuH Dung yIvIH.
+*USB debugging yIchu' (wa'DIch)…* Hoch Hergh ghItlh 'oH. tlheghDaq HablI' Sov 'ej Pixel, Samsung,
+Xiaomi / Redmi / POCO, OnePlus / OPPO / realme, Motorola, Huawei / Honor, Sony, Nothing je mIw ghaj;
+latlh HablI'mey vaD *HablI' vam vaD web yInej*.
 
-**qatlh ADB?** ADB (Android Debug Bridge, Android vaD Google USB jan) mIw nom 'ej QaD 'oH:
-USB 3 tlhegh Dung 45–50 MB/s (Pixel 10 Pro Dung juvlu'), MTP - ghItlh vIH
-motlh - motlh 10–20 MB/s neH. ADB Dung Hoch ghItlh
-HablI'Daq SHA-256 nIDlu' je. ADB Qapbe'chugh ghun MTP lo' 'ej ja'.
+ADB ghun Google vo' jaH 'ej ghun vam ngeHlaHbe'. *ghunmeH mIw → ADB yISuq…* Google vo' ghun
+'aplo' DajDaq SIbI' Suq – wa' Hot, jomghach pagh, admin chaw' pagh. Linux Daq nugh `adb` ngaSwI'
+Qap je.
 
-**De'wI' yIQotlh:** polghach, lIH, lel pagh cheghmoH Qu'taHvIS, De'wI'
-standby 'elbe' (motlh chu'; *ghuHmey*Daq Qempa'laH). HoS ghuHmey
-choHlu'be' – Qu' rInDI' Qotlhghach rIn ghaH ta', ghun Qaw'lu'DI' je.
-Linux: standby, idle suspend, yoD SoQmoH, Qempa' motlh je Qotlhlu' (logind
-inhibitor), 'ej desktop idle poH tlhap mevlu' (D-Bus `org.freedesktop.ScreenSaver`
-inhibit, HaSta ghun rur - COSMIC desktop latlh je vaD poQlu', Qu' pagh poH nI' ret
-Qongbogh). vaj Qu'taHvIS 'agh chu'taH.
-Windows: Qu' pagh poH Qong Qotlhlu' 'ej Qempa'pa' Windows tlhob;
-yoD SoQmoH, HoS Hot je Windows HoS ghuHmey tlha'.
+ADB Qapbe'chugh, ghun QIj 'ej HablI' **ghItlh vIH** motlh (MTP) lo'. Linux Daq HablI' SoH
+poSmoHlu'; HablI' USB QInDaq *File transfer* yIwIv. QIt law' MTP, 'ej ngoqmey 'arlaHbe' HablI' –
+QIn ja'.
 
-**desktop mIllogh (Linux):** `./install-linux-desktop.sh` desktopDaq ghun naQ Daq je
-tagh mIllogh lan ('aplo' DavIHDI' yIta'qa', `--remove` teqqa').
-mIlloghmey `assets/PhoneBKP_Logo.webp` vo' `.venv/bin/python tools/make_icons.py` Dung chenmoHlu'.
+**HablI' ghun *My Mobile Media Backup*.** ghun lo'lu'chugh, USB debugging Hutlh Wi-Fi Dung Qap
+polghachmey, rarghach nomqu' chu' Qempa' je ghun, 'ej polbe'lu'bogh 'agh HablI' De'wI' je.
 
-bIngDaq ta' ghIH, Do, poH ratlhbogh, ghItlh tetlh je, *yImev* (ghItlh DaH rInDI'
-mev), *QIn yIpoSmoH*, *polghach 'aplo' yIpoSmoH* je.
+* **jom:** *HablI' yIrar…* QR ngoq cha' 'agh: wa' ghun rar, latlh Releases ghItlh vo' Suq. USB
+  tlhegh Dung ghun jomlaH ghun Daj; reH **wa'DIch tlhob** 'ej nuq HablI', nuq mI', qatlh je ja'.
+* **polghach:** mIlloghmey HaStamey je polbe'lu'bogh mI' tIn je 'agh, rur *23 mIllogh 4 HaSta
+  je (1.5 GB) polbe'lu' wej*. **DaH yIpol** polghach tagh: HablI' rar, De'wI' SoH polghach
+  chu'qa'moH. vay' tu'lu'be'chugh (De'wI' ghun Qu'be', polghach De' jengva' rarlu'be', …) Hot qIj
+  'ej yIHotchugh nuq Data'nIS ja'.
+* **polghach yIchaw':** wa' leQ. chu' = rarghach nomqu' – USB debugging Wireless debugging je
+  (ghun choHlaHchugh), 'ej Wi-Fi Dung ghun laDlu' neH 'elghach Daj. retlhDaq: *rarghach
+  chenmoHlu'* pagh *rarlu'be'*; bIngDaq poH 'ar chu'taH. **yIrarHa'** Hoch Qempa'. Hoch polghach
+  rInDI' De'wI' debugging Qempa'qa' (*polghach rIn 'e' HablI'Daq … yIQempa'*, motlh chu'). Developer
+  options ratlh.
+* **De'wI'lIj polghach neHDI':**
+  * **HIghel** (motlh) – *polghach Dachaw''a'?* tlhob HablI'; DaHotbe'chugh pagh tagh.
+  * **tlhoblu'be' yIchaw'** – De'wI'Daq wa' Hot polghach tagh, HablI'Daq Hot pagh.
+    **ghaH ta' yItagh je** lo'lu'chugh, Wi-FiDaq HablI' tu'DI' De'wI' pagh tlhegh DararDI',
+    mIlloghmey HaStamey je chu'qu' pollu' (rep Hoch wa'logh law' puS).
+  * **not** – tlhoblaHbe' De'wI' 'ej HablI' Sum tu'be'.
+* **HablI'Daq VPN:** VPN Hoch tunnel Dung ngeHbogh Wi-Fi Dung ghun ghoS 'e' bot. ghun qeS 'agh:
+  VPN vo' *My Mobile Media Backup* yIteq, pagh tlhegh yIlo'.
+* **mI' rap:** HablI' ghun mI' ghun mI' rap. ngo'chugh, tagh 'echletDaq *polghachmey yIlo' → Hoch
+  legh* je **HablI' ghun yIchu'moH** 'agh. HablI' ghun ghItlhqa' ngo' ghaH ta' teqlu'.
+* mIlloghmey HaStamey je laDlaH neH ghun. Hoch ghItlh tlhob De'wI'; De'wI' rapmoHlu'bogh neH jang
+  HablI' 'ej pagh ngeH Daj reH.
 
-**terminal Segh** (ghun latlh poQbe'): `python3 smartphone_media_backup.py --cli`
-pagh SIbI' `smartphone_media_backup.py backup | export | restore | settings`.
-PySide6 tu'lu'be'chugh, `smartphone_media_backup.py` terminal Segh tagh ghaH ta'.
+**debugging Qempa'qa'lu'DI'** (De'wI' tu'lu'be'chugh je HablI' ghun ta'):
 
-## De' jengva'Daq ghotvam
+1. Wi-Fi polghachmey motlh HablI' ghun lo' debugging Qempa'lu'taHvIS; Wireless debugging HablI'mey
+   ghun ghajbe'bogh vaD neH.
+2. polghach Hoch wa' rarghach: tlhegh Dung → tagh DI' Wireless debugging Qempa'lu'; ghun Wi-Fi
+   Dung → tagh DI' USB debugging Qempa'lu'.
+3. USB tlhegh rarlu'taHvIS debugging chu'taH; tlhegh teqlu'DI' 5 tup ret Qempa'lu' (HablI'Daq
+   poH togh).
+4. tlhegh rarlu'be' reH: polghach taghbe'chugh *polghach yIchaw'* 5 tup ret Qempa'.
+5. Wi-Fi polghach poHvIS 30 lup Hoch De'wI' "naDev jIHtaH" ja'; 2 tup pagh → Qempa'.
+6. polghach rInDI' SIbI' De'wI' Qempa'.
 
-```
-PhoneBackups/
-└── Sam/                                     ← one folder per owner
-    └── Pixel 10 Pro/                        ← the backup of this phone
-        ├── Logs/                            ← reports and logs
-        │   └── Backup Pixel 10 Pro Sam 2026-11-02.txt / .html / .csv
-        ├── 2026/
-        │   ├── 26.01/  …  26.12/            (photos + videos of each month)
-        │   ├── raw/26.01/ …  raw/26.12/     (only if RAW/DNG files exist)
-        │   └── other/pictures|movies|other-files/<original folder>/   (only old phone imports)
-        └── .phonebackup/index.sqlite        ← what is already backed up (do not delete)
-```
+**ghun Hutlh Wi-Fi (Wireless debugging, Android 11 chu' law' je).** tlhegh Dung rur Hoch Qap,
+HablI'Daq ngoqmey je – QIt law' neH.
 
-* jar qawHaq pong = DIS + jar: `26.02` 'oH jar cha' DIS 2026. mI' ngo' polghachmey
-  (`02.February-photos` / `02.February-videos`) polghach pagh lel veb retlhDaq mojmoHlu' –
-  wa'DIch jar 'aplo'mey ngo' 'ang ghun, 'ej **pong ngo' mIw ngo' je ratlhnISbogh** 'aplo'mey
-  DawIvHa'moH (not choHlu'). wIvlIj Hoch De' jengva'Daq Google DriveDaq je lo'lu'; ghItlhmey
-  vIHlu' neH, teqlu'be' not. 'aplo'meylIj 'aplo'mey "'aplo' mIw pol" je not Hotlu'.
-* ghItlh 'elDI' neH DIS jar je 'aplo'mey chenmoHlu' - 'aplo' chIm pagh.
-* jar = mIllogh/HaSta metadata mIllogh jaj → pagh ghItlh pong
-  (`PXL_20261102_…`) → pagh ghItlh jaj.
-* Motion photos (`*.MP.jpg`), HEIC, PNG, … mIlloghmey 'oH; DNG RAW ghItlhmey latlh je `raw/`Daq jaH.
-* polghach 'aplo' = ghajwI' / HablI' (`Sam/Pixel 10 Pro`). mI' ngo' polghachmey
-  (`Pixel 10 Pro - Sam`) pa' SoH vIHlu'; cha' tu'lu'chugh, tay'moHlu' – pagh lajlu'be', pagh
-  teqlu'be'.
-* QInmey (`.txt` / `.html` / `.csv`) 'ej Qu' QIn Hutlhbogh rInpu'bogh tetlh `Logs` 'aplo'Daq jaH,
-  DIS 'aplo'mey retlhDaq. mI' ngo' QInmey polghach, lIHghach pagh lel veb retlhDaq pa' SoH vIHlu'.
-* jaj rapDaq cha'DIch QIn pongDaq rep chellu'.
-* pagh teqlu' reH: HablI'Daq pagh, polghachDaq pagh.
-* pong rap 'ach ngaS latlh → ghItlh chu' `name_1.jpg` pollu'. ngaS rap
-  wa'logh neH pollu'.
+1. HablI': *Settings → System → Developer options → Wireless debugging* → chu'.
+2. ghun: **Wi-Fi Dung yIrapmoH…** → HablI'Daq *Pair device with QR code* 'ej ngoq yIlaD (pagh
+   *Pair device with pairing code* 'ej jav mI' yIghItlh). wa'logh neH poQlu'.
+3. vaj Wireless debugging chu'lu'DI' 'ej Wi-Fi rapDaq cha' taHDI' reH HablI' tu'lu'.
 
-## QaD
+**router ghajbe''a'? Wi-Fi De'wI'vamDaq.** **Wi-Fi De'wI'vamDaq…** Wi-Fi De'chal Daj poSmoH
+De'wI' (Linux: hotspot, laHchugh 5 GHz; Windows: *Mobile hotspot* ghuHmey poSmoH). QR ngoq Dung
+muv HablI'. De'wI'mey law' Wi-Fi motlh lonnIS poHvam; Wi-Fi De'wI'vamDaq mevlu'DI' chegh.
 
-* **HablI' → De'wI':** ADB Dung HablI' SHA-256 Hutlh 'ar 'ej De' Hevlu'bogh rap
-  nIDlu'. MTP Dung Qaplaw'be', 'ej QIn ja'.
-* **De'wI' → De' jengva':** Hoch ghItlhqa' jengva'Daq ghItlhlu', laDqa'lu' 'ej SHA-256 nIDlu'.
-* ghItlhmey poH ghItlh ghItlhlu' 'ej nIDDI' neH pongchoHlu'. polghach ghorlu'bogh
-  ghItlh bID lonbe' reH; Qu' veb tlha' neH.
-* cha' (pagh law') De' jengva'mey **rapDaq poH** ghItlhlu'. HablI' wa'logh neH laDlu'.
+**chay' HablI' QaD Sovlu'.** ghun rapmoHlu'DI', HablI' QaD chipDaq ngoq chenmoH; ngoq ghItlh
+pol De'wI'. Segh, mI' pagh pongmey neH voqlu'be' reH – latlh De' ngeHlu'pa' Hoch rarghach ngoq
+vam nID (De' ngoqlu'bogh rarghach, certificate qawlu'bogh je).
+
+* **tlhegh:** tlhegh Dung ghun ghoS De'wI' 'ej ngoq nID – vaj Dotlh *nIDlu'* ja'. tlhegh Dung
+  rapmoHmeH ngoq poQbe': HablI'Daq **yIrapmoH** DaHot.
+* **Wi-Fi:** pong Sovbe'lu'bogh ngoq je Dung ja' ghun; Hoch 10 tup choH ngoq, 'ej De'wI'
+  rapmoHlu'bogh neH SovlaH. Dup rapDaq latlhpu' nuq HablI' 'oH 'e' leghlaHbe'.
+* **Bluetooth** (HablI' nejmeH neH): ngoq choHbogh rap, HablI' Wi-Fi Daq je, ngoqlu'. vaj Wi-Fi
+  Dung rar De'wI'. **Bluetooth Dung ghItlh ngeHlu'be' reH.** vaD "Nearby devices" chaw' poQ HablI'
+  ghun.
+
+### HablI' 'aplo'mey
+
+**Camera** Android camera 'aplo' (`DCIM/Camera`) chel. **'aplo'mey yIwIv…** HablI' 'aplo'mey
+tetlh 'agh – rur screenshots (`Pictures/Screenshots`, Samsung Daq `DCIM/Screenshots`), WhatsApp
+mIlloghmey, `Movies`, `Download` – pagh wa' DaghItlhlaH.
+
+**'aplo' mIw wa'DIch yIpol** (DuH): camera 'aplo' latlh 'aplo'mey vo' ghItlhmey polghachDaq 'aplo'
+Daj pol, rur *Karen / Pixel 10 Pro / Pictures / Screenshots*. reH DIS jar je 'aplo'meyDaq camera
+'aplo' lanlu'.
+
+### polghach De' jengva'mey polghach mIwmey je
+
+*De' jengva' yIchel…* pa' De' jengva'mey rarlu'bogh tetlh 'agh – De' jengva'mey rarlu'bogh 'ach
+poSmoHlu'be'bogh je (Linux: wa' Hot Dung poSmoHlu', mu' pegh poQbe'). *'aplo' yIchel…* 'aplo' Hoch
+DawIvlaH. nuqDaq ghItlhmey jaH 'e' lughqu' 'agh. HablI' wa'DIch lo'lu'pu'bogh De' jengva'mey neH
+'agh, wIvlu'pu' ngo'.
+
+Hoch De' jengva' **polghach mIw** ghaj:
+
+* **Simple** – wa' 'aplo' tIn; mIlloghmey HaStamey je chu' neH chellu'.
+* **vav'a'-vav-puqloD** – polghachmey jaj ghajbogh: Hoch wej jar **full** polghach, Hoch jar
+  **differential** polghach, joj **incremental** polghachmey. full differential je polghachmey ghItlh
+  ngo' poQbogh ghaj je, vaj mIlloghmey HablI'vo' teqlu'bogh Hoch full polghachDaq ratlh.
+
+cha' lIngchoHlaH, rur wa' De' jengva'Daq *Simple* 'ej latlhDaq *vav'a'-vav-puqloD*.
+
+### De' jengva'Daq nuq tu'lu'
+
+* **PhoneBackups** – De' jengva'Daq 'aplo'
+  * **Karen** – Hoch ghajwI' wa' 'aplo'
+    * **Pixel 10 Pro** – HablI' vam polghach
+      * **Logs** – QInmey (`.txt`, `.html`, `.csv`), rur *Backup Pixel 10 Pro Karen 2026-11-02*
+      * **2026**
+        * **26.01 … 26.12** – Hoch jar mIlloghmey HaStamey je
+        * **raw / 26.01 …** – RAW / DNG mIlloghmey tu'lu'chugh neH
+      * **.phonebackup** – nuq polta'pu' (yIteqQo')
+
+* jar 'aplo' = DIS + jar: `26.02` 'oH jar cha' DIS 2026.
+* ghItlh 'elDI' neH 'aplo'mey chenmoHlu' – 'aplo' chIm pagh.
+* mIllogh pagh HaSta jaj vo' jar; pagh ghItlh pong vo' (`PXL_20261102_…`); pagh ghItlh jaj vo'.
+* Motion photos, HEIC, PNG latlh je mIlloghmey 'oH; DNG latlh RAW ghItlhmey je `raw`Daq jaH.
+* pong rap, ngaS latlh → ghItlh chu' `name_1.jpg` pollu'. ghItlh rap wa'logh neH pollu'.
+* jaj rapDaq cha'DIch QIn pongDaq poH chellu'.
+* ghun Segh ngo' polghachmey (jar 'aplo'mey rur `02.February-photos`, polghach 'aplo'mey rur
+  `Pixel 10 Pro - Karen`, mIlloghmey retlhDaq QInmey) polghach veb retlhDaq mojmoHlu'. jar 'aplo'mey
+  pongchoHlu'pa', tetlh 'agh ghun 'ej pong ngo' DapollaH. ghItlhmey vIHlu' neH, teqlu'be' reH.
+
+### QaD
+
+* **HablI' → De'wI':** ADB HablI' ghun je lo'lu'chugh, Hoch ghItlh ngoq (SHA-256) 'ar HablI' 'ej
+  De' tlhaplu'bogh rap nID ghun.
+* **De'wI' → De' jengva':** Hoch ghItlhqa' jengva'Daq ghItlhlu', laDqa'lu' 'ej ngoq Daj nIDlu'.
+* ghItlhmey poH pong Dung ghItlhlu' 'ej nIDDI' neH pongchoHlu'. polghach ghorlu'bogh ghItlh bID
+  lonbe' reH; polghach veb tlha' neH.
 * wa'DIch Daq chIm nIDlu'. De' jengva' Qapbe'chugh pagh tlhapqu'chugh, latlh De' jengva'Daq
-  polghach tlha' 'ej QIn Doq 'agh.
+  polghach taH 'ej Doq QInDaq 'agh.
+* **HablI' Qagh pagh reH:** Hoch polghach HablI' Daj qaw (Segh, mI', HablI' ghun ngoq).
+  polghachpa' HablI' rarlu'bogh nIDlu': mI' pagh ngoq latlh → **lajQo'lu', ghItlhqa'lu'be'**.
+  Segh neH nIDlaHchugh, DaHarqangnIS. ghItlh wa'DIch retlh HablI' cha'logh nIDlu'.
 
-## ADB ghuHmoH (wa'logh). vaj HablI' ~2 lup lo'laH, MTP loSbe'lu'
+### polghachmey yIlo'
 
-**HablI'Daq**
+**polghachmey** polghachmeylIj Hoch tetlh 'agh. wa' yIwIv tabmey Daj leghmeH:
 
-1. Settings → About phone → *Build number* 7× yIHot (developer mode chu').
-2. Settings → System → Developer options → **USB debugging** yIchu'.
-3. HablI' yIrar, yIpoSmoH 'ej *Allow USB debugging* yIHarqang
-   **Always allow from this computer** Dung.
+* **Hoch legh** – polghach Qav, polghach De' jengva'mey naQ, vav'a'-vav-puqloD polghachmey, polghachmey
+  rInbe'bogh je. Hoch polghach rInDI' polghach naQ'a' tlhob ghun.
+* **HablI' 'aplo'mey** – *polghach yIchu'qa'* ghItlhqa'bogh 'aplo'mey.
+* **polghach De' jengva'mey** – polghach vam De' jengva'mey mIwmeychaj je.
+* **lIHmeH 'aplo'mey** – mIlloghmey ngo' polghach vamDaq chel (bIngDaq yIlegh).
+* **polghach qun** – Hoch polghach ghIgh Daj QIn Daj je.
 
-**Linux (Pop!_OS / Ubuntu)**
+**HablI'mey ngo' De' jengva'mey ngo' je.** *HablI' ngo' pagh De' jengva' ngo' polghach chu'…*
+polghach Daj chenmoH (rur "Galaxy S7 – Kevin" pagh "Old drive – Kevin"); *lIHmeH 'aplo'mey*
+polghach ghajbogh chel. 'aplo'mey yIchel (rur HablI' ngo' ghItlhqa' SD card Daj ghItlhqa' je) 'ej
+*lIHmeH 'aplo'mey yIwIv…* yIHot: ghItlh ghajbogh Hoch 'aplo' tetlhlu', mIlloghmey HaStamey latlh
+ghItlhmey je; ghun De', cache, mIllogh mach, veQ, 'aplo'mey So'lu'bogh je Qoylu'. Hoch 'aplo' vaD
+yIwIv:
 
-```
-sudo apt install adb
-adb devices          # should show your phone as "device"
-```
+* **DIS/jar qawHaq Daq yIlInmoH** – HablI' polghach rur jaj Dung lanlu'.
+* **qawHaq yIchoHQo'** – pong Daj Dung polghach Dung Daq ghItlhqa'lu' (rur
+  *Holiday Italy 2019 / Day 1*). 'aplo'mey bIngDaj tetlh latlh – Sor naQ polmeH, chaH je yIwIv.
 
-**ngeDqu' (Windows Linux je):** *ghuHmey → ADB yISuq…* Google ADB 'oHbogh
-platform-tools Google vo' ghun 'aplo' Daj SIbI' Suq (Windows:
-`%LOCALAPPDATA%\phonebackup\platform-tools`, Linux: `~/.local/share/phonebackup/platform-tools`)
-'ej He ghuHmoH - jombe'lu', admin chaw' poQbe'. ghun adb ngeHbe' qatlh
-Google chaw' ngeHmeH chaw'be'.
+HablI' polghach rur Hoch ghItlh nIDlu', ghItlh rap wa'logh neH pollu', 'ej 'aplo'mey ngo' laDlu'
+neH.
 
-**Windows (ghop)**
+**polghachmey QaD (cha'DIch ghItlhqa').** cha'DIch De' jengva'Daq pagh **Google Drive**Daq
+polghach ghItlhqa'. Hoch ghItlhqa' jaj 'aplo' Daj Suq.
 
-1. *SDK Platform-Tools for Windows* yISuq
-   https://developer.android.com/tools/releases/platform-tools vo'
-2. yIpoSmoH 'ej `platform-tools` 'aplo' **`smartphone_media_backup.py` retlhDaq** lan (ghaH ta' tu'lu'),
-   pagh *ghuHmey*Daq `adb.exe` He yIghItlh.
-3. Google Pixel: HablI' tu'lu'be'chugh, *Google USB Driver* yIjom.
+| Segh | ghItlhqa' |
+|---|---|
+| full | Hoch |
+| differential | **full** ghItlhqa' Qav vo' Hoch chu' |
+| incremental | ghItlhqa' **Qav** vo' Hoch chu' (Hoch Segh) |
 
-ADB Qapbe'chugh, ghun yIqIm 'agh 'ej **MTP lanwI'** lo':
+**Automatic – vav'a'-vav-puqloD** (motlh) Segh wIv: Hoch wej jar full (vav'a'), Hoch jar
+differential (vav), joj incremental (puqloD). full ghItlhqa' chu'qu' 4, differential 3,
+incremental 6 je pol, cheghmoHmeH poQbogh Hoch je. ngo'mey teqmeH ghellu' 'ej **DaHarqangDI'
+neH** teqlu' (*lel ngo' yIteq…*). Hoch ghItlh ghItlhqa'lu'bogh polghach ngoq rap nIDlu' – wa'DIch
+De' jengva'Daq ghItlh QIHlu'pu'bogh yIqIm ja'.
 
-* Linux: HablI' gvfs/`gio` Dung ghaH ta' chu'lu'. HablI' USB QInDaq *File transfer*
-  yIwIv.
-* Windows: wa'logh `py -m pip install pywin32` poQ. vaj Explorer ghItlhmey ghItlhqa'.
-  QIt 'oH, 'ej ghun chenmoHlu'taHvIS jan teHDaq juvlu'be' (bIngDaq yIlegh).
+**Google Drive.** *cloud Daq yIchel → Google Drive* browser Dung rar. ghItlhmey Daj ngeHbogh neH
+leghlaH ghun; rarghach De'wI' vamDaq ratlh.
 
-## HablI' ghun (Wi-Fi, USB debugging ghajbe')
+* **Chaq** – *My Drive / My Smartphone Media Backup*Daq polghach qIl: ghItlh chu' neH ngeHlu', pagh
+  teqlu'be' lajlu'be' je.
+* **vav'a'-vav-puqloD** – Hoch mIllogh **wa'logh** neH pollu'; ghItlhqa'mey veb rar (He nom, Daq
+  latlh poQbe'). pa' mIllogh wa' ghop yIteqQo' – rarbogh ghItlhqa' Hoch Hutlh.
 
-**HablI' ghun yIghuHmoH…** QR ngoq 'agh. HablI' camera Dung yIlaD: ghItlh (De'wI' vam
-nob) **1. ghun yISuq** (ghItlh yIpoSmoH, *Install* yIHot) **2. ghun De'wI' rap yIrar** je nob.
-HablI' De'wI' je 6 mI' ngoq rap 'agh - **HablI'Daq 'ej De'wI'Daq** yIHarqang
-(DaHotDI' neH HablI' ngoq Daj nob). wa'logh neH. USB tlhegh Dung rapmoHghach
-rap Qap: 'agh cha' ngoq 'agh, rapchugh neH HablI'Daq *yIrapmoH* yIHot.
+Hoch ngeH Google ngoq Daj rap nIDlu'. pegh chut:
+<https://machetso.github.io/my-smartphone-media-backup/privacy.html>
 
-tlhegh Dung ghun Hutlh ghun jomlaH je – reH **wa'DIch tlhob** 'ej
-nuq HablI', nuq Segh, qatlh, nuq qaS je QIj; DaHotbe'chugh pagh
-jomlu'.
+**cheghmoH.** ghItlhqa' (De' jengva'Daq pagh Google DriveDaq), jaj, Daq 'aplo' je yIwIv. ghItlhqa'
+puSqu' poQlu'bogh vo' 'aplo' naQ wa' chenmoHqa' ghun 'ej Hoch ghItlh nID.
 
-polghachvaD: HablI'Daq *My Media Backup* yIpoSmoH → **DaH yIpoSmoH**. De'wI' tu' 'ej
-rar; polghach rInDI' HablI' SoQqa' Hutlh (5 rep lo'be'lu'DI' je).
+### ghunmeH mIw
 
-**De'wI'lIj polghach neHDI'** (HablI' ghunDaq):
-* **HIghel** (motlh) – juHDaq HablI' tu'DI' De'wI', HablI' *polghach Dachaw''a'?* 'agh; Dachoqbe'chugh
-  pagh tagh.
-* **ghaH ta' yItagh** – ghel pagh: Wi-FiDaq HablI' tu'DI' De'wI', pagh USB tlhegh DararDI', mIlloghmey
-  HaStamey je chu'qu' pollu' – rep Hoch wa'logh neH, rarghach nomqu' Dung. Wi-Fi polghach poHvIS tlhegh
-  Dararchugh, tlhegh Dung ghoS polghach.
-* **not** – ghellaHbe' De'wI'.
+* **Hol** (nIH Dung yuQ je) – chu'qa'DI' choH.
+* **ADB** – ghaH ta' tu'lu'; *ADB yISuq…* Google vo' Suq.
+* **nIDmeH De' De' jengva'Daq yIghItlh** – Qob puS, QIt puS (motlh chu').
+* **De'wI' yIQotlh** polghach, lIH, ghItlhqa', cheghmoH je poHvIS (motlh chu'). HoS ghuHmey
+  choHlu'be'. Linux: Qu' poHvIS standby, yoD SoQmoH, Qempa' je Qotlhlu', 'ej 'agh chu'taH.
+  Windows: Qong Qotlhlu' 'ej Qempa'pa' Windows tlhob; yoD HoS Hot je Windows ghuHmey tlha'.
+* **taghDI' ghun chu' yInej** – jaj Hoch wa'logh. *DaH yIchu'moH* ghun chu' Suq, ghunmoHwI' ponglu''a'
+  nID, ghun choH 'ej taghqa'. ghuHmey, De' jengva'mey, HablI'mey, rapmoHghachmey je ratlh. ghun chu'
+  taghbe'chugh, ngo' ghaH ta' cheghmoHlu'.
+* **HablI'mey Sovlu'bogh** – HablI'mey rapmoHlu'bogh, HablI' ghun mI', ghun chu'qa'moHghach SoH je.
 
-HablI' ghun jomqa'lu'bogh HablI' mI'Daj (tlhegh Dung) ngu'lu' 'ej *HablI'mey Sovlu'bogh* tetlhDaq
-cha'logh ghItlhlu'be' reH; mI' ghajbe'chugh, ghun wa'logh ghel: rap HablI''a'? ghun mIlloghmey HaStamey je laDlaH neH; rarghach So'lu' (TLS, certificate
-rapmoHDI' ngaQ). De'wI' ghItlhmey **luqeq**: Hoch ghItlh tlhob, HablI'
-De'wI' rapmoHlu'bogh neH jang 'ej Hutlh pagh ngeH reH. ADB Dung rur ghItlhmey Hemey je rap, vaj polghachmey ghajbogh tlha' neH.
+`~/.config/phonebackup/config.json`Daq ghuHmey pollu' (Windows:
+`%APPDATA%\PhoneBackup\config.json`).
 
-## Wi-Fi polghach (tlhegh ghajbe')
+**tagh mIllogh (Linux):** ghun 'aplo'Daq *install-linux-desktop.sh* ghun DIrDaq desktopDaq je ghun
+lan.
 
-Android **Wireless debugging** lo' (Android 11+, HablI'Daq ghun poQbe'). Hoch
-USB rur Qap, HablI'Daq SHA-256 nID je; QIt law' neH (Wi-Fi
-Dotlh lo', motlh 10–40 MB/s).
+### juvlu'
 
-1. HablI': *Settings → System → Developer options → Wireless debugging* → chu' (Dup vaD
-   yIchaw').
-2. ghun: **Wi-Fi Dung yIrapmoH…** → HablI'Daq *Pair device with QR code* yIHot 'ej ngoq yIlaD
-   (pagh *Pair device with pairing code* yIlo' 'ej 6 mI' yIghItlh). wa'logh neH poQlu'.
-3. vaj Wireless debugging chu'lu'DI' 'ej HablI' De'wI' je Wi-Fi rapDaq taHDI'
-   HablI' ghaH ta' tu'lu' reH. USB Wi-Fi je tu'lu'chugh, USB lo'lu'.
-
-**router ghajbe''a'? Wi-Fi De'wI'vamDaq:** **Wi-Fi De'wI'vamDaq…** De'wI' Wi-Fi Dup Daj poSmoHmoH
-(Linux: NetworkManager hotspot, laHchugh 5 GHz; Windows: *Mobile hotspot*
-ghuHmey poSmoH). HablI' muv (camera vaD QR ngoq), 'ej HablI' De'wI' je joj SIbI'
-polghach Qap. Wi-Fi adapter law' Wi-Fi motlh chagh poHvam; Wi-Fi De'wI'vamDaq
-mevlu'DI' cheghqa' (DaSoQmoHDI' ghun tlhob).
-
-Wi-Fi Direct (P2P) teH HablI'Daq ghun latlh poQ; tugh Hergh 'oH.
-
-**Hoch legh polghachmey naQ je:** HablI' polghach Hoch rInDI' ghun ghel: polghachvam naQ'a'?
-*polghachmey yIlo' → Hoch legh* vaj polghach Hoch 'agh: polghach Qav, polghach De' jengva'mey naQ,
-polghach vav'a'-vav-puqloD polghachmey, polghachmey taghlu'pu'bogh 'ach rInbe'pu'bogh je.
-
-## De' jengva' Hoch polghach mIw
-
-*polghach chu'* De' jengva' tetlhDaq Hoch polghach De' jengva' **polghach mIw** ghaj:
-
-* **Simple** – wa' 'aplo' tIn, mIlloghmey HaStamey chu' neH chellu' (Dung 'aghlu'bogh rur).
-* **vav'a'-vav-puqloD** – polghachmey jaj ghajbogh latlh Daq rur (bIngDaq yIlegh): Hoch wej jar
-  **full** polghach, Hoch jar **differential** polghach, joj **incremental** polghachmey.
-  full/differential polghach ghItlh ngo' poQbogh ghaj je (De' jengva'Daq ghItlhqa'lu' 'ej
-  nIDlu'), vaj mIlloghmey HablI'vo' teqlu'bogh Hoch full polghachDaq ratlh.
-
-cha' DuH lIngchoHlaH, rur HDD wa'Daq *Simple* 'ej latlhDaq *vav'a'-vav-puqloD*. HablI'
-'aplo' mIw taghlu'pu'bogh pol.
-
-## latlh Daq (lel)
-
-*polghachmey yIlo' → latlh Daq* polghach latlh De' jengva'Daq pagh Google DriveDaq ghItlhqa'. Hoch lel
-'aplo' Daj Suq:
-
-```
-PhoneBackups-Export/Sam/Pixel 10 Pro/
-├── 2026-11-02_14-30-00_full/            (with the export report in Logs/)
-├── 2026-11-20_09-12-45_incremental/
-├── 2026-12-01_18-03-10_differential/
-└── .phonebackup-export/catalog.sqlite
-```
-
-| Segh          | ghItlhqa'                                          |
-|---------------|----------------------------------------------------|
-| full          | Hoch                                               |
-| differential  | **full** lel Qav vo' Hoch chu'                     |
-| incremental   | lel **Qav** vo' Hoch chu' (Hoch Segh)              |
-
-**Automatic – vav'a'-vav-puqloD** (motlh) Segh wIv: Hoch wej jar full
-(vav'a'), Hoch jar differential (vav), joj incremental (puqloD); ghun 'agh
-nuq veb 'ej qatlh. full lel chu'qu' 4, differential 3, incremental 6 je
-pol, cheghmoHmeH poQbogh Hoch je; ngo'mey teqmeH chup 'ej
-**DaHarqangDI' neH** teqlu' (*lel ngo' yIpoSmoH…*).
-
-Hoch ghItlh lellu'bogh pollu'DI' SHA-256 qonlu'bogh rap nIDlu'. ghItlh
-wa'DIch De' jengva'Daq QIHlu'pu'bogh (bit rot) yIqIm ja'.
-*cheghmoH* mIr ngaqqu' vo' 'aplo' naQ wa' chenmoHqa' (full + differential chu'qu' +
-incrementals ret) 'ej Hoch ghItlh nID.
-
-### Google Drive
-
-*cloud Daq yIchel → Google Drive* browser Dung 'el. ghun ghItlhmey
-Hutlh ngeHbogh neH leghlaH (Google `drive.file` chaw'); 'elghach De'wI' vamDaq ratlh.
-cha' lel Segh:
-
-* **Chaq** – *My Drive/My Smartphone Media Backup/Phone - Owner*Daq polghach qIl:
-  ghItlh chu' neH ngeHlu', pagh teqlu'be' lajlu'be' je.
-* **vav'a'-vav-puqloD** *Phone - Owner (Grandfather-Father-Son)*Daq: Hoch mIllogh
-  **wa'logh** neH pollu' – full differential je lel Google DriveDaq ghItlhmey ghajbogh rar
-  (shortcuts, Daq latlh poQbe'; Chaq je). teqDI' ghItlhmey lel chu' law' lo'taHbogh
-  lelDaq vIHlu' wa'DIch, vaj pagh teqlu'. cheghmoH ghItlhmey Suq 'ej nID. pa'
-  mIllogh wa' ghop yIteqQo' – lel Hoch rarbogh Hutlh.
-
-Hoch ngeH Google SHA-256 Daj rap nIDlu'; ngeHpa' Daq chIm nIDlu'.
-pegh chut: <https://machetso.github.io/my-smartphone-media-backup/privacy.html>
-
-Hal ngoq vo' chenmoHmeH ghun Google ngoq poQlu': `python3 tools/set_google_key.py client_secret_….json`
-(git-ignored `phonebackup/_gkey.py` ghItlh); ghun chu' GitHub secrets vo' Suq.
-
-## ghuHmey
-
-`~/.config/phonebackup/config.json`Daq pollu' (Windows: `%APPDATA%\PhoneBackup\config.json`):
-ghajwI' pong, HablI' 'aplo'mey (motlh `DCIM/Camera`, ghunDaq latlh wIvlaH),
-De' jengva'mey, adb He.
-
-## nIDmey
-
-```
-python3 -m unittest discover tests
-```
-
-## juvlu'
-
-* Linux (Pop!_OS) Google Pixel 10 Pro (Android 17) je, USB 3 Dung ADB:
-  1372 ghItlh / 20 GB pa' HDD cha'Daq rapDaq poH pollu' 'ej nIDlu', ~24 MB/s.
-* Samsung Galaxy S20 FE USB (ADB) Dung 'ej Wi-Fi Dung HablI' ghun 0.3.3 je:
-  Wi-Fi Dung 12.4 MB/s, Qagh pagh; tlhegh Dung HablI' ghun chu'moH jom tlhob je.
-* Google Drive: Chaq vav'a'-vav-puqloD je 20 GB polghach (1381 ghItlh, ~
-  4 MB/s ngeH), shortcuts, teq, cheghmoH je nIDlu'.
-* jan teHDaq juvlu'be' wej: MTP lanwI' (Linux gvfs, Windows Explorer) 'ej Windows Hoch.
+* Linux (Pop!_OS) Google Pixel 10 Pro (Android 17) je, USB 3 Dung ADB: 1372 ghItlh / 20 GB pa' De'
+  jengva' cha'Daq rapDaq poH, ~24 MB/s.
+* Samsung Galaxy S20 FE USB (ADB) Dung 'ej Wi-Fi Dung HablI' ghun je: Wi-Fi Dung 12.4 MB/s.
+* Google Drive: Chaq vav'a'-vav-puqloD je 20 GB polghach, teq, cheghmoH je.
+* jan teHDaq juvlu'be' wej: ghItlh vIH lanwI' (MTP) 'ej Windows Hoch.
 
 ## chaw'
 
-MIT – [LICENSE](LICENSE) yIlegh.
+MIT – [LICENSE](LICENSE) yIlegh. chu'mey: [CHANGELOG.md](CHANGELOG.md).

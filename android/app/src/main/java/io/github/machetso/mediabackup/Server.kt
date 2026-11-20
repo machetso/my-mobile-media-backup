@@ -182,12 +182,31 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
             Response.json(out, 401, """{"error":"not paired"}""", false)
             return false
         }
-        lastActivity = System.currentTimeMillis()    // only a PAIRED computer keeps backup mode on
+        // only a PAIRED computer keeps backup mode on – and only by really using it: the computer's
+        // "still connected?" check (GET /info every few seconds) does not count, otherwise backup
+        // mode never closed while the program ran (found 2026-11-20)
+        if (!(req.method == "GET" && req.path == "/info")) lastActivity = System.currentTimeMillis()
+        AppState.contactAt = System.currentTimeMillis()
         // ---- debugging guard (see UsbDebug): start / still here / end of a backup
         when ("${req.method} ${req.path}") {
+            // the connected computer's news every few seconds (one-click backup, 2026-11-20):
+            // {"s": since, "f": folders, "r": ready} → the phone's counts and whether the user
+            // tapped "Back up now" on the phone
+            "POST /status" -> {
+                val o = runCatching { jsonBody(req) }.getOrNull()
+                val news = o?.let { BackupStatus.fromJson(it) }
+                val c = if (news != null) BackupStatus.update(ctx, pc.id, news.first, news.second, news.third)
+                        else MediaIndex.NewMedia(-1, -1, 0)
+                Response.json(out, 200, JSONObject().put("photos", c.photos).put("videos", c.videos)
+                    .put("bytes", c.bytes)
+                    .put("want", if (BackupStatus.wanted()) BackupStatus.wantAt else 0L).toString(), keep)
+                return keep
+            }
             "POST /guard/start" -> {
+                BackupStatus.wantAt = 0L                    // the backup starts: the wish is done
                 val channel = runCatching { jsonBody(req).optString("channel") }.getOrNull().orEmpty()
                 UsbDebug.Guard.backupStarted(ctx, channel)
+                AppState.copying()
                 Response.json(out, 200, JSONObject().put("can_switch", UsbDebug.canSwitch(ctx))
                     .put("via_cable", viaCable).toString(), keep)
                 return keep
@@ -208,10 +227,12 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
             }
             "POST /guard/alive" -> {
                 UsbDebug.Guard.alive(ctx)
+                AppState.copying()
                 Response.json(out, 200, """{"ok":true}""", keep)
                 return keep
             }
             "POST /guard/end" -> {
+                AppState.copyingStopped()
                 val off = runCatching { jsonBody(req).optBoolean("off", true) }.getOrDefault(true)
                 // switched on by this app → always off again (a computer cannot keep it on)
                 if (off || UsbDebug.Guard.switchedOnByApp(ctx)) UsbDebug.switchOff(ctx)
@@ -233,6 +254,7 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                 val arr = jsonBody(req).getJSONArray("folders")
                 val folders = (0 until arr.length()).map { arr.getString(it) }
                 onEvent(tr("Computer %s is reading the file list …", pc.name))
+                AppState.copying()
                 val res = JSONArray()
                 media.list(folders).forEach {
                     res.put(JSONObject().put("rel", it.rel).put("size", it.size).put("mtime", it.mtime))
@@ -240,6 +262,7 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                 Response.json(out, 200, res.toString(), keep)
             }
             "POST /hashes" -> {
+                AppState.copying()
                 val arr = jsonBody(req).getJSONArray("rels")
                 val res = JSONObject()
                 for (i in 0 until arr.length()) {
@@ -250,6 +273,7 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                 Response.json(out, 200, res.toString(), keep)
             }
             "GET /file" -> {
+                AppState.copying()
                 val item = media.find(req.query["rel"] ?: "")
                 if (item == null) {
                     Response.json(out, 404, """{"error":"not found"}""", keep)

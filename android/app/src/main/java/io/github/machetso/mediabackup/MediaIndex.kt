@@ -75,6 +75,38 @@ class MediaIndex(private val ctx: Context) {
         return res
     }
 
+    /** "Is a backup needed?" (user request 2026-11-20): photos and videos added to the phone
+     *  (DATE_ADDED – also files copied onto the phone later) after `since` (unix s) in these folders
+     *  or below them. Only the new ones are read, so it is quick even with thousands of photos. */
+    fun countAddedSince(since: Long, folders: List<String>): Int = countNew(since, folders).let { it.photos + it.videos }
+
+    /** Not backed up yet: photos, videos and their size together (user requests 2026-11-20). */
+    data class NewMedia(val photos: Int, val videos: Int, val bytes: Long)
+
+    /** The same, split: "23 photos and 4 videos (1.5 GB) not backed up yet". */
+    fun countNew(since: Long, folders: List<String>): NewMedia {
+        val roots = folders.map { it.trim('/') }.filter { it.isNotEmpty() }.map { "$it/" }
+        if (roots.isEmpty()) return NewMedia(0, 0, 0)
+        val vol = MediaStore.VOLUME_EXTERNAL_PRIMARY
+        val counts = IntArray(2)
+        var bytes = 0L
+        for ((i, col) in listOf(MediaStore.Images.Media.getContentUri(vol), MediaStore.Video.Media.getContentUri(vol)).withIndex()) {
+            var n = 0
+            val proj = arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.SIZE)
+            ctx.contentResolver.query(col, proj,
+                "${MediaStore.MediaColumns.IS_PENDING} = 0 AND ${MediaStore.MediaColumns.DATE_ADDED} > ?",
+                arrayOf(since.toString()), null)?.use { c ->
+                while (c.moveToNext()) {
+                    val dir = (c.getString(0) ?: continue).trim('/') + "/"
+                    if (dir.split('/').any { it.startsWith(".") }) continue      // hidden, like the backup
+                    if (roots.any { dir.startsWith(it) }) { n++; bytes += c.getLong(1) }
+                }
+            }
+            counts[i] = n
+        }
+        return NewMedia(counts[0], counts[1], bytes)
+    }
+
     fun folderExists(rel: String): Boolean {
         val p = rel.trim('/') + "/"
         return all().keys.any { it.startsWith(p) }

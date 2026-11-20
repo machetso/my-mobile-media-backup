@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.9.9.0] - 2026-11-20
+
+- **New name: My Mobile Media Backup** – the program, the phone app and the GitHub project
+  (now github.com/machetso/my-mobile-media-backup). Older versions cannot update themselves to this
+  one: download it once from the Releases page.
+- **One-click backup.** Phone and computer show how many photos and videos are not backed up yet and
+  how big they are (*23 photos and 4 videos (1.5 GB)*). One tap on **Back up now** on the phone, or
+  one click on **Update backup** on the computer, starts the backup – the phone connects the
+  fastest way by itself. When something is missing, the button is grey and says what to do.
+- **Simpler phone app:** one switch **Allow backup** (with *Connection established* and how long it
+  stays on), a **Disconnect** button, and the choice **Ask me** / **Allow without asking** /
+  **Never** – optionally the computer starts backups by itself.
+- **New look:** new icon, a side bar with Backup, Manage backups, settings, Manual and About, the
+  language behind the globe.
+- **More reliable connecting:** a known phone in the same Wi-Fi is shown as *nearby*, the connect
+  QR code scans faster, a hanging USB file transfer no longer blocks the program, and a VPN on the
+  phone that blocks the Wi-Fi connection is pointed out.
+
 ## [0.9.8.5] - 2026-11-17
 
 ### Phone app
