@@ -169,9 +169,9 @@ cable, including the fingerprints on the phone – only slower.
 3. From then on the phone is found whenever Wireless debugging is on and both are in the same Wi-Fi.
 
 **No router? Direct Wi-Fi.** **Direct Wi-Fi…** lets the computer open its own Wi-Fi network (Linux:
-a hotspot, 5 GHz if possible; Windows: opens the *Mobile hotspot* settings). The phone joins it with
-a QR code. Most computers leave the normal Wi-Fi meanwhile; it comes back when Direct Wi-Fi is
-stopped.
+5 GHz if possible; Windows: its *Mobile hotspot*). The phone joins it with a QR code. On Linux most
+computers leave the normal Wi-Fi meanwhile; it comes back when Direct Wi-Fi is stopped. On Windows
+the normal Wi-Fi stays.
 
 **How the phone is recognised securely.** When the app is paired, it creates a key in the phone's
 security chip; the computer stores its fingerprint. Model, serial number or names alone are never

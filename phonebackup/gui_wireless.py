@@ -270,47 +270,45 @@ class HotspotDialog(QDialog):
         lay.addWidget(_label(
             tr("The computer opens <b>its own Wi-Fi network</b> and the phone joins it – a direct "
                "phone ↔ computer connection, no router or internet needed (e.g. on the road).")
-            + f"<br><span style='color:{ORANGE}'>"
-            + tr("While it is on, this computer may lose its normal Wi-Fi "
-                 "(most Wi-Fi adapters can do only one at a time). It comes back when you stop the "
-                 "direct Wi-Fi.") + "</span>"))
+            + ("" if win else f"<br><span style='color:{ORANGE}'>"
+               + tr("While it is on, this computer may lose its normal Wi-Fi "
+                    "(most Wi-Fi adapters can do only one at a time). It comes back when you stop the "
+                    "direct Wi-Fi.") + "</span>")))
 
         if not cfg.get("hotspot_ssid") or not cfg.get("hotspot_password"):
             cfg["hotspot_ssid"], cfg["hotspot_password"] = wireless.new_hotspot_credentials()
             config.save(cfg)
         ssid, pw = cfg["hotspot_ssid"], cfg["hotspot_password"]
 
+        # Windows too (2026-11-20): the program starts Windows' Mobile hotspot with this name and
+        # password itself; the Windows settings stay as the way out
+        row = QHBoxLayout()
+        pm = qr_pixmap(wireless.wifi_qr_text(ssid, pw), scale=5)
+        if pm is not None:
+            img = QLabel()
+            img.setPixmap(pm)
+            row.addWidget(img)
+        row.addWidget(_label(
+            tr("Network: %s", f"<b style='font-size:15pt'>{html.escape(ssid)}</b>") + "<br>"
+            + tr("Password: %s",
+                 f"<b style='font-size:15pt;font-family:monospace'>{html.escape(pw)}</b>")
+            + "<br><br>"
+            + tr("Join it with the phone: scan the QR code with the camera, or choose the network "
+                 "in the phone's Wi-Fi settings. The phone remembers it for next time.")), 1)
+        lay.addLayout(row)
+        br = QHBoxLayout()
+        self.start_btn = QPushButton(tr("Start direct Wi-Fi"))
+        self.start_btn.clicked.connect(self._start)
+        self.stop_btn = QPushButton(tr("Stop direct Wi-Fi"))
+        self.stop_btn.clicked.connect(self._stop)
+        br.addWidget(self.start_btn)
+        br.addWidget(self.stop_btn)
         if win:
-            lay.addWidget(_label(tr(
-                "<b>Windows:</b> switch on <b>Mobile hotspot</b> in the Windows settings "
-                "(button below) and connect the phone to the network name and password shown there.")))
             b = QPushButton(tr("Open Mobile hotspot settings"))
             b.clicked.connect(wireless.open_windows_hotspot_settings)
-            lay.addWidget(b, 0, Qt.AlignLeft)
-        else:
-            row = QHBoxLayout()
-            pm = qr_pixmap(wireless.wifi_qr_text(ssid, pw), scale=5)
-            if pm is not None:
-                img = QLabel()
-                img.setPixmap(pm)
-                row.addWidget(img)
-            row.addWidget(_label(
-                tr("Network: %s", f"<b style='font-size:15pt'>{html.escape(ssid)}</b>") + "<br>"
-                + tr("Password: %s",
-                     f"<b style='font-size:15pt;font-family:monospace'>{html.escape(pw)}</b>")
-                + "<br><br>"
-                + tr("Join it with the phone: scan the QR code with the camera, or choose the network "
-                     "in the phone's Wi-Fi settings. The phone remembers it for next time.")), 1)
-            lay.addLayout(row)
-            br = QHBoxLayout()
-            self.start_btn = QPushButton(tr("Start direct Wi-Fi"))
-            self.start_btn.clicked.connect(self._start)
-            self.stop_btn = QPushButton(tr("Stop direct Wi-Fi"))
-            self.stop_btn.clicked.connect(self._stop)
-            br.addWidget(self.start_btn)
-            br.addWidget(self.stop_btn)
-            br.addStretch()
-            lay.addLayout(br)
+            br.addWidget(b)
+        br.addStretch()
+        lay.addLayout(br)
 
         lay.addWidget(_label(
             "<b>" + tr("Then on the phone:") + "</b><ol>"
@@ -332,11 +330,10 @@ class HotspotDialog(QDialog):
         self.steps = _label("")              # live: what is happening now (user request 2026-11-10)
         lay.insertWidget(lay.indexOf(self.status) + 1, self.steps)
         self.result_ready.connect(self._on_result)
-        if not win:
-            self._refresh()
-            self._steps_timer = QTimer(self)
-            self._steps_timer.timeout.connect(self._show_steps)
-            self._steps_timer.start(1000)
+        self._refresh()
+        self._steps_timer = QTimer(self)
+        self._steps_timer.timeout.connect(self._show_steps)
+        self._steps_timer.start(1000)
 
     def _show_steps(self):
         """The four steps with ✓ / … and what to do now – from the main window's background check."""

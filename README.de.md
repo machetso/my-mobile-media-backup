@@ -178,9 +178,9 @@ Kabel, einschließlich der Fingerabdrücke auf dem Telefon – nur langsamer.
 3. Ab dann wird das Telefon gefunden, sobald Kabelloses Debugging an ist und beide im selben Wi-Fi sind.
 
 **Kein Router? Direktes Wi-Fi.** **Direktes Wi-Fi…** lässt den Computer ein eigenes Wi-Fi-Netzwerk
-öffnen (Linux: ein Hotspot, wenn möglich mit 5 GHz; Windows: öffnet die Einstellungen für den
-*Mobilen Hotspot*). Das Telefon verbindet sich per QR-Code damit. Die meisten Computer verlassen
-währenddessen ihr normales Wi-Fi; es kommt zurück, wenn Direktes Wi-Fi beendet wird.
+öffnen (Linux: wenn möglich mit 5 GHz; Windows: sein *Mobiler Hotspot*). Das Telefon verbindet sich
+per QR-Code damit. Unter Linux verlassen die meisten Computer währenddessen ihr normales Wi-Fi; es
+kommt zurück, wenn Direktes Wi-Fi beendet wird. Unter Windows bleibt das normale Wi-Fi.
 
 **Wie das Telefon sicher erkannt wird.** Wenn die App gekoppelt wird, erzeugt sie einen Schlüssel im
 Sicherheitschip des Telefons; der Computer speichert dessen Fingerabdruck. Modell, Seriennummer oder

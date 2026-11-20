@@ -168,10 +168,10 @@ câble, y compris les empreintes sur le téléphone – seulement plus lentement
    *Associer l’appareil avec un code d’association* et saisis les 6 chiffres). Nécessaire une seule fois.
 3. Ensuite, le téléphone est trouvé chaque fois que le débogage sans fil est activé et que les deux sont sur le même Wi-Fi.
 
-**Pas de routeur ? Wi-Fi direct.** **Wi-Fi direct…** permet à l’ordinateur d’ouvrir son propre réseau Wi-Fi (Linux :
-un point d’accès, en 5 GHz si possible ; Windows : ouvre les paramètres du *Point d’accès mobile*). Le téléphone s’y connecte avec
-un code QR. La plupart des ordinateurs quittent pendant ce temps le Wi-Fi normal ; il revient quand le Wi-Fi direct est
-arrêté.
+**Pas de routeur ? Wi-Fi direct.** **Wi-Fi direct…** permet à l’ordinateur d’ouvrir son propre réseau Wi-Fi
+(Linux : en 5 GHz si possible ; Windows : son *Point d’accès sans fil mobile*). Le téléphone s’y
+connecte avec un code QR. Sous Linux, la plupart des ordinateurs quittent pendant ce temps le Wi-Fi
+normal ; il revient quand le Wi-Fi direct est arrêté. Sous Windows, le Wi-Fi normal reste.
 
 **Comment le téléphone est reconnu en toute sécurité.** Quand l’app est associée, elle crée une clé dans la puce de
 sécurité du téléphone ; l’ordinateur enregistre son empreinte. Le modèle, le numéro de série ou les noms seuls ne suffisent jamais

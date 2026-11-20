@@ -1951,6 +1951,9 @@
   "Switches off in %s if no backup starts.": "Schaltet sich in %s aus, wenn kein Backup startet.",
   "Backup running – switches off when it is done.": "Backup läuft – schaltet sich aus, wenn es fertig ist.",
   "None yet – make one in the tab “Secure backups”.": "Noch keine – lege eine im Reiter „Backups sichern“ an.",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Das Telefon verbindet sich von selbst auf dem schnellsten Weg mit deinem Computer. Die Verbindung schaltet sich nach dem Backup von selbst aus, ebenso 5 Minuten nach dem Abziehen des Kabels."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Das Telefon verbindet sich von selbst auf dem schnellsten Weg mit deinem Computer. Die Verbindung schaltet sich nach dem Backup von selbst aus, ebenso 5 Minuten nach dem Abziehen des Kabels.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows hat den mobilen Hotspot nicht gestartet (%s). Schalte ihn stattdessen in den Einstellungen ein (Knopf unten).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "WLAN-Hotspot „%s“ ist an (mobiler Hotspot von Windows).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "Windows startet seinen mobilen Hotspot nur, solange dieser Computer eine Netzwerkverbindung hat. Schalte ihn stattdessen in den Einstellungen ein (Knopf unten)."
  }
 }

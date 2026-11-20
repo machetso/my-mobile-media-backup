@@ -806,12 +806,58 @@ def find_gvfs_mtp():
                          description=tr("MTP via gvfs: %s", storage)), None
 
 
+class _ComWorker:
+    """Windows: one thread that owns every Explorer (COM) object of a phone connection – COM objects
+    may only be used by the thread that made them. Every step is handed to this thread and waited for
+    with a time limit (user request 2026-11-20: the Windows version gets the freeze protection of
+    the Linux one). A step without answer in time → MtpStalled; the worker is then given up."""
+
+    def __init__(self):
+        self._q = queue.Queue()
+        self.dead = False
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        try:
+            import pythoncom  # type: ignore
+            pythoncom.CoInitialize()
+        except ImportError:                   # tests, or pywin32 missing (find_windows_mtp says so)
+            pass
+        while True:
+            fn, box, done = self._q.get()
+            try:
+                box["v"] = fn()
+            except BaseException as e:  # noqa: BLE001 - handed over to the caller
+                box["e"] = e
+            done.set()
+
+    def call(self, fn, timeout):
+        if self.dead:
+            raise _windows_stalled()
+        box, done = {}, threading.Event()
+        self._q.put((fn, box, done))
+        if not done.wait(timeout):
+            self.dead = True
+            raise _windows_stalled()
+        if "e" in box:
+            raise box["e"]
+        return box.get("v")
+
+
+def _windows_stalled():
+    return MtpStalled(tr("the phone's file transfer stopped answering – unplug the USB cable and "
+                         "plug it in again, then start the backup again"))
+
+
 class WindowsMtpSource:
-    """Windows: read the phone through the Explorer shell (needs: pip install pywin32)."""
+    """Windows: read the phone through the Explorer shell (needs: pip install pywin32). All Explorer
+    objects live in the connection's own worker thread (_ComWorker) with a watchdog."""
     kind = N_("MTP (fallback)")
     supports_phone_hash = False
+    STALL_S = 45          # no progress this long = hanging (like GvfsMtpSource)
+    CHECK_S = 8
 
-    def __init__(self, shell, storage_folder, device_name):
+    def __init__(self, shell, storage_folder, device_name, worker=None):
         self.shell = shell
         self.storage = storage_folder
         self.device_name = device_name
@@ -820,6 +866,7 @@ class WindowsMtpSource:
         self.fallback_reason = None
         self.staging = None
         self._items = {}
+        self.worker = worker or _ComWorker()
 
     def _folder(self, rel):
         f = self.storage
@@ -845,77 +892,114 @@ class WindowsMtpSource:
         return item.Name
 
     def list_subfolders(self, rel):
-        f = self._folder(rel)
-        if f is None:
-            return []
-        return sorted(str(PurePosixPath(rel) / it.Name) for it in f.Items()
-                      if it.IsFolder and not it.Name.startswith("."))
-
-    def list_files(self, folders):
-        files, missing = [], []
-
-        def walk(folder, rel):
-            for it in folder.Items():
-                name = self._fname(it)
-                if name.startswith("."):
-                    continue
-                r = f"{rel}/{name}"
-                if it.IsFolder:
-                    walk(it.GetFolder, r)
-                else:
-                    try:
-                        mtime = int(it.ModifyDate.timestamp())
-                    except Exception:  # noqa: BLE001
-                        mtime = 0
-                    self._items[r] = it
-                    files.append(SourceFile(r, int(it.Size), mtime))
-
-        for rel in folders:
-            rel = rel.strip("/")
+        def run():
             f = self._folder(rel)
             if f is None:
-                missing.append(rel)
-            else:
-                walk(f, rel)
-        return _dedupe(files), missing
+                return []
+            return sorted(str(PurePosixPath(rel) / it.Name) for it in f.Items()
+                          if it.IsFolder and not it.Name.startswith("."))
+        return self.worker.call(run, self.STALL_S)
+
+    def folder_exists(self, rel):
+        return self.worker.call(lambda: self._folder(rel.strip("/")) is not None, self.STALL_S)
+
+    def list_files(self, folders):
+        """The walk may take long with thousands of files – it only must not stand still."""
+        beat = [time.monotonic()]
+
+        def run():
+            files, missing = [], []
+
+            def walk(folder, rel):
+                for it in folder.Items():
+                    beat[0] = time.monotonic()
+                    name = self._fname(it)
+                    if name.startswith("."):
+                        continue
+                    r = f"{rel}/{name}"
+                    if it.IsFolder:
+                        walk(it.GetFolder, r)
+                    else:
+                        try:
+                            mtime = int(it.ModifyDate.timestamp())
+                        except Exception:  # noqa: BLE001
+                            mtime = 0
+                        self._items[r] = it
+                        files.append(SourceFile(r, int(it.Size), mtime))
+
+            for rel in folders:
+                rel = rel.strip("/")
+                f = self._folder(rel)
+                if f is None:
+                    missing.append(rel)
+                else:
+                    walk(f, rel)
+            return _dedupe(files), missing
+
+        if self.worker.dead:
+            raise _windows_stalled()
+        box, done = {}, threading.Event()
+
+        def wrapped():
+            try:
+                box["v"] = run()
+            except BaseException as e:  # noqa: BLE001
+                box["e"] = e
+            done.set()
+        self.worker._q.put((wrapped, {}, threading.Event()))
+        while not done.wait(1.0):
+            if time.monotonic() - beat[0] > self.STALL_S:
+                self.worker.dead = True
+                raise _windows_stalled()
+        if "e" in box:
+            raise box["e"]
+        return box["v"]
 
     def phone_hashes(self, rels):
         return {}
 
     def put_file(self, local, rel_dir, name):
         """Copy ONE file onto the phone through Explorer (the phone app into Download/)."""
-        folder = self._folder(rel_dir)
-        if folder is None:
-            raise RuntimeError(tr("folder %s not found on the phone", rel_dir))
-        with tempfile.TemporaryDirectory() as d:
-            named = Path(d) / name
-            shutil.copyfile(local, named)
-            folder.CopyHere(str(named), 4 | 16 | 512 | 1024)
-            deadline = time.monotonic() + 120
-            while time.monotonic() < deadline:          # CopyHere returns before it is done
-                if any(self._fname(it) == name and int(it.Size) == named.stat().st_size
-                       for it in folder.Items()):
-                    break
-                time.sleep(0.5)
-            else:
-                raise TimeoutError(tr("copy to phone timed out: %s", name))
-        return f"{rel_dir}/{name}"
+        def run():
+            folder = self._folder(rel_dir)
+            if folder is None:
+                raise RuntimeError(tr("folder %s not found on the phone", rel_dir))
+            with tempfile.TemporaryDirectory() as d:
+                named = Path(d) / name
+                shutil.copyfile(local, named)
+                folder.CopyHere(str(named), 4 | 16 | 512 | 1024)
+                deadline = time.monotonic() + 120
+                while time.monotonic() < deadline:          # CopyHere returns before it is done
+                    if any(self._fname(it) == name and int(it.Size) == named.stat().st_size
+                           for it in folder.Items()):
+                        break
+                    time.sleep(0.5)
+                else:
+                    raise TimeoutError(tr("copy to phone timed out: %s", name))
+            return f"{rel_dir}/{name}"
+        return self.worker.call(run, 180)
 
     def open_stream(self, sf):
+        """Explorer copies the file into a staging folder (in the worker thread); the copy must keep
+        growing – STALL_S without a new byte stops the backup (MtpStalled)."""
         if not self.staging:
             raise RuntimeError(tr("staging folder not set"))
         tmp = Path(self.staging) / uuid.uuid4().hex
         tmp.mkdir(parents=True, exist_ok=True)
         try:
-            ns = self.shell.NameSpace(str(tmp))
-            ns.CopyHere(self._items[sf.rel], 4 | 16 | 512 | 1024)   # silent, no dialogs
-            deadline = time.monotonic() + 120 + sf.size / (1024 * 1024)
+            def start():
+                ns = self.shell.NameSpace(str(tmp))
+                ns.CopyHere(self._items[sf.rel], 4 | 16 | 512 | 1024)   # silent, no dialogs
+            self.worker.call(start, self.STALL_S)
             target, last, stable = None, -1, 0
-            while time.monotonic() < deadline:
+            moved = time.monotonic()
+            while True:
                 entries = [p for p in tmp.iterdir() if p.is_file()]
                 if entries:
                     target = entries[0]
                     size = target.stat().st_size
+                    if size != last:
+                        moved = time.monotonic()
                     stable = stable + 1 if size == last else 0
                     last = size
                     if size == sf.size and stable >= 2:
@@ -924,26 +1008,36 @@ class WindowsMtpSource:
                                 break
                         except OSError:
                             pass
+                if time.monotonic() - moved > self.STALL_S:
+                    self.worker.dead = True
+                    raise _windows_stalled()
                 time.sleep(0.25)
-            else:
-                raise TimeoutError(tr("copy from phone timed out: %s", sf.rel))
             yield from file_chunks(target)
         finally:
             shutil.rmtree(tmp, ignore_errors=True)
 
     def is_connected(self):
-        return True
+        try:
+            return bool(self.worker.call(lambda: self.storage.Items() is not None, self.CHECK_S))
+        except MtpStalled:
+            return False
+        except Exception:  # noqa: BLE001 - the phone is gone
+            return False
 
     def close(self):
         pass
 
 
-def find_windows_mtp():
+def find_windows_mtp(timeout=60):
+    """The phone in "File transfer" through Explorer – looked for in the connection's own worker
+    thread (with a time limit: a hanging phone must not block the program)."""
     try:
         import win32com.client  # type: ignore
     except ImportError:
         return None, tr("%s is not installed (run: %s)", "pywin32", "pip install pywin32")
-    try:
+    worker = _ComWorker()
+
+    def look():
         shell = win32com.client.Dispatch("Shell.Application")
         pc = shell.NameSpace(17)   # "This PC"
         for dev in pc.Items():
@@ -959,9 +1053,17 @@ def find_windows_mtp():
                     continue
                 stf = st.GetFolder
                 if any(it.Name == "DCIM" for it in stf.Items()):
-                    return WindowsMtpSource(shell, stf, dev.Name), None
+                    return shell, stf, dev.Name
+        return None
+    try:
+        found = worker.call(look, timeout)
+    except MtpStalled:
+        return None, tr("the phone's file transfer does not answer – unplug the USB cable and plug it in again")
     except Exception as e:  # noqa: BLE001
         return None, tr("Windows MTP error: %s", e)
+    if found:
+        shell, stf, name = found
+        return WindowsMtpSource(shell, stf, name, worker=worker), None
     return None, tr("no phone found via MTP - unlock the phone and choose "
                     "'File transfer' in the USB notification")
 

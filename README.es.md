@@ -185,9 +185,9 @@ cable, incluidas las huellas en el teléfono, solo que más lento.
    los dos estén en el mismo Wi-Fi.
 
 **¿Sin router? Wi-Fi directo.** **Wi-Fi directo…** hace que el equipo abra su propia red Wi-Fi
-(Linux: una zona Wi-Fi, a 5 GHz si es posible; Windows: abre los ajustes de *Zona con cobertura
-inalámbrica*). El teléfono se une con un código QR. La mayoría de los equipos dejan mientras tanto
-el Wi-Fi normal; vuelve cuando se detiene el Wi-Fi directo.
+(Linux: a 5 GHz si es posible; Windows: su *Zona con cobertura inalámbrica móvil*). El teléfono se
+une con un código QR. En Linux, la mayoría de los equipos dejan mientras tanto el Wi-Fi normal;
+vuelve cuando se detiene el Wi-Fi directo. En Windows, el Wi-Fi normal se mantiene.
 
 **Cómo se reconoce el teléfono de forma segura.** Cuando la app se empareja, crea una clave en el
 chip de seguridad del teléfono; el equipo guarda su huella. Nunca se confía solo en el modelo, el

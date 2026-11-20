@@ -158,8 +158,9 @@ HablI'Daq ngoqmey je – QIt law' neH.
 3. vaj Wireless debugging chu'lu'DI' 'ej Wi-Fi rapDaq cha' taHDI' reH HablI' tu'lu'.
 
 **router ghajbe''a'? Wi-Fi De'wI'vamDaq.** **Wi-Fi De'wI'vamDaq…** Wi-Fi De'chal Daj poSmoH
-De'wI' (Linux: hotspot, laHchugh 5 GHz; Windows: *Mobile hotspot* ghuHmey poSmoH). QR ngoq Dung
-muv HablI'. De'wI'mey law' Wi-Fi motlh lonnIS poHvam; Wi-Fi De'wI'vamDaq mevlu'DI' chegh.
+De'wI' (Linux: laHchugh 5 GHz; Windows: *Mobile hotspot* Daj). QR ngoq Dung muv HablI'. Linux
+De'wI'mey law' Wi-Fi motlh lonnIS poHvam; Wi-Fi De'wI'vamDaq mevlu'DI' chegh. Windows Wi-Fi motlh
+ratlh.
 
 **chay' HablI' QaD Sovlu'.** ghun rapmoHlu'DI', HablI' QaD chipDaq ngoq chenmoH; ngoq ghItlh
 pol De'wI'. Segh, mI' pagh pongmey neH voqlu'be' reH – latlh De' ngeHlu'pa' Hoch rarghach ngoq

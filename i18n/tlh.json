@@ -1901,6 +1901,9 @@
   "Switches off in %s if no backup starts.": "polghach taghbe'chugh %s pIq Qempa'.",
   "Backup running – switches off when it is done.": "polghach ta'lI' – rInDI' Qempa'.",
   "None yet – make one in the tab “Secure backups”.": "pagh wej – “polghachmey QaD” tab 'oHDaq wa' yIchenmoH.",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "De'wI'lIj SoH rar HablI', mIw nomqu' Dung. polta'DI' SoH Qempa', tlhegh teqlu'DI' 5 tup ret je."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "De'wI'lIj SoH rar HablI', mIw nomqu' Dung. polta'DI' SoH Qempa', tlhegh teqlu'DI' 5 tup ret je.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows Mobile hotspot luthlIjlaw' Windows (%s). SeHlaw'Daq yIchu' (DaH tlhoy'Daq Degh).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "Wi-Fi hotspot '%s' chu'lu'pu' (Windows Mobile hotspot).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "De'wI'vam rarlu'DI' neH Mobile hotspot luthlIj Windows. SeHlaw'Daq yIchu' (DaH tlhoy'Daq Degh)."
  }
 }

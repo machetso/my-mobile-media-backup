@@ -2003,6 +2003,9 @@
   "Switches off in %s if no backup starts.": "Se oprește peste %s dacă nu pornește niciun backup.",
   "Backup running – switches off when it is done.": "Backup în curs – se oprește când se termină.",
   "None yet – make one in the tab “Secure backups”.": "Niciuna încă – creează una în fila „Backup-uri sigure”.",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Telefonul se conectează singur la computer, pe cea mai rapidă cale posibilă. Se oprește singur după backup și la 5 minute după ce cablul este deconectat."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Telefonul se conectează singur la computer, pe cea mai rapidă cale posibilă. Se oprește singur după backup și la 5 minute după ce cablul este deconectat.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows nu a pornit hotspotul mobil (%s). Pornește-l în schimb din setări (butonul de mai jos).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "Hotspotul Wi-Fi „%s” este pornit (hotspot mobil Windows).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "Windows pornește hotspotul mobil doar cât timp acest computer are o conexiune la rețea. Pornește-l în schimb din setări (butonul de mai jos)."
  }
 }

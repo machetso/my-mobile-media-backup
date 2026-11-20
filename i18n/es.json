@@ -1951,6 +1951,9 @@
   "Switches off in %s if no backup starts.": "Se desactiva en %s si no empieza ninguna copia.",
   "Backup running – switches off when it is done.": "Copia en curso: se desactiva cuando termine.",
   "None yet – make one in the tab “Secure backups”.": "Ninguna todavía: crea una en la pestaña “Copias seguras”.",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "El teléfono se conecta por sí solo a tu equipo, de la forma más rápida posible. Se desactiva por sí solo después de la copia y 5 minutos después de desconectar el cable."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "El teléfono se conecta por sí solo a tu equipo, de la forma más rápida posible. Se desactiva por sí solo después de la copia y 5 minutos después de desconectar el cable.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows no ha iniciado la zona con cobertura inalámbrica móvil (%s). Actívala en la configuración (botón de abajo).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "Punto de acceso Wi-Fi “%s” activado (zona con cobertura inalámbrica móvil de Windows).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "Windows solo inicia su zona con cobertura inalámbrica móvil mientras este equipo tiene conexión de red. Actívala en la configuración (botón de abajo)."
  }
 }

@@ -123,8 +123,55 @@ def check_wifi(cfg, wait=1.5):
 
 # =========================================================================== 2. Bluetooth
 
+# ---- Windows (user request 2026-11-20: the same functions as on Linux) – Windows' own interfaces
+_WIN_PAIRED = r"""
+Get-PnpDevice -Class Bluetooth -ErrorAction SilentlyContinue | ForEach-Object { $_.InstanceId + [char]9 + $_.FriendlyName }
+"""
+_WIN_NEAR = r"""
+$null = [Windows.Devices.Bluetooth.BluetoothDevice,Windows.Devices.Bluetooth,ContentType=WindowsRuntime]
+$null = [Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult,Windows.Devices.Bluetooth,ContentType=WindowsRuntime]
+$d = AwaitOp ([Windows.Devices.Bluetooth.BluetoothDevice]::FromBluetoothAddressAsync([uint64]$env:PB_ADDR)) ([Windows.Devices.Bluetooth.BluetoothDevice])
+if ($d -eq $null) { 'NONE'; exit 0 }
+$r = AwaitOp ($d.GetRfcommServicesAsync([Windows.Devices.Bluetooth.BluetoothCacheMode]::Uncached)) ([Windows.Devices.Bluetooth.Rfcomm.RfcommDeviceServicesResult])
+'ERROR ' + [string]$r.Error + ' ' + $r.Services.Count
+"""
+
+
+def _win_paired_bluetooth(text=None):
+    """[(address 'AA:BB:…', name)] from Windows' device list ("BTHENUM\\DEV_A0B1C2D3E4F5…")."""
+    if text is None:
+        from . import winps
+        try:
+            _code, text = winps.run(_WIN_PAIRED, timeout=20)
+        except (OSError, subprocess.SubprocessError):
+            return []
+    out = []
+    for ln in text.splitlines():
+        inst, _tab, name = ln.strip().partition("\t")
+        m = re.search(r"DEV_([0-9A-F]{12})", inst, re.I)
+        if m and name.strip():
+            a = m.group(1).upper()
+            addr = ":".join(a[i:i + 2] for i in range(0, 12, 2))
+            if all(addr != x for x, _n in out):
+                out.append((addr, name.strip()))
+    return out
+
+
+def _win_bluetooth_near(addr):
+    """The phone answers a service query that is not taken from the cache – only when it is in range
+    with Bluetooth on (like Linux's name request). No connection to an app is made."""
+    from . import winps
+    try:
+        _code, out = winps.run(_WIN_NEAR, {"PB_ADDR": int(addr.replace(":", ""), 16)}, timeout=30)
+    except (OSError, subprocess.SubprocessError, ValueError):
+        return False
+    return out.splitlines()[-1].startswith("ERROR Success") if out else False
+
+
 def paired_bluetooth():
-    """[(address, name)] of the devices paired with this computer over Bluetooth (Linux)."""
+    """[(address, name)] of the devices paired with this computer over Bluetooth (Linux, Windows)."""
+    if sys.platform.startswith("win"):
+        return _win_paired_bluetooth()
     if not sys.platform.startswith("linux") or not companion.shutil_which("bluetoothctl"):
         return []
     try:
@@ -151,6 +198,8 @@ def bluetooth_candidates(names, paired=None):
 
 def bluetooth_near(addr):
     """True if the device answers a name request (in range, Bluetooth on). No connection is made."""
+    if sys.platform.startswith("win"):
+        return _win_bluetooth_near(addr)
     if not companion.shutil_which("hcitool"):
         return False
     try:
@@ -165,6 +214,8 @@ def check_bluetooth(names):
 
 
 def bluetooth_possible():
+    if sys.platform.startswith("win"):
+        return True
     return sys.platform.startswith("linux") and bool(companion.shutil_which("hcitool"))
 
 

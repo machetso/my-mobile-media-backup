@@ -1951,6 +1951,9 @@
   "Switches off in %s if no backup starts.": "Se désactive dans %s si aucune sauvegarde ne démarre.",
   "Backup running – switches off when it is done.": "Sauvegarde en cours – se désactive une fois terminée.",
   "None yet – make one in the tab “Secure backups”.": "Aucune pour l’instant – crées-en une dans l’onglet « Sauvegardes sûres ».",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Le téléphone se connecte tout seul à ton ordinateur, de la façon la plus rapide possible. La connexion se désactive toute seule après la sauvegarde, et 5 minutes après le débranchement du câble."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "Le téléphone se connecte tout seul à ton ordinateur, de la façon la plus rapide possible. La connexion se désactive toute seule après la sauvegarde, et 5 minutes après le débranchement du câble.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows n’a pas démarré le point d’accès sans fil mobile (%s). Active-le plutôt dans les paramètres (bouton ci-dessous).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "Point d’accès Wi-Fi « %s » activé (point d’accès sans fil mobile de Windows).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "Windows ne démarre son point d’accès sans fil mobile que si cet ordinateur a une connexion réseau. Active-le plutôt dans les paramètres (bouton ci-dessous)."
  }
 }

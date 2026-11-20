@@ -16,6 +16,7 @@ import secrets
 import shutil
 import string
 import subprocess
+import time
 import sys
 from dataclasses import dataclass
 
@@ -248,11 +249,91 @@ def disconnect_all(adb):
 # =========================================================================== direct Wi-Fi (hotspot)
 
 def hotspot_supported():
-    """Linux with NetworkManager: the app starts the hotspot itself. Windows: the user switches on
-    'Mobile hotspot' in the Windows settings (opened by the app)."""
+    """Linux with NetworkManager, and Windows (its "Mobile hotspot", 2026-11-20): the app starts
+    the hotspot itself."""
     if sys.platform.startswith("win"):
         return True
     return shutil.which("nmcli") is not None
+
+
+# ---- Windows: the "Mobile hotspot" through Windows' own interface (user request 2026-11-20: same
+# functions as on Linux). It shares this computer's network connection; the normal Wi-Fi stays.
+WIN_HOTSPOT_NET = "192.168.137.0/24"      # Windows' fixed network for the Mobile hotspot
+
+_WIN_TETHER = r"""
+$null = [Windows.Networking.Connectivity.NetworkInformation,Windows.Networking.Connectivity,ContentType=WindowsRuntime]
+$null = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager,Windows.Networking.NetworkOperators,ContentType=WindowsRuntime]
+$p = [Windows.Networking.Connectivity.NetworkInformation]::GetInternetConnectionProfile()
+if ($p -eq $null) { $p = [Windows.Networking.Connectivity.NetworkInformation]::GetConnectionProfiles() | Select-Object -First 1 }
+if ($p -eq $null) { 'NOPROFILE'; exit 0 }
+$tm = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringManager]::CreateFromConnectionProfile($p)
+$R = [Windows.Networking.NetworkOperators.NetworkOperatorTetheringOperationResult]
+switch ($env:PB_ACTION) {
+  'state' { 'STATE ' + [string]$tm.TetheringOperationalState }
+  'start' {
+    $c = $tm.GetCurrentAccessPointConfiguration()
+    $c.Ssid = $env:PB_SSID
+    $c.Passphrase = $env:PB_PASS
+    AwaitAction ($tm.ConfigureAccessPointAsync($c))
+    $r = AwaitOp ($tm.StartTetheringAsync()) $R
+    'RESULT ' + [string]$r.Status + ' ' + [string]$r.AdditionalErrorMessage }
+  'stop' { $r = AwaitOp ($tm.StopTetheringAsync()) $R; 'RESULT ' + [string]$r.Status }
+}
+"""
+_win_state = {"on": False, "t": -1e9}
+
+
+def _win_tether(action, **env):
+    """(ok, text) – the last line of the script's answer."""
+    from . import winps
+    try:
+        code, out = winps.run(_WIN_TETHER, dict(env, PB_ACTION=action), timeout=90)
+    except (OSError, subprocess.SubprocessError) as e:
+        return False, str(e)
+    last = out.splitlines()[-1] if out else ""
+    return code == 0 and bool(last), last or out
+
+
+def _win_start_hotspot(ssid, password):
+    ok, out = _win_tether("start", PB_SSID=ssid, PB_PASS=password)
+    if ok and out.startswith("RESULT Success"):
+        _win_state.update(on=True, t=time.monotonic())
+        return True, tr("Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).", ssid)
+    if out == "NOPROFILE":
+        return False, tr("Windows starts its Mobile hotspot only while this computer has a network "
+                         "connection. Switch it on in the settings (button below) instead.")
+    detail = out[len("RESULT "):].strip() if out.startswith("RESULT ") else out
+    return False, tr("Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button "
+                     "below) instead.", detail or "?")
+
+
+def _win_stop_hotspot():
+    ok, out = _win_tether("stop")
+    _win_state.update(on=False, t=time.monotonic())
+    return ok and out.startswith("RESULT Success"), "" if ok else out
+
+
+def _win_hotspot_active(max_age=15.0):
+    """Asked at most every `max_age` seconds (each question starts PowerShell)."""
+    if time.monotonic() - _win_state["t"] > max_age:
+        ok, out = _win_tether("state")
+        _win_state.update(on=ok and out == "STATE On", t=time.monotonic())
+    return _win_state["on"]
+
+
+def _win_neighbours():
+    """[(ip, mac)] from Windows' neighbour table (arp -a): dynamic entries only."""
+    try:
+        r = subprocess.run(["arp", "-a"], capture_output=True, timeout=5,
+                           creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+    except (OSError, subprocess.SubprocessError):
+        return []
+    out = []
+    for m in re.finditer(r"^\s*(\d{1,3}(?:\.\d{1,3}){3})\s+([0-9a-f]{2}(?:-[0-9a-f]{2}){5})\s+(\S+)",
+                         r.stdout.decode("utf-8", "replace"), re.M | re.I):
+        if m.group(2).lower() != "ff-ff-ff-ff-ff-ff" and not m.group(1).endswith(".255"):
+            out.append((m.group(1), m.group(2).lower().replace("-", ":")))
+    return out
 
 
 def new_hotspot_credentials():
@@ -314,7 +395,9 @@ def wifi_interface():
 
 
 def hotspot_active():
-    if sys.platform.startswith("win") or not shutil.which("nmcli"):
+    if sys.platform.startswith("win"):
+        return _win_hotspot_active()
+    if not shutil.which("nmcli"):
         return False
     try:
         code, out = _nmcli(["-t", "-f", "NAME", "connection", "show", "--active"], timeout=15)
@@ -326,7 +409,9 @@ def hotspot_active():
 def hotspot_networks():
     """The IPv4 networks of the running Direct Wi-Fi (e.g. 10.42.0.0/24), [] when it is off."""
     import ipaddress
-    if sys.platform.startswith("win") or not shutil.which("nmcli"):
+    if sys.platform.startswith("win"):
+        return [ipaddress.ip_network(WIN_HOTSPOT_NET)] if _win_hotspot_active() else []
+    if not shutil.which("nmcli"):
         return []
     try:
         code, out = _nmcli(["-g", "IP4.ADDRESS", "connection", "show", HOTSPOT_CON], timeout=15)
@@ -356,6 +441,16 @@ def over_hotspot(address, networks):
 def hotspot_clients(networks):
     """IPv4 addresses of devices that joined the Direct Wi-Fi (from the computer's neighbour table)."""
     import ipaddress
+    if networks and sys.platform.startswith("win"):
+        found = []
+        for ip_s, _mac in _win_neighbours():
+            try:
+                ip = ipaddress.ip_address(ip_s)
+            except ValueError:
+                continue
+            if any(ip in n for n in networks) and ip_s not in found and not ip_s.endswith(".1"):
+                found.append(ip_s)         # .1 = this computer itself
+        return found
     if not networks or not shutil.which("ip"):
         return []
     try:
@@ -383,7 +478,7 @@ def start_hotspot(ssid, password):
     rejoins the same network automatically next time.
     """
     if sys.platform.startswith("win"):
-        return False, tr("On Windows switch on 'Mobile hotspot' in the settings.")
+        return _win_start_hotspot(ssid, password)
     if not shutil.which("nmcli"):
         return False, tr("NetworkManager (nmcli) was not found - start a hotspot in the system "
                          "settings.")
@@ -413,7 +508,7 @@ def start_hotspot(ssid, password):
 def stop_hotspot():
     """Returns (ok, message). The normal Wi-Fi reconnects by itself afterwards."""
     if sys.platform.startswith("win"):
-        return True, ""
+        return _win_stop_hotspot()
     try:
         code, msg = _nmcli(["connection", "down", HOTSPOT_CON], timeout=30)
     except (OSError, subprocess.SubprocessError) as e:

@@ -2003,6 +2003,9 @@
   "Switches off in %s if no backup starts.": "יכבה בעוד %s אם לא יתחיל גיבוי.",
   "Backup running – switches off when it is done.": "גיבוי פועל – יכבה בסיומו.",
   "None yet – make one in the tab “Secure backups”.": "עדיין אין – אפשר ליצור אחד בלשונית “גיבויים בטוחים”.",
-  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "הטלפון מתחבר למחשב שלך מעצמו, בדרך המהירה ביותר האפשרית. הוא מתכבה מעצמו לאחר הגיבוי, ו-5 דקות לאחר ניתוק הכבל."
+  "The phone connects to your computer by itself, the fastest way possible. The connection switches off by itself after the backup, and 5 minutes after the cable is unplugged.": "הטלפון מתחבר למחשב שלך מעצמו, בדרך המהירה ביותר האפשרית. הוא מתכבה מעצמו לאחר הגיבוי, ו-5 דקות לאחר ניתוק הכבל.",
+  "Windows did not start the Mobile hotspot (%s). Switch it on in the settings (button below) instead.": "Windows לא הפעיל את הנקודה החמה לנייד (%s). אפשר להפעיל אותה בהגדרות (הכפתור למטה).",
+  "Wi-Fi hotspot '%s' is on (Windows Mobile hotspot).": "נקודה חמה של Wi-Fi ‏'%s' פועלת (הנקודה החמה לנייד של Windows).",
+  "Windows starts its Mobile hotspot only while this computer has a network connection. Switch it on in the settings (button below) instead.": "Windows מפעיל את הנקודה החמה לנייד רק כשלמחשב הזה יש חיבור רשת. אפשר להפעיל אותה בהגדרות (הכפתור למטה)."
  }
 }

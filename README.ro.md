@@ -170,9 +170,9 @@ cablu, inclusiv amprentele pe telefon – doar mai lent.
 3. De atunci telefonul este găsit ori de câte ori Depanarea wireless este pornită și amândouă sunt în același Wi-Fi.
 
 **Fără router? Wi-Fi direct.** **Wi-Fi direct…** îi permite computerului să deschidă propria rețea Wi-Fi
-(Linux: un hotspot, pe 5 GHz dacă se poate; Windows: deschide setările *Hotspot mobil*). Telefonul se
-conectează la ea cu un cod QR. Majoritatea computerelor părăsesc între timp rețeaua Wi-Fi obișnuită; ea
-revine când Wi-Fi direct este oprit.
+(Linux: pe 5 GHz dacă se poate; Windows: *Hotspotul mobil* al său). Telefonul se conectează la ea
+cu un cod QR. Pe Linux, majoritatea computerelor părăsesc între timp rețeaua Wi-Fi obișnuită; ea
+revine când Wi-Fi direct este oprit. Pe Windows, rețeaua Wi-Fi obișnuită rămâne.
 
 **Cum este recunoscut telefonul în siguranță.** Când aplicația este asociată, ea creează o cheie în cipul
 de securitate al telefonului; computerul îi stochează amprenta. Modelul, numărul de serie sau numele singure

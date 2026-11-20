@@ -17,6 +17,9 @@
 - **More reliable connecting:** a known phone in the same Wi-Fi is shown as *nearby*, the connect
   QR code scans faster, a hanging USB file transfer no longer blocks the program, and a VPN on the
   phone that blocks the Wi-Fi connection is pointed out.
+- **Windows has the same functions as Linux:** the program starts Direct Wi-Fi (Windows' Mobile
+  hotspot) by itself, finds a nearby phone over Bluetooth, and a hanging USB file transfer no longer
+  blocks a backup.
 
 ## [0.9.8.5] - 2026-11-17
 
