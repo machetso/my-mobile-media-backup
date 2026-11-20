@@ -1,4 +1,5 @@
 """Never mix up phones: the backup folder remembers its phone (user requirement 2026-11-04)."""
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -116,6 +117,7 @@ class CableAdviceTest(unittest.TestCase):
             (p / "product").write_text("SAMSUNG_Android")
             self.assertEqual(adbsetup._linux_usb_phones(d), ["Samsung phone"])
 
+    @unittest.skipIf(sys.platform.startswith("win"), "Linux sysfs paths (':' is not allowed in Windows names)")
     def test_dock_is_no_phone(self):
         """Lenovo dock: VIA Labs hubs + ThinkPad Lan (vendor 17ef) were shown as a phone (2026-11-20)."""
         import tempfile as tf

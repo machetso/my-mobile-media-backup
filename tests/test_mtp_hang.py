@@ -1,6 +1,7 @@
 """A hanging phone file transfer (gvfs MTP) must never block the program (bug 2026-11-20: it stayed
 at "connecting …" for good and no other connection could start). No real phone or mount is used."""
 import os
+import sys
 import tempfile
 import time
 import unittest
@@ -11,6 +12,7 @@ from phonebackup import sources
 
 
 class ProbeTest(unittest.TestCase):
+    @unittest.skipIf(sys.platform.startswith("win"), "gvfs is Linux (':' is not allowed in Windows names)")
     def test_finds_the_phone_storage(self):
         with tempfile.TemporaryDirectory() as d:
             base = Path(d)
