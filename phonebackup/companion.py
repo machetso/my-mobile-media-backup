@@ -536,7 +536,7 @@ def connect_best(address, timeout):
     in the phone's network (SO_BINDTODEVICE, no root needed for an unbound socket), else as usual.
     Setting up the connection never waits longer than CONNECT_TIMEOUT (user test 2026-11-24: with
     the read timeout of 15 minutes the program showed "connecting" for ever)."""
-    dev = _cached_wired(address[0])
+    dev = _cached_wired(address[0]) if hasattr(socket, "SO_BINDTODEVICE") else None   # Linux only
     if dev:
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:

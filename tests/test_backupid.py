@@ -2,6 +2,8 @@
 the app must not be fooled by a recreated folder structure). Everything in temporary folders."""
 
 import shutil
+import unittest
+import importlib.util
 import sys
 from pathlib import Path
 
@@ -222,6 +224,10 @@ class OneDrive(Base):
         self.assertEqual((r[str(self.d1)]["other_files"], r[str(self.d1)]["files"]), (4, 3))
 
 
+HAVE_QT = importlib.util.find_spec("PySide6") is not None      # GitHub's test machines: no PySide6
+
+
+@unittest.skipUnless(HAVE_QT, "PySide6 not installed")
 class PrepareShowsFiles(Base):
     """User 2026-11-23: "Prepare folders" must show WHAT it is doing, not only "Working …"."""
 

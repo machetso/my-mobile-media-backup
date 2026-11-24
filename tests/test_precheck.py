@@ -5,6 +5,7 @@ import shutil
 import sys
 import tempfile
 import unittest
+import importlib.util
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -71,6 +72,7 @@ class PrecheckTest(unittest.TestCase):
         self.assertEqual((res.new, res.maybe_there), (0, 3))
 
 
+@unittest.skipUnless(importlib.util.find_spec("PySide6") is not None, "PySide6 not installed")
 class DialogSmoke(unittest.TestCase):
     def test_dialog_text(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

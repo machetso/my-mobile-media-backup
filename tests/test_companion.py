@@ -129,6 +129,7 @@ class WiredWayTest(unittest.TestCase):
                 "3: wlan0    inet 10.20.31.78/23 brd 10.20.31.255 scope global dynamic\n")
         self.assertEqual(companion._interfaces_v4(text), [("lo", "127.0.0.1/8"), ("wlan0", "10.20.31.78/23")])
 
+    @unittest.skipUnless(hasattr(companion.socket, "SO_BINDTODEVICE"), "Linux only")
     def test_falls_back_when_cable_way_fails(self):
         companion._WIRED_CACHE.clear()
         class Usual:
