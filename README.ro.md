@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Version 0.9.9.0**
+**Version 0.9.9.1**
 
 Face backup fotografiilor și videoclipurilor de pe telefonul tău Android pe una sau mai multe unități
 externe – verificate fișier cu fișier, sortate pe ani și luni, cu un raport după fiecare backup.
@@ -62,7 +62,7 @@ Sau atinge **Fă backup acum** pe telefon.
 
 * **Mai rapid:** activează o dată *Depanare USB* pe telefon (programul îți arată cum, pas cu pas,
   pentru modelul tău de telefon). Backup-ul este apoi de două până la patru ori mai rapid.
-* **Fără cablu:** instalează aplicația de pe telefon *My Mobile Media Backup* (*Conectează telefonul…*
+* **Fără cablu:** instalează aplicația de pe telefon *My Mobile Media Backup* (*Ajutor la conectare…*
   pe ecranul de start arată un cod QR). Atunci backup-ul funcționează prin Wi-Fi, iar telefonul și
   computerul se găsesc singure.
 * **Două unități** sunt mai sigure decât una: bifează-le pe amândouă, sunt scrise în același timp.
@@ -72,13 +72,17 @@ Sau atinge **Fă backup acum** pe telefon.
 ### Fereastra
 
 * **Ecranul de start:** starea conexiunii (roșu = niciun telefon conectat, galben = ai ceva de făcut
-  pe telefon, verde = conectat), **Conectează telefonul…** și **Conexiuni posibile**. Un telefon
-  cunoscut din același Wi-Fi apare ca *în apropiere*, cu **Fă backup acum**. **Backup nou…** pornește
+  pe telefon, verde = conectat – spune și cum: cablu USB sau Wi-Fi și dacă transferul datelor este
+  verificat), **Ajutor la conectare…** și **Conexiuni posibile**. Un telefon cunoscut din aceeași rețea
+  apare ca *în apropiere*, cu **Fă backup acum** – acasă, la birou, oriunde a mai fost conectat. **Backup nou…** pornește
   un backup pentru alt telefon sau cu alte foldere ori unități. Dedesubt, **Telefoanele tale** – câte o
   intrare pentru fiecare backup, cu data ultimului backup, câte fotografii și videoclipuri sunt încă fără
   backup (când telefonul este în apropiere sau conectat) și propriul buton **Actualizează backup-ul**.
-  Butonul este gri cât timp un clic nu poate porni backup-ul; un clic spune atunci ce lipsește.
-* **Bara laterală:** Backup, Gestionează backup-urile, rotița (setările programului), Manual și Despre.
+  Butonul este gri cât timp un clic nu poate porni backup-ul; un clic spune atunci ce lipsește. Comutatorul
+  **Backup automat** al fiecărui telefon face ca backup-ul să pornească singur când telefonul este în apropiere;
+  blocuri mici arată ce mai lipsește și pasul următor.
+* **Bara laterală:** Backup-uri smartphone, Gestionează backup-urile, Backup-uri sigure, rotița (setările
+  programului), Manual și Despre.
   Globul din dreapta sus schimbă limba.
 * **Jos:** progresul, viteza și timpul rămas, cu **Anulează** (se oprește după fișierul curent),
   **Deschide raportul** și **Deschide folderul de backup**. Fiecare sarcină scrie și un fișier jurnal.
@@ -122,7 +126,7 @@ notificarea USB a telefonului. MTP este mai lent, iar telefonul nu poate calcula
 depanare USB, aplicația pornește și oprește pentru tine cea mai rapidă conexiune, iar telefonul și computerul
 arată ce este încă fără backup.
 
-* **Instalare:** *Conectează telefonul…* arată două coduri QR: unul conectează aplicația, celălalt o
+* **Instalare:** *Ajutor la conectare…* arată două coduri QR: unul conectează aplicația, celălalt o
   descarcă de pe pagina Releases. Prin cablul USB programul poate instala singur aplicația; **întreabă
   întotdeauna înainte** și spune ce telefon, ce versiune și de ce.
 * **Backup:** arată câte fotografii și videoclipuri sunt încă fără backup și cât de mari sunt, de
@@ -138,11 +142,17 @@ arată ce este încă fără backup.
 * **Când computerul tău vrea un backup:**
   * **Întreabă-mă** (implicit) – telefonul întreabă *Permiți backup-ul?*; nimic nu pornește fără atingerea ta.
   * **Permite fără întrebare** – un clic pe computer pornește backup-ul, fără atingere pe telefon.
-    Cu **Pornește și singur**, cele mai noi fotografii și videoclipuri primesc backup când computerul
-    găsește telefonul în Wi-Fi sau când conectezi cablul (cel mult o dată pe oră).
+    Cu **Backup automat** pornit pentru acest telefon pe computer, cele mai noi fotografii și videoclipuri
+    primesc backup singure (cel mult o dată pe oră).
   * **Niciodată** – computerul nu poate întreba și nu găsește telefonul în apropiere.
+  Întrebarea *Permiți backup-ul?* apare și direct în aplicația deschisă.
+* **Economisirea bateriei:** nimic nu ascultă tot timpul. Telefonul se anunță la computer când
+  intră într-un Wi-Fi, când se încarcă și la fiecare 30 de minute – în orice Wi-Fi, fără nimic care
+  să-l identifice. Doar într-un **Wi-Fi de încredere** (*Marchează Wi-Fi-ul actual ca de încredere*) un backup
+  poate porni fără întrebare; în rest, telefonul întreabă întotdeauna înainte.
 * **VPN pe telefon:** un VPN care trimite totul prin tunel împiedică computerul să ajungă la aplicație
-  prin Wi-Fi. Aplicația arată un sfat: exclude *My Mobile Media Backup* din VPN sau folosește cablul.
+  prin Wi-Fi. Aplicația arată atunci un avertisment roșu sus, cu **Deschide setările VPN**, iar computerul
+  spune și el: exclude *My Mobile Media Backup* din VPN sau folosește cablul.
 * **Aceeași versiune:** aplicația de pe telefon are același număr de versiune ca programul. Când este mai
   veche, ecranul de start și *Gestionează backup-urile → Prezentare generală* arată **Actualizează
   aplicația de pe telefon**. Copiile mai vechi ale aplicației sunt eliminate automat.
@@ -256,16 +266,22 @@ Cele două pot fi combinate, de exemplu *Simplu* pe o unitate și *Bunic-Tată-F
 
 **Backup-uri** listează toate backup-urile tale. Alege unul ca să-i vezi filele:
 
-* **Prezentare generală** – cel mai recent backup, ce unități de backup sunt complete, backup-urile
-  Bunic-Tată-Fiu și backup-urile care nu s-au terminat. După fiecare backup programul întreabă dacă este
-  complet.
-* **Folderele telefonului** – folderele pe care le copiază *Actualizează backup-ul*.
-* **Unități de backup** – unitățile acestui backup și planurile lor.
-* **Foldere de import** – adaugă fotografii vechi la acest backup (vezi mai jos).
+* **Prezentare generală** – cel mai recent backup, dacă unitățile de backup sunt la zi și dacă backup-ul
+  este asigurat (a doua copie).
+* **Unități destinație** – unitățile acestui backup cu starea lor (la zi, câte fotografii și videoclipuri
+  lipsesc, neconectată, folder negăsit). **Adaugă unitate…** adaugă una; **Integrează folderul…** găsește
+  folderele de backup existente pe unitățile tale și le preia; **Pregătește folderele** (se aprinde când
+  unitățile diferă) aduce toate unitățile backup-ului în aceeași stare – unește și un backup vechi care era
+  cuprins în interior, iar fișierele identice ajung într-un folder de verificat (*Duplicate*) în loc să fie
+  șterse. **Verificare integritate…** citește încă o dată fiecare fotografie și videoclip și le compară cu
+  amprenta lor. Fiecare backup are un marcaj pe unitățile sale, așa că o unitate care revine sub altă cale (de
+  exemplu sloturi VeraCrypt schimbate între ele) este găsită din nou singură.
+* **Folderele telefonului** – folderele pe care le copiază *Actualizează backup-ul* (*Foldere suplimentare…*).
+* **Importă fișiere media** – adaugă fotografii vechi la acest backup (vezi mai jos).
 * **Istoricul backup-urilor** – fiecare backup cu rezultatul și raportul său.
 
-**Telefoane vechi și unități vechi.** *Backup nou al unui telefon sau disc vechi…* creează un backup propriu
-(de exemplu „Galaxy S7 – Kevin” sau „Disc vechi – Kevin”); *Foldere de import* adaugă la un backup existent.
+**Telefoane vechi și unități vechi.** *Backup nou…* creează un backup propriu
+(de exemplu „Galaxy S7 – Kevin” sau „Disc vechi – Kevin”); *Importă fișiere media* adaugă la un backup existent.
 Adaugă folderele (de exemplu copia unui telefon vechi și a cardului său SD) și apasă *Alege folderele
 de importat…*: fiecare folder cu fișiere este listat cu fotografiile, videoclipurile și celelalte fișiere ale lui;
 datele aplicațiilor, cache-urile, miniaturile, coșul de gunoi și folderele ascunse sunt lăsate deoparte. Pentru fiecare folder alege:
@@ -278,7 +294,8 @@ datele aplicațiilor, cache-urile, miniaturile, coșul de gunoi și folderele as
 Fiecare fișier este verificat ca la un backup de telefon, fișierele identice sunt stocate o singură dată, iar
 folderele vechi sunt doar citite.
 
-**Backup-uri sigure (a doua copie).** Copiază un backup pe o a doua unitate sau pe **Google Drive**.
+**Backup-uri sigure (a doua copie)** – pagină proprie în bara laterală. Copiază un backup pe o a doua
+unitate sau pe **Google Drive**.
 Fiecare copie primește propriul folder datat.
 
 | Tip | Copiază |
@@ -290,7 +307,7 @@ Fiecare copie primește propriul folder datat.
 **Automat – Bunic-Tată-Fiu** (implicit) alege tipul: completă la fiecare 3 luni
 (bunicul), diferențială în fiecare lună (tatăl), incrementală între ele (fiul). Păstrează cele mai noi
 4 copii complete, 3 diferențiale și 6 incrementale și tot ce le trebuie pentru o restaurare. Cele mai vechi
-sunt propuse pentru eliminare și șterse **doar după ce confirmi** (*Curăță exporturile vechi…*). Fiecare
+sunt propuse pentru eliminare și șterse **doar după ce confirmi** (*Curăță copiile de siguranță vechi…*). Fiecare
 fișier copiat este comparat cu amprenta din backup – un fișier care s-a deteriorat pe prima
 unitate este raportat ca avertisment.
 

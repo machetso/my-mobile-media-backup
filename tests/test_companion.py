@@ -105,3 +105,84 @@ class CommitRevealTest(unittest.TestCase):
         self.assertNotEqual(c, companion.pairing_code_v2("3" * 64, fp, n))
         self.assertNotEqual(c, companion.pairing_code_v2(k, "b" * 64, n))
         self.assertNotEqual(c, companion.pairing_code_v2(k, fp, "4" * 32))
+
+
+class WiredWayTest(unittest.TestCase):
+    """User test 2026-11-24 (office): laptop on cable + Wi-Fi in the phone's network – the phone app
+    connection goes over the cable interface."""
+    IFACES = [("lo", "127.0.0.1/8"), ("wlan0", "10.20.31.78/23"), ("eth1", "10.20.31.153/23"),
+              ("tailscale0", "100.114.200.107/32")]
+
+    def test_cable_interface_in_the_phones_network(self):
+        wired = lambda d: d.startswith("eth")                                       # noqa: E731
+        with mock.patch.object(companion.sys, "platform", "linux"):
+            self.assertEqual(companion.wired_device_for("10.20.31.75", self.IFACES, wired), "eth1")
+            self.assertEqual(companion.wired_device_for("10.20.30.9", self.IFACES, wired), "eth1")
+            self.assertIsNone(companion.wired_device_for("192.168.178.73", self.IFACES, wired))   # other network
+            self.assertIsNone(companion.wired_device_for("10.20.31.75", self.IFACES, lambda d: False))  # Wi-Fi only
+            self.assertIsNone(companion.wired_device_for("adb-XYZ", self.IFACES, wired))
+        with mock.patch.object(companion.sys, "platform", "win32"):
+            self.assertIsNone(companion.wired_device_for("10.20.31.75", self.IFACES, wired))
+
+    def test_parse_ip_addr(self):
+        text = ("1: lo    inet 127.0.0.1/8 scope host lo\\       valid_lft forever\n"
+                "3: wlan0    inet 10.20.31.78/23 brd 10.20.31.255 scope global dynamic\n")
+        self.assertEqual(companion._interfaces_v4(text), [("lo", "127.0.0.1/8"), ("wlan0", "10.20.31.78/23")])
+
+    def test_falls_back_when_cable_way_fails(self):
+        companion._WIRED_CACHE.clear()
+        class Usual:
+            def __init__(self, a):
+                self.a = a
+
+            def settimeout(self, t):
+                pass
+        with mock.patch.object(companion, "wired_device_for", lambda ip: "enx-test"), \
+                mock.patch.object(companion.socket, "create_connection", lambda a, t: Usual(a)):
+            self.assertEqual(companion.connect_best(("127.0.0.1", 9), 1).a, ("127.0.0.1", 9))
+        self.assertIsNone(companion._WIRED_CACHE["127.0.0.1"][1])                    # remembered for a minute
+        companion._WIRED_CACHE.clear()
+
+
+class SilentPhoneTest(unittest.TestCase):
+    """User test 2026-11-24: phone app announced, a VPN on the phone drops the connection – the
+    program says why instead of "connecting" for ever."""
+
+    def _source(self, answers):
+        companion._WIRED_CACHE.clear()
+
+        def silent(a, timeout):
+            raise TimeoutError("timed out")
+        entry = {"fingerprint": "00" * 32, "secret": "ab" * 32, "name": "Pixel 10 Pro"}
+        with mock.patch.object(companion, "connect_best", silent), \
+                mock.patch.object(companion, "phone_answers", lambda ip: answers):
+            with self.assertRaises(companion.Unreachable) as cm:
+                companion.CompanionSource(entry, "192.0.2.75:47823")
+        return cm.exception
+
+    def test_vpn_hint_when_the_phone_itself_answers(self):
+        e = self._source(True)
+        self.assertTrue(e.vpn)
+        self.assertIn("VPN", str(e))
+
+    def test_plain_hint_when_nothing_answers(self):
+        e = self._source(False)
+        self.assertFalse(e.vpn)
+        self.assertIn("same Wi-Fi", str(e))
+
+    def test_connect_waits_at_most_connect_timeout(self):
+        seen = {}
+
+        class Sock:
+            def settimeout(self, t):
+                seen["read"] = t
+
+        def fake(a, t):
+            seen["connect"] = t
+            return Sock()
+        companion._WIRED_CACHE.clear()
+        with mock.patch.object(companion, "wired_device_for", lambda ip: None), \
+                mock.patch.object(companion.socket, "create_connection", fake):
+            companion.connect_best(("192.0.2.75", 47823), 900)
+        self.assertEqual(seen, {"connect": companion.CONNECT_TIMEOUT, "read": 900})
+        companion._WIRED_CACHE.clear()

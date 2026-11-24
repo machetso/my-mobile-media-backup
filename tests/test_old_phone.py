@@ -69,7 +69,10 @@ class OldPhoneImport(unittest.TestCase):
         sd = {f.rel: f for f in scan_folder(self.sd)}
         self.assertEqual(sd["DCIM/100ANDRO"].kind, CAMERA)
         existing = {f.rel: f for f in scan_folder(self.phone, into_existing=True)}
-        self.assertTrue(all(f.kind == CAMERA for f in existing.values()))
+        # user rule 2026-11-23: a folder with other files and own file names keeps its structure,
+        # also when adding to an existing backup – everything else is sorted
+        self.assertEqual(existing["Download"].kind, OTHER)
+        self.assertTrue(all(f.kind == CAMERA for r, f in existing.items() if r != "Download"))
         self.assertTrue(existing["Download"].suggested)             # has a photo
         self.assertTrue(existing["WhatsApp/Media/WhatsApp Images"].suggested)
 

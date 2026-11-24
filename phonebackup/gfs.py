@@ -63,29 +63,29 @@ def choose(runs, now=None, full_months=FULL_MONTHS, diff_months=DIFF_MONTHS):
     runs = active(runs)
     fulls = [r for r in runs if r.type == "full" and _done(r)]
     if not fulls:
-        return "full", tr("there is no complete full export on this storage yet")
+        return "full", tr("there is no complete full safety copy on this drive yet")
     full = fulls[-1]
     if now >= add_months(_when(full), full_months):
-        return "full", trp("the last full export (%s) is more than %d month old",
-                           "the last full export (%s) is more than %d months old", full_months,
+        return "full", trp("the last full safety copy (%s) is more than %d month old",
+                           "the last full safety copy (%s) is more than %d months old", full_months,
                            f"{_when(full):%Y-%m-%d}", full_months)
     diffs = [r for r in runs if r.type == "differential" and _done(r) and r.id > full.id]
     last = diffs[-1] if diffs else full
     if now >= add_months(_when(last), diff_months):
         when = f"{_when(last):%Y-%m-%d}"
         if diffs:
-            return "differential", trp("the last differential export (%s) is more than %d month old",
-                                       "the last differential export (%s) is more than %d months old",
+            return "differential", trp("the last differential safety copy (%s) is more than %d month old",
+                                       "the last differential safety copy (%s) is more than %d months old",
                                        diff_months, when, diff_months)
-        return "differential", trp("the last full export (%s) is more than %d month old",
-                                   "the last full export (%s) is more than %d months old",
+        return "differential", trp("the last full safety copy (%s) is more than %d month old",
+                                   "the last full safety copy (%s) is more than %d months old",
                                    diff_months, when, diff_months)
     due = add_months(_when(last), diff_months)
     if diffs:
-        why = tr("the last differential export is from %s – the next differential is due from %s",
+        why = tr("the last differential safety copy is from %s – the next differential is due from %s",
                  f"{_when(last):%Y-%m-%d}", f"{due:%Y-%m-%d}")
     else:
-        why = tr("the last full export is from %s – the next differential is due from %s",
+        why = tr("the last full safety copy is from %s – the next differential is due from %s",
                  f"{_when(last):%Y-%m-%d}", f"{due:%Y-%m-%d}")
     return "incremental", why
 

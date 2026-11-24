@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Version 0.9.9.0**
+**Version 0.9.9.1**
 
 Sauvegarde les photos et vidéos de ton téléphone Android sur un ou plusieurs disques externes – vérifiées
 fichier par fichier, triées par année et par mois, avec un rapport après chaque sauvegarde. Pour Windows et Linux.
@@ -60,7 +60,7 @@ besoin d’être branché : quand il est sur le même Wi-Fi, sa ligne indique pa
 
 * **Plus rapide :** active une fois le *débogage USB* sur le téléphone (le programme te montre comment, pas à pas,
   pour ton modèle de téléphone). La sauvegarde est alors deux à quatre fois plus rapide.
-* **Sans câble :** installe l’app du téléphone *My Mobile Media Backup* (*Connecter le téléphone…* sur l’écran
+* **Sans câble :** installe l’app du téléphone *My Mobile Media Backup* (*Aide à la connexion…* sur l’écran
   d’accueil affiche un code QR). La sauvegarde fonctionne alors par Wi-Fi, et le téléphone et l’ordinateur se trouvent
   tout seuls.
 * **Deux disques** sont plus sûrs qu’un seul : coche les deux, ils sont écrits en même temps.
@@ -70,13 +70,17 @@ besoin d’être branché : quand il est sur le même Wi-Fi, sa ligne indique pa
 ### La fenêtre
 
 * **Écran d’accueil :** l’état de la connexion (rouge = aucun téléphone connecté, jaune = quelque chose à faire sur
-  le téléphone, vert = connecté), **Connecter le téléphone…** et **Connexions possibles**. Un téléphone connu sur
-  le même Wi-Fi est affiché *à proximité*, avec **Sauvegarder maintenant**. **Nouvelle sauvegarde…** démarre la sauvegarde
+  le téléphone, vert = connecté – il indique aussi comment : câble USB ou Wi-Fi, et si le transfert des données
+  est vérifié), **Aide à la connexion…** et **Connexions possibles**. Un téléphone connu sur le même réseau est
+  affiché *à proximité*, avec **Sauvegarder maintenant** – à la maison, au bureau, partout où il a déjà été connecté. **Nouvelle sauvegarde…** démarre la sauvegarde
   d’un autre téléphone, ou avec d’autres dossiers ou disques. En dessous, **Tes téléphones** – une entrée par sauvegarde
   avec la date de la dernière sauvegarde, le nombre de photos et vidéos pas encore sauvegardées (quand le
   téléphone est à proximité ou connecté) et son propre bouton **Mettre à jour la sauvegarde**. Le bouton est gris tant
-  qu’un clic ne peut pas démarrer la sauvegarde ; un clic indique alors ce qui manque.
-* **Barre latérale :** Sauvegarde, Gérer les sauvegardes, l’engrenage (paramètres du programme), Manuel et À propos. Le globe
+  qu’un clic ne peut pas démarrer la sauvegarde ; un clic indique alors ce qui manque. L’interrupteur **Sauvegarde auto** de
+  chaque téléphone lance la sauvegarde toute seule quand le téléphone est à proximité ; de petits blocs montrent ce qui
+  manque encore et la prochaine étape.
+* **Barre latérale :** Sauvegardes de smartphones, Gérer les sauvegardes, Sauvegardes sûres, l’engrenage (paramètres du programme),
+  Manuel et À propos. Le globe
   en haut à droite change la langue.
 * **En bas :** l’avancement, la vitesse et le temps restant, avec **Annuler** (s’arrête après le fichier en cours),
   **Ouvrir le rapport** et **Ouvrir le dossier de sauvegarde**. Chaque tâche écrit aussi un fichier journal.
@@ -120,7 +124,7 @@ du téléphone. MTP est plus lent, et le téléphone ne peut pas calculer d’em
 USB, l’app active et désactive pour toi la connexion la plus rapide, et le téléphone et l’ordinateur indiquent
 ce qui n’est pas encore sauvegardé.
 
-* **Installer :** *Connecter le téléphone…* affiche deux codes QR : l’un connecte l’app, l’autre la télécharge
+* **Installer :** *Aide à la connexion…* affiche deux codes QR : l’un connecte l’app, l’autre la télécharge
   depuis la page des versions. Par le câble USB, le programme peut installer l’app lui-même ; il **demande
   toujours d’abord** et indique quel téléphone, quelle version et pourquoi.
 * **Sauvegarde :** indique combien de photos et de vidéos ne sont pas encore sauvegardées et leur taille, par
@@ -136,11 +140,17 @@ ce qui n’est pas encore sauvegardé.
 * **Quand ton ordinateur veut une sauvegarde :**
   * **Me demander** (par défaut) – le téléphone demande *Autoriser la sauvegarde ?* ; rien ne démarre sans ton appui.
   * **Autoriser sans demander** – un clic sur l’ordinateur démarre la sauvegarde, sans appui sur le téléphone.
-    Avec **Démarrer aussi tout seul**, les photos et vidéos les plus récentes sont sauvegardées quand l’ordinateur
-    trouve le téléphone sur le Wi-Fi ou que tu branches le câble (au plus une fois par heure).
+    Avec **Sauvegarde auto** activée pour ce téléphone sur l’ordinateur, les photos et vidéos les plus récentes
+    sont sauvegardées toutes seules (au plus une fois par heure).
   * **Jamais** – l’ordinateur ne peut pas demander et ne trouve pas le téléphone à proximité.
+  La question *Autoriser la sauvegarde ?* apparaît aussi directement dans l’app ouverte.
+* **Économiser la batterie :** rien n’écoute en permanence. Le téléphone se signale à l’ordinateur quand il
+  rejoint un Wi-Fi, quand il est en charge et toutes les 30 minutes – sur n’importe quel Wi-Fi, sans rien qui
+  l’identifie. Ce n’est que sur un **Wi-Fi de confiance** (*Faire confiance au Wi-Fi actuel*) qu’une sauvegarde peut
+  démarrer sans demander ; ailleurs, le téléphone demande toujours d’abord.
 * **VPN sur le téléphone :** un VPN qui fait tout passer par le tunnel empêche l’ordinateur de
-  joindre l’app par le Wi-Fi. L’app affiche un conseil : exclus *My Mobile Media Backup* du
+  joindre l’app par le Wi-Fi. L’app affiche alors un avertissement rouge en haut avec
+  **Ouvrir les paramètres VPN**, et l’ordinateur le signale aussi : exclus *My Mobile Media Backup* du
   VPN, ou utilise le câble.
 * **Même version :** l’app du téléphone a le même numéro de version que le programme. Quand elle est plus ancienne,
   l’écran d’accueil et *Gérer les sauvegardes → Vue d’ensemble* affichent **Mettre à jour l’app du téléphone**. Les anciennes copies de
@@ -255,16 +265,22 @@ Les deux peuvent être combinés, par exemple *Simple* sur un disque et *Grand-p
 
 **Sauvegardes** liste toutes tes sauvegardes. Choisis-en une pour voir ses onglets :
 
-* **Vue d’ensemble** – la dernière sauvegarde, les disques de sauvegarde complets, les sauvegardes Grand-père-Père-Fils
-  et les sauvegardes qui ne se sont pas terminées. Après chaque sauvegarde, le programme vérifie si elle est
-  complète.
-* **Dossiers du téléphone** – les dossiers que *Mettre à jour la sauvegarde* copie.
-* **Disques de sauvegarde** – les disques de cette sauvegarde et leurs plans.
-* **Dossiers à importer** – ajouter d’anciennes photos à cette sauvegarde (voir ci-dessous).
+* **Vue d’ensemble** – la dernière sauvegarde, si les disques de sauvegarde sont à jour et si la sauvegarde
+  est sécurisée (deuxième copie).
+* **Disques de destination** – les disques de cette sauvegarde avec leur état (à jour, combien de photos et
+  de vidéos manquent, non connecté, dossier introuvable). **Ajouter un disque…** en ajoute un ; **Intégrer un
+  dossier…** trouve les dossiers de sauvegarde existants sur tes disques et les reprend ; **Préparer les dossiers**
+  (il s’allume quand les disques diffèrent) met tous les disques de la sauvegarde dans le même état – il
+  fusionne aussi une ancienne sauvegarde imbriquée à l’intérieur, et les fichiers identiques vont dans un dossier à vérifier
+  (*Doublons*) au lieu d’être supprimés. **Contrôle d’intégrité…** relit chaque photo et vidéo
+  et la compare avec son empreinte. Chaque sauvegarde porte une marque sur ses disques, de sorte qu’un disque qui
+  revient sous un autre chemin (par exemple des emplacements VeraCrypt échangés) est retrouvé tout seul.
+* **Dossiers du téléphone** – les dossiers que *Mettre à jour la sauvegarde* copie (*Dossiers supplémentaires…*).
+* **Importer des médias** – ajouter d’anciennes photos à cette sauvegarde (voir ci-dessous).
 * **Historique des sauvegardes** – chaque sauvegarde avec son résultat et son rapport.
 
-**Anciens téléphones et anciens disques.** *Nouvelle sauvegarde d’un ancien téléphone ou disque…* crée une sauvegarde à part
-(par exemple « Galaxy S7 – Kevin » ou « Old drive – Kevin ») ; *Dossiers à importer* ajoute à une sauvegarde existante.
+**Anciens téléphones et anciens disques.** *Nouvelle sauvegarde…* crée une sauvegarde à part
+(par exemple « Galaxy S7 – Kevin » ou « Old drive – Kevin ») ; *Importer des médias* ajoute à une sauvegarde existante.
 Ajoute les dossiers (par exemple la copie d’un ancien téléphone et de sa carte SD) et clique sur *Choisir les dossiers
 à importer…* : chaque dossier contenant des fichiers est listé avec ses photos, vidéos et autres fichiers ; les données d’apps,
 caches, miniatures, corbeilles et dossiers cachés sont laissés de côté. Pour chaque dossier, choisis :
@@ -277,7 +293,8 @@ caches, miniatures, corbeilles et dossiers cachés sont laissés de côté. Pour
 Chaque fichier est vérifié comme pour une sauvegarde de téléphone, les fichiers identiques ne sont stockés qu’une fois, et les anciens dossiers
 sont seulement lus.
 
-**Sauvegardes sûres (deuxième copie).** Copie une sauvegarde sur un deuxième disque ou sur **Google Drive**. Chaque copie
+**Sauvegardes sûres (deuxième copie)** – sa propre page dans la barre latérale. Copie une sauvegarde sur un deuxième disque ou
+sur **Google Drive**. Chaque copie
 reçoit son propre dossier daté.
 
 | Type | Copie |
@@ -289,7 +306,7 @@ reçoit son propre dossier daté.
 **Automatique – Grand-père-Père-Fils** (par défaut) choisit le type : complète tous les 3 mois
 (grand-père), différentielle chaque mois (père), incrémentielle entre les deux (fils). Il garde les 4 copies complètes,
 3 différentielles et 6 incrémentielles les plus récentes, ainsi que tout ce dont elles ont besoin pour une restauration. Les plus anciennes
-sont proposées à la suppression et supprimées **seulement après ta confirmation** (*Nettoyer les anciens exports…*). Chaque
+sont proposées à la suppression et supprimées **seulement après ta confirmation** (*Nettoyer les anciennes copies de sécurité…*). Chaque
 fichier copié est comparé avec l’empreinte de la sauvegarde – un fichier endommagé sur le premier
 disque est signalé par un avertissement.
 

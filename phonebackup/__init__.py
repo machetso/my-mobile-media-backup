@@ -3,7 +3,7 @@
 # renamed 2026-11-20 (was "My Smartphone Media Backup"; phone app "My Media Backup")
 APP_NAME = "My Mobile Media Backup"
 
-__version__ = "0.9.9.0"
+__version__ = "0.9.9.1"
 
 
 def _start_language():

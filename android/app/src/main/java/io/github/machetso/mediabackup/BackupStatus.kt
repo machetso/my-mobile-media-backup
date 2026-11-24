@@ -62,7 +62,11 @@ object BackupStatus {
         val none = MediaIndex.NewMedia(-1, -1, 0)
         val i = info ?: return none
         if (!MediaIndex.hasFullAccess(ctx)) return none
-        val c = runCatching { MediaIndex(ctx).countNew(i.since, i.folders) }.getOrDefault(none)
+        // by the backup's file list when the computer gave one, else by date (user request 2026-11-23)
+        val known = KnownList.listFor(ctx, i.pc)
+        val c = runCatching {
+            if (known != null) MediaIndex(ctx).countNotIn(known, i.folders) else MediaIndex(ctx).countNew(i.since, i.folders)
+        }.getOrDefault(none)
         photos = c.photos
         videos = c.videos
         bytes = c.bytes
@@ -77,6 +81,15 @@ object BackupStatus {
             mb >= 1 -> String.format(I18n.locale, "%d MB", Math.round(mb))
             else -> tr("under 1 MB")
         }
+    }
+
+    /** The computer sent its file list ({"k", "d": base64}): kept, then counted again. Null = not valid. */
+    fun known(ctx: Context, pc: String, o: JSONObject): MediaIndex.NewMedia? {
+        val k = o.optString("k")
+        val blob = runCatching { android.util.Base64.decode(o.optString("d"), android.util.Base64.DEFAULT) }.getOrNull()
+            ?: return null
+        if (!Regex("[0-9a-f]{16}").matches(k) || !KnownList.set(ctx, pc, k, blob)) return null
+        return count(ctx)
     }
 
     /** Parse the computer's fields from a request body. */

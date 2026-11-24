@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Version 0.9.9.0**
+**Version 0.9.9.1**
 
 Sichert die Fotos und Videos deines Android-Telefons auf ein oder mehrere externe Laufwerke – Datei
 für Datei geprüft, nach Jahr und Monat sortiert, mit einem Bericht nach jedem Backup. Für Windows und Linux.
@@ -65,7 +65,7 @@ gesichert*, und ein Klick genügt. Oder tippe auf dem Telefon auf **Jetzt sicher
 
 * **Schneller:** Schalte auf dem Telefon einmal *USB-Debugging* ein (das Programm zeigt dir Schritt
   für Schritt, wie das bei deinem Telefonmodell geht). Das Backup ist dann zwei- bis viermal schneller.
-* **Ohne Kabel:** Installiere die Telefon-App *My Mobile Media Backup* (*Telefon verbinden…* auf dem
+* **Ohne Kabel:** Installiere die Telefon-App *My Mobile Media Backup* (*Hilfe beim Verbinden…* auf dem
   Startbildschirm zeigt einen QR-Code). Dann funktioniert das Backup über Wi-Fi, und Telefon und
   Computer finden sich von selbst.
 * **Zwei Laufwerke** sind sicherer als eines: Hake beide an, sie werden gleichzeitig beschrieben.
@@ -75,15 +75,19 @@ gesichert*, und ein Klick genügt. Oder tippe auf dem Telefon auf **Jetzt sicher
 ### Das Fenster
 
 * **Startbildschirm:** der Verbindungsstatus (rot = kein Telefon verbunden, gelb = am Telefon ist
-  etwas zu tun, grün = verbunden), **Telefon verbinden…** und **Mögliche Verbindungen**. Ein bekanntes
-  Telefon im selben Wi-Fi wird als *In der Nähe* angezeigt, mit **Jetzt sichern**. **Neues Backup…**
+  etwas zu tun, grün = verbunden – er sagt auch, wie: USB-Kabel oder Wi-Fi, und ob die Datenübertragung
+  geprüft ist), **Hilfe beim Verbinden…** und **Mögliche Verbindungen**. Ein bekanntes Telefon im
+  selben Netzwerk wird als *In der Nähe* angezeigt, mit **Jetzt sichern** – zu Hause, im Büro, überall
+  dort, wo es schon einmal verbunden war. **Neues Backup…**
   startet ein Backup eines anderen Telefons oder mit anderen Ordnern oder Laufwerken. Darunter
   **Deine Telefone** – ein Eintrag pro Backup mit dem Datum des letzten Backups, wie viele Fotos und
   Videos noch nicht gesichert sind (wenn das Telefon in der Nähe oder verbunden ist), und einer eigenen
   Schaltfläche **Backup aktualisieren**. Die Schaltfläche ist grau, solange ein Klick das Backup nicht
-  starten kann; ein Klick sagt dann, was fehlt.
-* **Seitenleiste:** Backup, Backups verwalten, das Zahnrad (Programmeinstellungen), Anleitung und
-  Über. Die Weltkugel oben rechts ändert die Sprache.
+  starten kann; ein Klick sagt dann, was fehlt. Mit dem Schalter **Auto-Backup** jedes Telefons läuft
+  das Backup von selbst, wenn das Telefon in der Nähe ist; kleine Kästchen zeigen, was noch fehlt, und
+  den nächsten Schritt.
+* **Seitenleiste:** Smartphone-Backups, Backups verwalten, Backups sichern, das Zahnrad
+  (Programmeinstellungen), Anleitung und Über. Die Weltkugel oben rechts ändert die Sprache.
 * **Unten:** Fortschritt, Geschwindigkeit und Restzeit, mit **Abbrechen** (stoppt nach der aktuellen
   Datei), **Bericht öffnen** und **Backup-Ordner öffnen**. Jeder Auftrag schreibt außerdem eine
   Protokolldatei.
@@ -129,7 +133,7 @@ keine Fingerabdrücke berechnen – der Bericht sagt das.
 USB-Debugging, die App schaltet die schnellste Verbindung für dich ein und aus, und Telefon und
 Computer zeigen, was noch nicht gesichert ist.
 
-* **Installieren:** *Telefon verbinden…* zeigt zwei QR-Codes: Einer verbindet die App, der andere lädt
+* **Installieren:** *Hilfe beim Verbinden…* zeigt zwei QR-Codes: Einer verbindet die App, der andere lädt
   sie von der Releases-Seite herunter. Über das USB-Kabel kann das Programm die App selbst
   installieren; es **fragt immer vorher** und sagt, auf welchem Telefon, welche Version und warum.
 * **Backup:** zeigt, wie viele Fotos und Videos noch nicht gesichert sind und wie groß sie sind, zum
@@ -145,12 +149,18 @@ Computer zeigen, was noch nicht gesichert ist.
 * **Wenn dein Computer ein Backup möchte:**
   * **Mich fragen** (Standard) – das Telefon fragt *Backup zulassen?*; nichts startet ohne dein Tippen.
   * **Ohne Nachfrage zulassen** – ein Klick am Computer startet das Backup, ohne Tippen am Telefon.
-    Mit **Auch von selbst starten** werden die neuesten Fotos und Videos gesichert, wenn der Computer
-    das Telefon im Wi-Fi findet oder du das Kabel ansteckst (höchstens einmal pro Stunde).
+    Ist am Computer **Auto-Backup** für dieses Telefon eingeschaltet, werden die neuesten Fotos und
+    Videos von selbst gesichert (höchstens einmal pro Stunde).
   * **Nie** – der Computer kann nicht fragen und findet das Telefon nicht in der Nähe.
+  Die Frage *Backup zulassen?* erscheint auch direkt in der geöffneten App.
+* **Akku sparen:** Nichts lauscht ständig. Das Telefon meldet sich beim Computer, wenn es sich mit
+  einem Wi-Fi verbindet, wenn es lädt und alle 30 Minuten – in jedem Wi-Fi, ohne etwas, das es
+  erkennbar macht. Nur in einem Wi-Fi unter **Vertraute Wi-Fis** (*Aktuellem Wi-Fi vertrauen*) darf ein
+  Backup ohne Nachfrage starten; anderswo fragt das Telefon immer zuerst.
 * **VPN auf dem Telefon:** Ein VPN, das alles durch den Tunnel schickt, hindert den Computer daran,
-  die App über das Wi-Fi zu erreichen. Die App zeigt einen Hinweis: Nimm *My Mobile Media Backup* vom
-  VPN aus oder nutze das Kabel.
+  die App über das Wi-Fi zu erreichen. Die App zeigt dann oben einen roten Hinweis mit
+  **VPN-Einstellungen öffnen**, und auch der Computer sagt es: Nimm *My Mobile Media Backup* vom VPN
+  aus oder nutze das Kabel.
 * **Gleiche Version:** Die Telefon-App hat dieselbe Versionsnummer wie das Programm. Ist sie älter,
   zeigen der Startbildschirm und *Backups verwalten → Übersicht* **Telefon-App aktualisieren**. Ältere
   Kopien der App werden automatisch entfernt.
@@ -268,16 +278,24 @@ dem anderen.
 
 **Backups** listet alle deine Backups auf. Wähle eines, um seine Tabs zu sehen:
 
-* **Übersicht** – das neueste Backup, welche Backup-Laufwerke vollständig sind, die
-  Großvater-Vater-Sohn-Backups und Backups, die nicht fertig wurden. Nach jedem Backup fragt das
-  Programm, ob es vollständig ist.
-* **Telefonordner** – die Ordner, die *Backup aktualisieren* kopiert.
-* **Backup-Laufwerke** – die Laufwerke dieses Backups und ihre Pläne.
-* **Ordner importieren** – alte Fotos zu diesem Backup hinzufügen (siehe unten).
+* **Übersicht** – das neueste Backup, ob die Backup-Laufwerke auf dem neuesten Stand sind und ob das
+  Backup gesichert ist (zweite Kopie).
+* **Ziellaufwerke** – die Laufwerke dieses Backups mit ihrem Status (aktuell, wie viele Fotos und
+  Videos fehlen, nicht angeschlossen, Ordner nicht gefunden). **Laufwerk hinzufügen…** fügt eines
+  hinzu; **Ordner einbinden…** findet vorhandene Backup-Ordner auf deinen Laufwerken und übernimmt
+  sie; **Ordner vorbereiten** (leuchtet, wenn sich die Laufwerke unterscheiden) bringt alle Laufwerke
+  des Backups auf denselben Stand – es führt auch ein altes Backup zusammen, das darin verschachtelt
+  war, und identische Dateien kommen in einen Prüfordner (*Duplikate*), statt gelöscht zu werden.
+  **Integritätsprüfung…** liest jedes Foto und Video noch einmal und vergleicht es mit seinem
+  Fingerabdruck. Jedes Backup trägt eine Markierung auf seinen Laufwerken, sodass ein Laufwerk, das
+  unter einem anderen Pfad zurückkommt (zum Beispiel vertauschte VeraCrypt-Slots), von selbst wieder
+  gefunden wird.
+* **Telefonordner** – die Ordner, die *Backup aktualisieren* kopiert (*Weitere Ordner…*).
+* **Medien importieren** – alte Fotos zu diesem Backup hinzufügen (siehe unten).
 * **Backup-Verlauf** – jedes Backup mit seinem Ergebnis und Bericht.
 
-**Alte Telefone und alte Laufwerke.** *Neues Backup eines alten Telefons oder Laufwerks…* erstellt ein
-eigenes Backup (zum Beispiel „Galaxy S7 – Kevin“ oder „Altes Laufwerk – Kevin“); *Ordner importieren*
+**Alte Telefone und alte Laufwerke.** *Neues Backup…* erstellt ein
+eigenes Backup (zum Beispiel „Galaxy S7 – Kevin“ oder „Altes Laufwerk – Kevin“); *Medien importieren*
 fügt etwas zu einem vorhandenen Backup hinzu. Füge die Ordner hinzu (zum Beispiel die Kopie eines alten
 Telefons und seiner SD-Karte) und klicke auf *Zu importierende Ordner wählen…*: Jeder Ordner mit
 Dateien wird mit seinen Fotos, Videos und anderen Dateien aufgelistet; App-Daten, Caches,
@@ -291,7 +309,8 @@ Vorschaubilder, Papierkorb und versteckte Ordner werden ausgelassen. Wähle für
 Jede Datei wird wie bei einem Telefon-Backup geprüft, identische Dateien werden nur einmal gespeichert,
 und die alten Ordner werden nur gelesen.
 
-**Backups sichern (zweite Kopie).** Kopiert ein Backup auf ein zweites Laufwerk oder auf **Google Drive**.
+**Backups sichern (zweite Kopie)** – eine eigene Seite in der Seitenleiste. Kopiert ein Backup auf ein
+zweites Laufwerk oder auf **Google Drive**.
 Jede Kopie bekommt ihren eigenen datierten Ordner.
 
 | Art | Kopiert |
@@ -303,8 +322,8 @@ Jede Kopie bekommt ihren eigenen datierten Ordner.
 **Automatisch – Großvater-Vater-Sohn** (Standard) wählt die Art: voll alle 3 Monate (Großvater),
 differenziell jeden Monat (Vater), dazwischen inkrementell (Sohn). Es behält die neuesten 4 vollen,
 3 differenziellen und 6 inkrementellen Kopien und alles, was sie für eine Wiederherstellung brauchen.
-Ältere werden zum Entfernen vorgeschlagen und **erst nach deiner Bestätigung** gelöscht (*Alte Exporte
-aufräumen…*). Jede kopierte Datei wird mit dem Fingerabdruck aus dem Backup verglichen – eine Datei,
+Ältere werden zum Entfernen vorgeschlagen und **erst nach deiner Bestätigung** gelöscht (*Alte
+Sicherheitskopien aufräumen…*). Jede kopierte Datei wird mit dem Fingerabdruck aus dem Backup verglichen – eine Datei,
 die auf dem ersten Laufwerk beschädigt wurde, wird als Warnung gemeldet.
 
 **Google Drive.** *Zum Cloud-Speicher hinzufügen → Google Drive* meldet dich über den Browser an. Das

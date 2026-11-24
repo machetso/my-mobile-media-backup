@@ -23,9 +23,9 @@ FAKE_DE = {
     "OK - copied and verified": "OK - kopiert und geprüft",
     "Destination %d": "Ziel %d",
     "%s status": "%s Zustand",
-    "EVERYTHING COPIED CORRECTLY - %d new files (%s) secured and verified with SHA-256 on %d destination(s).":
-        {"one": "ALLES RICHTIG KOPIERT - %d neue Datei (%s) auf %d Ziel(en) gesichert.",
-         "other": "ALLES RICHTIG KOPIERT - %d neue Dateien (%s) auf %d Ziel(en) gesichert."},
+    "EVERYTHING COPIED CORRECTLY - %d new files (%s) secured and verified with SHA-256 on 1 drive.":
+        {"one": "ALLES RICHTIG KOPIERT - %d neue Datei (%s) auf 1 Laufwerk gesichert.",
+         "other": "ALLES RICHTIG KOPIERT - %d neue Dateien (%s) auf 1 Laufwerk gesichert."},
 }
 
 

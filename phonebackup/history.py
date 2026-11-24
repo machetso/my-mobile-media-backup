@@ -123,8 +123,8 @@ def from_reports(set_dirs):
             for pattern in ("Backup *.txt", "Import *.txt"):
                 for p in report_files(folder, pattern):
                     e = from_report(p, d.parent.parent)
-                if e:
-                    out.append(e)
+                    if e:            # every report (it was only the last one – and an error when
+                        out.append(e)    # a folder had none, user 2026-11-23)
     return out
 
 
@@ -135,11 +135,17 @@ def _subdirs(d):
         return []
 
 
-def entries(cfg, key, set_dirs=(), newest_first=True):
+def entries(cfg, key, set_dirs=(), newest_first=True, reports=None):
     """The history of a backup: remembered runs plus runs only known from reports. The same run
-    (same kind, same start minute) on several drives is listed once, with all its drives."""
+    (same kind, same start minute) on several drives is listed once, with all its drives.
+    reports = from_reports(...) read before (drivescan, in the background) – then no drive is read."""
     merged = {}
-    for e in list((cfg.get("backup_history") or {}).get(key, [])) + from_reports(set_dirs):
+    if reports is None:
+        reports = from_reports(set_dirs)
+    cut = cut_of(cfg, key)
+    for e in list((cfg.get("backup_history") or {}).get(key, [])) + list(reports):
+        if cut and e.get("when", "") <= cut:          # deleted from the history (user 2026-11-23)
+            continue
         k = (e["kind"], e["when"][:16])
         if k not in merged:
             merged[k] = dict(e, drives=list(e.get("drives", [])))
@@ -149,3 +155,42 @@ def entries(cfg, key, set_dirs=(), newest_first=True):
     order = list(enumerate(merged.values()))    # runs started in the same second keep their order
     order.sort(key=lambda x: (x[1]["when"], x[0]), reverse=newest_first)
     return [e for _, e in order]
+
+
+# ---- deleting the history (user request 2026-11-23): everything up to and including a date. The
+# entries the program keeps are deleted; the reports in the drives' Logs folders stay (they also
+# record the photos' checksums) – entries read from them up to that date are not shown any more.
+
+def cut_of(cfg, key):
+    """'2026-11-20T23:59:59' – entries up to this moment are deleted ('' = none)."""
+    return ((cfg.get("history_cut") or {}).get(key)) or ""
+
+
+def delete_up_to(cfg, key, day):
+    """Delete the history of backup `key` up to and including `day` ('2026-11-20'); None = all.
+    Returns what undo_delete() needs: (the cut before, the deleted entries)."""
+    before = cut_of(cfg, key)
+    cut = (day + "T23:59:59") if day else datetime.now().isoformat(timespec="seconds")
+    cut = max(cut, before)
+    cfg.setdefault("history_cut", {})[key] = cut
+    runs = (cfg.get("backup_history") or {}).get(key)
+    removed = []
+    if runs is not None:
+        removed = [e for e in runs if e.get("when", "") <= cut]
+        cfg["backup_history"][key] = [e for e in runs if e.get("when", "") > cut]
+    config.save(cfg)
+    return before, removed
+
+
+def undo_delete(cfg, key, step):
+    """Undo one delete_up_to() (user request 2026-11-23)."""
+    before, removed = step
+    if before:
+        cfg.setdefault("history_cut", {})[key] = before
+    else:
+        (cfg.get("history_cut") or {}).pop(key, None)
+    if removed:
+        runs = cfg.setdefault("backup_history", {}).setdefault(key, [])
+        runs.extend(e for e in removed if e not in runs)
+        runs.sort(key=lambda e: e.get("when", ""))
+    config.save(cfg)

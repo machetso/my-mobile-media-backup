@@ -107,6 +107,33 @@ class MediaIndex(private val ctx: Context) {
         return NewMedia(counts[0], counts[1], bytes)
     }
 
+    /** Not backed up yet, by the backup's file list (user request 2026-11-23): the photos and
+     *  videos in these folders (or below) that are not in [known] (KnownList). */
+    fun countNotIn(known: LongArray, folders: List<String>): NewMedia {
+        val roots = folders.map { it.trim('/') }.filter { it.isNotEmpty() }.map { "$it/" }
+        if (roots.isEmpty()) return NewMedia(0, 0, 0)
+        val vol = MediaStore.VOLUME_EXTERNAL_PRIMARY
+        val counts = IntArray(2)
+        var bytes = 0L
+        for ((i, col) in listOf(MediaStore.Images.Media.getContentUri(vol), MediaStore.Video.Media.getContentUri(vol)).withIndex()) {
+            var n = 0
+            val proj = arrayOf(MediaStore.MediaColumns.RELATIVE_PATH, MediaStore.MediaColumns.DISPLAY_NAME,
+                MediaStore.MediaColumns.SIZE)
+            ctx.contentResolver.query(col, proj, "${MediaStore.MediaColumns.IS_PENDING} = 0", null, null)?.use { c ->
+                while (c.moveToNext()) {
+                    val dir = (c.getString(0) ?: continue).trim('/') + "/"
+                    val name = c.getString(1) ?: continue
+                    if (dir.split('/').any { it.startsWith(".") }) continue      // hidden, like the backup
+                    if (roots.none { dir.startsWith(it) }) continue
+                    val size = c.getLong(2)
+                    if (!KnownList.contains(known, dir + name, size)) { n++; bytes += size }
+                }
+            }
+            counts[i] = n
+        }
+        return NewMedia(counts[0], counts[1], bytes)
+    }
+
     fun folderExists(rel: String): Boolean {
         val p = rel.trim('/') + "/"
         return all().keys.any { it.startsWith(p) }

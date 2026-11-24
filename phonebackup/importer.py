@@ -171,7 +171,29 @@ def scan_folder(root, into_existing=False, cancel=None):
                 pass
         if info.files:
             out.append(guess_kind(info.rel, info, into_existing))
-    return out
+    return keep_mixed_folders(out)
+
+
+def keep_mixed_folders(infos):
+    """User rule 2026-11-23: a folder (each top-level folder of the import with everything in it)
+    that holds OTHER files than photos and videos AND whose photos/videos mostly do not have
+    camera names is a folder of its own – it keeps its structure and is not sorted into the
+    year/month folders (it was: "pixel10pro -dateien" with Download, Pictures, PDFs …). Also when
+    adding to an existing backup."""
+    groups = {}
+    for info in infos:
+        top = info.rel.split("/", 1)[0] if info.rel != "." else "."
+        groups.setdefault(top, []).append(info)
+    for members in groups.values():
+        other = sum(i.other for i in members)
+        media = sum(i.photos + i.videos for i in members)
+        named = sum(i.camera_named for i in members)
+        if other and named * 2 < media:
+            for i in members:
+                if i.kind != OTHER:
+                    i.kind = OTHER
+                    i.note = tr("kept as it is: other files and own file names")
+    return infos
 
 
 class SelectionSource:

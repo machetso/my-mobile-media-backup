@@ -19,10 +19,17 @@ class Cancelled(Exception):
     """Raised when the user presses Cancel."""
 
 
-def sha256_file(path):
+class HashCancelled(Cancelled):
+    """sha256_file stopped because `cancel` was set (user 2026-11-23: Cancel must stop at once,
+    not after a 2 GB video was read to the end)."""
+
+
+def sha256_file(path, cancel=None):
     h = hashlib.sha256()
     with open(path, "rb") as f:
         while True:
+            if cancel is not None and cancel.is_set():
+                raise HashCancelled(str(path))
             b = f.read(CHUNK)
             if not b:
                 break

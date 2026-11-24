@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Version 0.9.9.0**
+**Version 0.9.9.1**
 
 Backs up the photos and videos of your Android phone to one or more external drives – checked
 file by file, sorted by year and month, with a report after every backup. For Windows and Linux.
@@ -60,7 +60,7 @@ to be plugged in: when it is in the same Wi-Fi, its line says for example *Nearb
 
 * **Faster:** switch on *USB debugging* on the phone once (the program shows you how, step by step,
   for your phone model). The backup is then two to four times faster.
-* **Without a cable:** install the phone app *My Mobile Media Backup* (*Connect phone…* on the start
+* **Without a cable:** install the phone app *My Mobile Media Backup* (*Help connect…* on the start
   screen shows a QR code). Then the backup works over Wi-Fi, and phone and computer find each other
   by themselves.
 * **Two drives** are safer than one: tick both, they are written at the same time.
@@ -70,13 +70,17 @@ to be plugged in: when it is in the same Wi-Fi, its line says for example *Nearb
 ### The window
 
 * **Start screen:** the connection status (red = no phone connected, yellow = something to do on
-  the phone, green = connected), **Connect phone…** and **Possible connections**. A known phone in
-  the same Wi-Fi is shown as *nearby*, with **Back up now**. **New backup…** starts a backup of
+  the phone, green = connected – it also says how: USB cable or Wi-Fi, and whether the data transfer
+  is verified), **Help connect…** and **Possible connections**. A known phone in the same network is
+  shown as *nearby*, with **Back up now** – at home, in the office, wherever it was connected before. **New backup…** starts a backup of
   another phone, or with other folders or drives. Below it **Your phones** – one entry per backup
   with the date of the last backup, how many photos and videos are not backed up yet (when the
   phone is nearby or connected) and its own **Update backup** button. The button is grey while
-  one click cannot start the backup; a click then says what is missing.
-* **Side bar:** Backup, Manage backups, the gear (program settings), Manual and About. The globe
+  one click cannot start the backup; a click then says what is missing. The **Auto backup** switch of
+  each phone lets the backup run by itself when the phone is near; small blocks show what is still
+  missing and the next step.
+* **Side bar:** Smartphone Backups, Manage backups, Secure backups, the gear (program settings),
+  Manual and About. The globe
   top right changes the language.
 * **Bottom:** progress, speed and remaining time, with **Cancel** (stops after the current file),
   **Open report** and **Open backup folder**. Every job also writes a log file.
@@ -120,7 +124,7 @@ notification. MTP is slower, and the phone cannot calculate fingerprints – the
 debugging, the app switches the fastest connection on and off for you, and phone and computer show
 what is not backed up yet.
 
-* **Install:** *Connect phone…* shows two QR codes: one connects the app, the other downloads it
+* **Install:** *Help connect…* shows two QR codes: one connects the app, the other downloads it
   from the Releases page. Over the USB cable the program can install the app itself; it always
   **asks first** and says which phone, which version and why.
 * **Backup:** shows how many photos and videos are not backed up yet and how big they are, for
@@ -136,12 +140,18 @@ what is not backed up yet.
 * **When your computer wants a backup:**
   * **Ask me** (default) – the phone asks *Allow backup?*; nothing starts without your tap.
   * **Allow without asking** – one click on the computer starts the backup, no tap on the phone.
-    With **Also start by itself**, the newest photos and videos are backed up when the computer
-    finds the phone in the Wi-Fi or you plug in the cable (at most once per hour).
+    With **Auto backup** switched on for this phone on the computer, the newest photos and videos
+    are backed up by themselves (at most once per hour).
   * **Never** – the computer cannot ask and does not find the phone nearby.
+  The question *Allow backup?* also appears right in the open app.
+* **Saving the battery:** nothing listens all the time. The phone checks in with the computer when it
+  joins a Wi-Fi, when it is charging and every 30 minutes – in any Wi-Fi, without anything that
+  identifies it. Only in a **Trusted Wi-Fi** (*Trust the current Wi-Fi*) a backup may start without
+  asking; elsewhere the phone always asks first.
 * **VPN on the phone:** a VPN that sends everything through the tunnel stops the computer from
-  reaching the app over the Wi-Fi. The app shows a hint: exclude *My Mobile Media Backup* from the
-  VPN, or use the cable.
+  reaching the app over the Wi-Fi. The app then shows a red hint at the top with **Open VPN
+  settings**, and the computer says so too: exclude *My Mobile Media Backup* from the VPN, or use
+  the cable.
 * **Same version:** the phone app has the same version number as the program. When it is older,
   the start screen and *Manage backups → Overview* show **Update phone app**. Older copies of the
   app are removed automatically.
@@ -255,16 +265,22 @@ Both can be mixed, for example *Simple* on one drive and *Grandfather-Father-Son
 
 **Backups** lists all your backups. Pick one to see its tabs:
 
-* **Overview** – the latest backup, which backup drives are complete, the Grandfather-Father-Son
-  backups and backups that did not finish. After every backup the program asks whether it is
-  complete.
-* **Phone folders** – the folders that *Update backup* copies.
-* **Backup drives** – the drives of this backup and their plans.
-* **Import folders** – add old photos to this backup (see below).
+* **Overview** – the latest backup, whether the backup drives are up to date and whether the backup
+  is secured (second copy).
+* **Destination drives** – the drives of this backup with their status (up to date, how many photos
+  and videos are missing, not connected, folder not found). **Add drive…** adds one; **Integrate
+  folder…** finds existing backup folders on your drives and takes them over; **Prepare folders**
+  (it glows when the drives differ) brings all drives of the backup to the same state – it also
+  merges an old backup that was nested inside, and identical files go to a review folder
+  (*Duplicates*) instead of being deleted. **Integrity check…** reads every photo and video once more
+  and compares it with its fingerprint. Every backup carries a mark on its drives, so a drive that
+  comes back under another path (for example VeraCrypt slots swapped) is found again by itself.
+* **Phone folders** – the folders that *Update backup* copies (*Additional folders…*).
+* **Import media** – add old photos to this backup (see below).
 * **Backup history** – every backup with its result and report.
 
-**Old phones and old drives.** *New backup of an old phone or drive…* creates a backup of its own
-(for example "Galaxy S7 – Kevin" or "Old drive – Kevin"); *Import folders* adds to an existing backup.
+**Old phones and old drives.** *New backup…* creates a backup of its own
+(for example "Galaxy S7 – Kevin" or "Old drive – Kevin"); *Import media* adds to an existing backup.
 Add the folders (for example the copy of an old phone and of its SD card) and click *Choose folders
 to import…*: every folder with files is listed with its photos, videos and other files; app data,
 caches, thumbnails, trash and hidden folders are left out. For each folder choose:
@@ -277,7 +293,8 @@ caches, thumbnails, trash and hidden folders are left out. For each folder choos
 Every file is checked like a phone backup, identical files are stored only once, and the old folders
 are only read.
 
-**Secure backups (second copy).** Copies a backup to a second drive or to **Google Drive**. Each copy
+**Secure backups (second copy)** – its own page in the side bar. Copies a backup to a second drive or
+to **Google Drive**. Each copy
 gets its own dated folder.
 
 | Type | Copies |
@@ -289,7 +306,7 @@ gets its own dated folder.
 **Automatic – Grandfather-Father-Son** (default) chooses the type: full every 3 months
 (grandfather), differential every month (father), incremental in between (son). It keeps the newest
 4 full, 3 differential and 6 incremental copies and everything they need for a restore. Older ones
-are suggested for removal and deleted **only after you confirm** (*Clean up old exports…*). Every
+are suggested for removal and deleted **only after you confirm** (*Clean up old safety copies…*). Every
 copied file is compared with the fingerprint from the backup – a file that was damaged on the first
 drive is reported as a warning.
 

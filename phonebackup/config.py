@@ -3,6 +3,7 @@
 import json
 import os
 import sys
+import threading
 from pathlib import Path
 
 DEFAULTS = {
@@ -86,7 +87,23 @@ def _keep_copy(p: Path) -> None:
         pass                     # never stop saving because the copy failed
 
 
+_quiet = threading.local()
+
+
+class not_saved:
+    """with config.not_saved(): … – save() does nothing in THIS thread (the background drive scan
+    works on a copy of the settings; the window takes the changes over and saves, user 2026-11-23)."""
+
+    def __enter__(self):
+        _quiet.on = True
+
+    def __exit__(self, *exc):
+        _quiet.on = False
+
+
 def save(cfg: dict) -> None:
+    if getattr(_quiet, "on", False):
+        return
     p = config_path()
     _keep_copy(p)
     write_private(p, json.dumps(cfg, indent=2, ensure_ascii=False))

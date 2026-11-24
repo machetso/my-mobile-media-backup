@@ -460,6 +460,127 @@ def find_phone(cfg):
     return None, None
 
 
+# =========================================================================== cable connection of the computer
+
+_WIRED_CACHE = {}          # phone ip → (time, interface or None)
+
+
+def _interfaces_v4(text=None):
+    """[(interface, 'ip/prefix')] from `ip -4 -o addr show` (Linux)."""
+    if text is None:
+        try:
+            text = _run(["ip", "-4", "-o", "addr", "show"], timeout=5).stdout.decode("utf-8", "replace")
+        except (OSError, subprocess.SubprocessError):
+            return []
+    out = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) >= 4 and parts[2] == "inet":
+            out.append((parts[1].rstrip(":"), parts[3]))
+    return out
+
+
+def _is_wired(dev, sys_net="/sys/class/net"):
+    """A real cable (Ethernet) interface – not Wi-Fi, not virtual (bridge, VPN, docker), and up."""
+    base = os.path.join(sys_net, dev)
+    if os.path.exists(os.path.join(base, "wireless")) or os.path.exists(os.path.join(base, "phy80211")):
+        return False
+    if not os.path.exists(os.path.join(base, "device")):
+        return False
+    try:
+        with open(os.path.join(base, "type")) as f:
+            if f.read().strip() != "1":                       # 1 = Ethernet
+                return False
+        with open(os.path.join(base, "operstate")) as f:
+            return f.read().strip() in ("up", "unknown")
+    except OSError:
+        return False
+
+
+def wired_device_for(ip, interfaces=None, wired=None):
+    """The computer's cable interface in the same network as the phone at `ip`, else None (Linux).
+
+    User test 2026-11-24 (office): laptop on cable AND Wi-Fi in the same network, phone on Wi-Fi –
+    the system sent everything to the phone over the laptop's Wi-Fi (no network route on the cable),
+    so phone and laptop shared the air. Phone → access point → cable → laptop is faster."""
+    import ipaddress
+    if not sys.platform.startswith("linux"):
+        return None
+    try:
+        addr = ipaddress.ip_address(ip)
+    except ValueError:
+        return None
+    for dev, cidr in (_interfaces_v4() if interfaces is None else interfaces):
+        try:
+            if addr in ipaddress.ip_interface(cidr).network and (wired or _is_wired)(dev):
+                return dev
+        except ValueError:
+            continue
+    return None
+
+
+def _cached_wired(ip):
+    hit = _WIRED_CACHE.get(ip)
+    if hit and time.monotonic() - hit[0] < 60:
+        return hit[1]
+    dev = wired_device_for(ip)
+    _WIRED_CACHE[ip] = (time.monotonic(), dev)
+    return dev
+
+
+CONNECT_TIMEOUT = 8       # seconds to set up a connection (reading may take much longer)
+
+
+def connect_best(address, timeout):
+    """TCP socket to the phone ('ip', port) – over the computer's cable connection when there is one
+    in the phone's network (SO_BINDTODEVICE, no root needed for an unbound socket), else as usual.
+    Setting up the connection never waits longer than CONNECT_TIMEOUT (user test 2026-11-24: with
+    the read timeout of 15 minutes the program showed "connecting" for ever)."""
+    dev = _cached_wired(address[0])
+    if dev:
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, dev.encode())
+            s.settimeout(min(timeout or 5, 5))
+            s.connect(address)
+            s.settimeout(timeout)
+            return s
+        except OSError:
+            s.close()
+            _WIRED_CACHE[address[0]] = (time.monotonic(), None)      # not this time: the usual way
+    s = socket.create_connection(address, min(timeout or CONNECT_TIMEOUT, CONNECT_TIMEOUT))
+    s.settimeout(timeout)
+    return s
+
+
+def phone_answers(ip, timeout=2.0):
+    """Does the phone itself answer at all? A port where nothing listens is refused at once by the
+    phone's system – also when a VPN on the phone takes the app's traffic."""
+    try:
+        with socket.create_connection((ip, 9), timeout=timeout):
+            return True
+    except ConnectionRefusedError:
+        return True
+    except OSError:
+        return False
+
+
+VPN_HINT = N_("The phone app was found, but the phone does not answer the connection. Usually a VPN on "
+              "the phone (for example WireGuard with “all traffic”) sends the app's answers away. In the VPN "
+              "app, exclude “My Mobile Media Backup” from the VPN (split tunnelling) – or switch the VPN "
+              "off for the backup, or use the USB cable.")
+SILENT_HINT = N_("The phone app was found, but the phone does not answer. Check that the phone is still in "
+                 "the same Wi-Fi – or use the USB cable.")
+
+
+class Unreachable(Exception):
+    """The phone app announced itself, but its connection is silently dropped."""
+
+    def __init__(self, message, vpn):
+        super().__init__(message)
+        self.vpn = vpn
+
+
 # =========================================================================== TLS client
 
 class Client:
@@ -486,6 +607,7 @@ class Client:
             if c is not None:
                 c.close()
             c = http.client.HTTPSConnection(self.host, self.port, timeout=self.timeout, context=self._ctx())
+            c._create_connection = lambda a, timeout=None, source_address=None: connect_best(a, timeout)
             c.connect()
             der = c.sock.getpeercert(binary_form=True)
             if hashlib.sha256(der).hexdigest() != self.fingerprint:
@@ -628,12 +750,21 @@ class CompanionSource:
     def __init__(self, entry, address):
         self.entry = entry
         self.client = Client(address, entry["fingerprint"], entry["secret"], timeout=900)
-        info = self.client.request("GET", "/info")
+        try:
+            info = self.client.request("GET", "/info")
+        except (TimeoutError, socket.timeout) as e:
+            # nothing came back: a VPN on the phone? (user test 2026-11-24, office)
+            vpn = phone_answers(address.rpartition(":")[0])
+            raise Unreachable(tr(VPN_HINT) if vpn else tr(SILENT_HINT), vpn) from e
         self.manufacturer = info.get("manufacturer", "")
         self.device_name = info.get("model", "") or entry.get("name", "Phone")
         self.android = info.get("android", "")
         self.app_version = info.get("app_version", "")
         self.full_access = bool(info.get("full_access", True))
+        # Auto backup requirements (2026-11-23) – None when an older app does not report them
+        self.auto_backup = bool(info["auto_backup"]) if "auto_backup" in info else None
+        self.unrestricted = bool(info.get("unrestricted")) if "home_wifi" in info else None
+        self.home_wifi = int(info.get("home_wifi") or 0) if "home_wifi" in info else None
         self.fallback_reason = None
         self.address = address
         self._prefetch = None
@@ -774,6 +905,8 @@ class CableLink:
         self.client = Client(f"127.0.0.1:{port}", entry["fingerprint"], entry["secret"], timeout=30)
         self.app_version = ""        # what the phone app itself reports (/info)
         self.auto_backup = None      # its "Automatic backup" switch (None = older app, not reported)
+        self.unrestricted = None     # battery unrestricted (2026-11-23; None = not reported)
+        self.home_wifi = None        # number of trusted Wi-Fis (2026-11-23; None = not reported)
 
     def close(self):
         self.client.close()
@@ -801,6 +934,9 @@ def link_over_cable(adb_source, cfg):
         link.app_version = (info or {}).get("app_version", "") if isinstance(info, dict) else ""
         if isinstance(info, dict) and "auto_backup" in info:
             link.auto_backup = bool(info["auto_backup"])
+        if isinstance(info, dict) and "home_wifi" in info:
+            link.unrestricted = bool(info.get("unrestricted"))
+            link.home_wifi = int(info.get("home_wifi") or 0)
         return link, None
     adb_source.unforward(port)
     return None, tr("the phone app is not in backup mode, or this phone is not paired")

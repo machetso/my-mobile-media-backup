@@ -3,7 +3,8 @@
 Three ways, all only DETECT the phone – nothing is copied and nothing is switched on:
 
 1. Same Wi-Fi: whenever a phone is connected over Wi-Fi (Wireless debugging or the phone app) its
-   address and hardware (MAC) address are remembered (cfg["presence_wifi"]). Later a single UDP
+   address and hardware (MAC) address are remembered (cfg["presence_wifi"], one entry per network –
+   Android uses another hardware address in every Wi-Fi; also when the phone checks in). Later a single UDP
    packet to that address makes the computer ask the network "who has it?" (ARP); if the phone with
    the same hardware address answers, it is in the Wi-Fi – also with the screen off.
 2. Bluetooth: a phone that is paired with this computer over Bluetooth (system settings) and has the
@@ -52,9 +53,9 @@ def mac_of(ip):
     try:
         if sys.platform.startswith("linux"):
             out = _run(["ip", "neigh", "show", ip], timeout=5).stdout.decode("utf-8", "replace")
-            m = re.search(r"lladdr\s+([0-9a-f:]{17})\s+(\w+)", out, re.I)
-            if m and m.group(2).upper() in ("REACHABLE", "DELAY", "PROBE", "STALE", "PERMANENT"):
-                return m.group(1).lower()
+            for m in re.finditer(r"lladdr\s+([0-9a-f:]{17})\s+(\w+)", out, re.I):   # one line per interface
+                if m.group(2).upper() in ("REACHABLE", "DELAY", "PROBE", "STALE", "PERMANENT"):
+                    return m.group(1).lower()
             return ""
         out = _run(["arp", "-a", ip], timeout=5).stdout.decode("utf-8", "replace")
         m = re.search(r"([0-9a-f]{2}([-:])(?:[0-9a-f]{2}\2){4}[0-9a-f]{2})", out, re.I)
@@ -72,8 +73,13 @@ def _poke(ip):
         pass
 
 
+WIFI_PER_PHONE = 6       # networks remembered per phone (home, office, …)
+
+
 def remember_wifi(cfg, name, address):
-    """Called while a phone is connected over Wi-Fi ('ip:port' or 'ip')."""
+    """Called while a phone is connected over Wi-Fi ('ip:port' or 'ip') and when it checks in.
+    Android uses another hardware address in every Wi-Fi (user test 2026-11-24: home and office
+    differ), so one entry per network is kept: up to WIFI_PER_PHONE per phone, newest first."""
     ip = str(address or "").rsplit(":", 1)[0] if address and address.count(":") == 1 else str(address or "")
     try:
         socket.inet_aton(ip)
@@ -82,12 +88,36 @@ def remember_wifi(cfg, name, address):
     mac = mac_of(ip)
     if not mac:
         return False
-    lst = [e for e in cfg.get("presence_wifi", []) if e.get("mac") != mac and e.get("name") != name]
-    lst.append({"name": name, "ip": ip, "mac": mac})
-    if lst != cfg.get("presence_wifi"):
+    old = list(cfg.get("presence_wifi", []))
+    rest = [e for e in old if e.get("mac") != mac]
+    mine = [e for e in rest if e.get("name") == name][:WIFI_PER_PHONE - 1]
+    lst = [{"name": name, "ip": ip, "mac": mac}] + mine + [e for e in rest if e.get("name") != name]
+    if lst != old:
         cfg["presence_wifi"] = lst
         config.save(cfg)
     return True
+
+
+_FRESH = ("REACHABLE", "DELAY")
+
+
+def _neighbours():
+    """{hardware address: (ip, answered just now)} from the computer's neighbour table."""
+    out = {}
+    try:
+        if sys.platform.startswith("linux"):
+            text = _run(["ip", "-4", "neigh", "show"], timeout=5).stdout.decode("utf-8", "replace")
+            for m in re.finditer(r"^(\S+)\s.*?lladdr\s+([0-9a-f:]{17})\s+(\w+)", text, re.I | re.M):
+                mac, fresh = m.group(2).lower(), m.group(3).upper() in _FRESH
+                if fresh or mac not in out:
+                    out[mac] = (m.group(1), fresh)
+        else:
+            text = _run(["arp", "-a"], timeout=5).stdout.decode("utf-8", "replace")
+            for m in re.finditer(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-f]{2}([-:])(?:[0-9a-f]{2}\3){4}[0-9a-f]{2})", text, re.I):
+                out[m.group(2).replace("-", ":").lower()] = (m.group(1), True)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return out
 
 
 def _reachable(ip, mac):
@@ -97,28 +127,50 @@ def _reachable(ip, mac):
             out = _run(["ip", "neigh", "show", ip], timeout=5).stdout.decode("utf-8", "replace")
         except (OSError, subprocess.SubprocessError):
             return False
-        m = re.search(r"lladdr\s+([0-9a-f:]{17})\s+(\w+)", out, re.I)
-        return bool(m) and m.group(1).lower() == mac and m.group(2).upper() in ("REACHABLE", "DELAY")
+        # one line per interface (user test 2026-11-24: laptop on cable AND Wi-Fi – the cable's line
+        # said STALE, the Wi-Fi's REACHABLE; only the first one was read)
+        return any(m.group(1).lower() == mac and m.group(2).upper() in _FRESH
+                   for m in re.finditer(r"lladdr\s+([0-9a-f:]{17})\s+(\w+)", out, re.I))
     return mac_of(ip) == mac
 
 
 def check_wifi(cfg, wait=1.5):
-    """Remembered phones that answer in the Wi-Fi right now: [name]."""
-    entries = list(cfg.get("presence_wifi", []))
+    """Remembered phones that answer in the Wi-Fi right now: [name]. Every remembered network of a
+    phone is tried; a phone that got a new address in the same network (DHCP) is found by its
+    hardware address in the neighbour table."""
+    entries = [dict(e) for e in cfg.get("presence_wifi", [])]      # cfg itself is not changed here
     if not entries:
         return []
-    for e in entries:
-        _poke(e["ip"])
+    table = _neighbours()
+    for e in entries:                           # moved inside the same network: poke the new address too
+        hit = table.get(e.get("mac", ""))
+        if hit and hit[0] != e["ip"]:
+            e["ip"] = hit[0]
+    for ip in {e["ip"] for e in entries}:
+        _poke(ip)
     time.sleep(wait)
     found = []
-    for e in entries:
-        for _ in range(2):
-            if _reachable(e["ip"], e["mac"]):
+    for _ in range(2):
+        for e in entries:
+            if e["name"] not in found and _reachable(e["ip"], e["mac"]):
                 found.append(e["name"])
-                break
-            _poke(e["ip"])
-            time.sleep(wait)
+        if len(found) == len({e["name"] for e in entries}):
+            break
+        for e in entries:
+            if e["name"] not in found:
+                _poke(e["ip"])
+        time.sleep(wait)
     return found
+
+
+def wifi_ip(cfg, name):
+    """The address of `name` in the network it answers in right now (newest remembered first)."""
+    table = _neighbours()
+    for e in cfg.get("presence_wifi", []):
+        hit = table.get(e.get("mac", "")) if e.get("name") == name else None
+        if hit and hit[1]:
+            return hit[0]
+    return None
 
 
 # =========================================================================== 2. Bluetooth
@@ -252,16 +304,41 @@ def new_proof(secret, pc_id, nonce, expiry, since, folders, ready=""):
     return companion._hmac(secret, msg)[:16].hex()
 
 
-def ask_new(cfg, entry, address, since, folders, ready="", timeout=6):
+def known_proof(secret, pc_id, nonce, expiry, k):
+    return companion._hmac(secret, f"fmb-known:{pc_id}:{nonce}:{expiry}:{k}")[:16].hex()
+
+
+def send_known(cfg, entry, address, k, d, timeout=20):
+    """Give the nearby phone the backup's file list (version k, base64 d); returns its counts or None."""
+    pc_id, _name = companion.pc_identity(cfg)
+    nonce = secrets.token_hex(8)
+    expiry = int(time.time()) + 300
+    body = json.dumps({"pc": pc_id, "n": nonce, "e": expiry, "k": k, "d": d,
+                       "p": known_proof(entry["secret"], pc_id, nonce, expiry, k)}).encode()
+    req = urllib.request.Request(f"http://{address}/known", data=body, method="POST",
+                                 headers={"Content-Type": "application/json"})
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open(req, timeout=timeout) as r:
+            ans = json.loads(r.read(4096).decode("utf-8") or "{}")
+    except (OSError, ValueError):
+        return None
+    return counts_of(ans)
+
+
+def ask_new(cfg, entry, address, since, folders, ready="", timeout=6, known=("", "")):
     """How many photos and videos came onto the phone (into `folders`) after `since` (unix s)?
     ready = can this computer start a backup of it ("" yes, "no_backup", "no_drive", "busy") – the
     phone shows it at its "Back up now" button (user request 2026-11-20).
+    known = (version, base64 list) of the backup's file list (knownlist.current): the phone counts
+    what is not in it; it is sent only when the phone has another version (user request 2026-11-23).
     Returns (photos, videos, bytes), or None when the phone cannot tell (no access / old app / no answer)."""
     pc_id, _name = companion.pc_identity(cfg)
     nonce = secrets.token_hex(8)
     expiry = int(time.time()) + 300
     folders = [str(f).strip("/") for f in folders if str(f).strip("/")]
     body = json.dumps({"pc": pc_id, "n": nonce, "e": expiry, "s": int(since), "f": folders, "r": ready,
+                       "k": known[0],
                        "p": new_proof(entry["secret"], pc_id, nonce, expiry, since, folders, ready)}).encode()
     req = urllib.request.Request(f"http://{address}/new", data=body, method="POST",
                                  headers={"Content-Type": "application/json"})
@@ -271,6 +348,10 @@ def ask_new(cfg, entry, address, since, folders, ready="", timeout=6):
             ans = json.loads(r.read(4096).decode("utf-8") or "{}")
     except (OSError, ValueError):
         return None
+    if known[0] and ans.get("k", known[0]) != known[0]:     # the phone has another list (or none)
+        got = send_known(cfg, entry, address, *known)
+        if got is not None:
+            return got
     return counts_of(ans)
 
 
@@ -322,6 +403,37 @@ def note_auto(cfg, name, on):
     config.save(cfg)
 
 
+def note_modes(cfg, name, allow=None, homes=None, unrestricted=None):
+    """What the phone app last said (Auto backup requirements, 2026-11-23): "Allow without asking",
+    number of home Wi-Fis, battery unrestricted. None = not reported this time (kept as it was)."""
+    if not name:
+        return
+    allm = dict(cfg.get("phone_modes") or {})
+    cur = dict(allm.get(name) or {})
+    new = dict(cur)
+    if allow is not None:
+        new["a"] = bool(allow)
+    if homes is not None:
+        new["w"] = int(homes)
+    if unrestricted is not None:
+        new["b"] = bool(unrestricted)
+    if new != cur:
+        allm[name] = new
+        cfg["phone_modes"] = allm
+        config.save(cfg)
+
+
+def modes(cfg, *names):
+    """{"a": allow without asking, "w": home Wi-Fis, "b": battery unrestricted} last reported by
+    the phone called one of `names` ({} = never)."""
+    allm = cfg.get("phone_modes") or {}
+    for n in names:
+        m = allm.get(n) if n else None
+        if m:
+            return dict(m)
+    return {}
+
+
 def auto_due(cfg, name, now=None):
     """May an automatic backup of this phone start now? (last automatic try at least an hour ago)"""
     now = time.time() if now is None else now
@@ -369,7 +481,7 @@ def scan(cfg, bluetooth=True):
         entry = next((p for p in companion.phones(cfg) if _norm(p.get("name")) == _norm(name)), None)
         ask = None
         if entry:                                  # mDNS blocked? the app may still listen
-            ip = next((e["ip"] for e in cfg.get("presence_wifi", []) if e["name"] == name), None)
+            ip = wifi_ip(cfg, name)
             if ip and companion._port_open(f"{ip}:{ASK_PORT}", timeout=0.8):
                 ask = f"{ip}:{ASK_PORT}"
         on = bool(entry) and name in auto_phones(cfg)

@@ -28,6 +28,26 @@ class SlowSource(FolderSource):
         yield from super().open_stream(sf)
 
 
+class CableSource(FolderSource):
+    """The cable is pulled while the second file is read (user request 2026-11-23)."""
+
+    def __init__(self, root):
+        super().__init__(root, device_name="Pixel 10 Pro")
+        self.kind = "USB cable (ADB)"
+        self.read, self.gone = [], False
+
+    def is_connected(self):
+        return not self.gone
+
+    def open_stream(self, sf):
+        self.read.append(sf.rel)
+        if len(self.read) == 2:
+            self.gone = True
+            yield b"\xff\xd8"
+            raise OSError("device not found")
+        yield from super().open_stream(sf)
+
+
 class Switch(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="pbswitch_"))
@@ -61,6 +81,33 @@ class Switch(unittest.TestCase):
         self.assertIn("Connection changes", report)
         self.assertIn("Wi-Fi (phone app) → USB cable (ADB) (after 1 of 4 files)", report)
         self.assertTrue((self.d / "Sam" / "Pixel 10 Pro" / LOGS_DIR).is_dir())
+
+    def test_cable_pulled_continues_over_wifi(self):
+        """Cable pulled during a file: the backup waits, continues over Wi-Fi, copies that file
+        again – COMPLETED, nothing missing (user request 2026-11-23)."""
+        import threading
+        sw = SourceSwitch(patience=lambda: 10)
+        cable = CableSource(self.phone)
+        wifi = FolderSource(self.phone, device_name="Pixel 10 Pro")
+        wifi.kind = "Wi-Fi (phone app)"
+
+        def watcher():                       # the window's watcher: finds the phone over Wi-Fi
+            if sw.lost.wait(10):
+                sw.offer(wifi)
+        threading.Thread(target=watcher, daemon=True).start()
+        status, paths, results, _ = perform_backup(cable, "Pixel 10 Pro", "Sam", ["DCIM/Camera"], [self.d],
+                                                   {"fsync": False}, interactive=False, switch=sw)
+        self.assertEqual(status, "COMPLETED")
+        self.assertTrue(all(r.ok for r in results), [r.transfer_check for r in results])
+        self.assertEqual(len(list((self.d / "Sam" / "Pixel 10 Pro").rglob("IMG_*.jpg"))), 4)
+        report = next(p for p in paths if str(p).endswith(".txt")).read_text(encoding="utf-8")
+        self.assertIn("USB cable (ADB) → Wi-Fi (phone app) (after 1 of 4 files)", report)
+
+    def test_no_other_way_is_incomplete(self):
+        sw = SourceSwitch(patience=lambda: 1)
+        status, _p, _r, _ = perform_backup(CableSource(self.phone), "Pixel 10 Pro", "Sam", ["DCIM/Camera"],
+                                           [self.d], {"fsync": False}, interactive=False, switch=sw)
+        self.assertEqual(status, "ABORTED (phone disconnected)")
 
 
 if __name__ == "__main__":

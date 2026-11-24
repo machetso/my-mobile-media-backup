@@ -171,9 +171,28 @@ class ScannerButton(QPushButton):
         self._timer.setInterval(40)              # 25 frames/s, like the nearby line
         self._timer.timeout.connect(self.update)
         self._t0 = time.monotonic()
+        self._glowing = True
+
+    def set_glowing(self, on):
+        """The light on/off (user request 2026-11-23: "Prepare folders" glows only when the drives
+        differ)."""
+        on = bool(on)
+        if on == self._glowing:
+            return
+        self._glowing = on
+        if on and self.isVisible():
+            self._t0 = time.monotonic()
+            self._timer.start()
+        elif not on:
+            self._timer.stop()
+        self.update()
+
+    def glowing(self):
+        return self._glowing
 
     def showEvent(self, event):
-        self._timer.start()
+        if self._glowing:
+            self._timer.start()
         super().showEvent(event)
 
     def hideEvent(self, event):
@@ -182,6 +201,8 @@ class ScannerButton(QPushButton):
 
     def paintEvent(self, event):
         super().paintEvent(event)                # the normal button (and its text) first
+        if not self._glowing:
+            return
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         rad = min(15.0, self.height() / 2)       # the Starship buttons' corners (theme.py: 15px)

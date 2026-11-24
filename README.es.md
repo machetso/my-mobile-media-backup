@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Versión 0.9.9.0**
+**Versión 0.9.9.1**
 
 Copia las fotos y los vídeos de tu teléfono Android en una o varias unidades externas, comprobados
 archivo por archivo, ordenados por año y mes, con un informe después de cada copia. Para Windows y
@@ -63,7 +63,7 @@ toca **Copiar ahora** en el teléfono.
 
 * **Más rápido:** activa una vez la *depuración por USB* en el teléfono (el programa te enseña cómo,
   paso a paso, para tu modelo de teléfono). Así la copia es de dos a cuatro veces más rápida.
-* **Sin cable:** instala la app del teléfono *My Mobile Media Backup* (*Conectar teléfono…* en la
+* **Sin cable:** instala la app del teléfono *My Mobile Media Backup* (*Ayuda para conectar…* en la
   pantalla de inicio muestra un código QR). Así la copia funciona por Wi-Fi, y el teléfono y el
   equipo se encuentran por sí solos.
 * **Dos unidades** son más seguras que una: marca las dos y se escriben a la vez.
@@ -73,15 +73,19 @@ toca **Copiar ahora** en el teléfono.
 ### La ventana
 
 * **Pantalla de inicio:** el estado de la conexión (rojo = ningún teléfono conectado, amarillo = hay
-  algo que hacer en el teléfono, verde = conectado), **Conectar teléfono…** y **Conexiones
-  posibles**. Un teléfono conocido en el mismo Wi-Fi aparece como *cerca*, con **Copiar ahora**.
+  algo que hacer en el teléfono, verde = conectado; también dice cómo: cable USB o Wi-Fi, y si la
+  transferencia de datos está verificada), **Ayuda para conectar…** y **Conexiones posibles**. Un
+  teléfono conocido en la misma red aparece como *cerca*, con **Copiar ahora**: en casa, en la
+  oficina, dondequiera que se haya conectado antes.
   **Nueva copia…** inicia una copia de otro teléfono, o con otras carpetas o unidades. Debajo, **Tus
   teléfonos**: una entrada por copia con la fecha de la última copia, cuántas fotos y vídeos están
   todavía sin copiar (cuando el teléfono está cerca o conectado) y su propio botón **Actualizar
   copia**. El botón está gris mientras un clic no pueda iniciar la copia; entonces un clic te dice
-  qué falta.
-* **Barra lateral:** Copia, Gestionar copias, el engranaje (ajustes del programa), Manual y Acerca
-  de. El globo de arriba a la derecha cambia el idioma.
+  qué falta. El interruptor **Copia automática** de cada teléfono hace que la copia se haga sola
+  cuando el teléfono está cerca; unos pequeños bloques muestran lo que todavía falta y el siguiente
+  paso.
+* **Barra lateral:** Copias de teléfonos, Gestionar copias, Copias seguras, el engranaje (ajustes
+  del programa), Manual y Acerca de. El globo de arriba a la derecha cambia el idioma.
 * **Abajo:** progreso, velocidad y tiempo restante, con **Cancelar** (se detiene después del archivo
   actual), **Abrir informe** y **Abrir carpeta de copia**. Cada tarea escribe también un archivo de
   registro.
@@ -129,7 +133,7 @@ puede calcular huellas; el informe lo indica.
 depuración por USB, la app activa y desactiva por ti la conexión más rápida, y el teléfono y el
 equipo muestran lo que está todavía sin copiar.
 
-* **Instalar:** *Conectar teléfono…* muestra dos códigos QR: uno conecta la app y el otro la
+* **Instalar:** *Ayuda para conectar…* muestra dos códigos QR: uno conecta la app y el otro la
   descarga de la página de versiones. Por el cable USB, el programa puede instalar la app él mismo;
   siempre **pregunta antes** y dice qué teléfono, qué versión y por qué.
 * **Copia:** muestra cuántas fotos y vídeos están todavía sin copiar y cuánto ocupan, por ejemplo
@@ -144,15 +148,20 @@ equipo muestran lo que está todavía sin copiar.
   desactivar la depuración (*Desactivar … después de la copia*, activado por defecto). Las opciones
   para desarrolladores siguen activadas.
 * **Cuando tu equipo quiera una copia:**
-  * **Preguntarme** (por defecto): el teléfono pregunta *¿Permitir copia?*; nada empieza sin tu
+  * **Preguntarme** (por defecto): el teléfono pregunta *¿Permitir la copia?*; nada empieza sin tu
     toque.
   * **Permitir sin preguntar**: un clic en el equipo inicia la copia, sin tocar el teléfono. Con
-    **Iniciar también automáticamente**, las fotos y los vídeos más recientes se copian cuando el
-    equipo encuentra el teléfono en el Wi-Fi o cuando conectas el cable (como mucho una vez por
-    hora).
+    **Copia automática** activada para este teléfono en el equipo, las fotos y los vídeos más
+    recientes se copian solos (como mucho una vez por hora).
   * **Nunca**: el equipo no puede preguntar y no encuentra el teléfono cerca.
+  La pregunta *¿Permitir la copia?* aparece también directamente en la app abierta.
+* **Ahorrar batería:** nada está escuchando todo el tiempo. El teléfono se comunica con el equipo
+  cuando se conecta a un Wi-Fi, cuando se está cargando y cada 30 minutos, en cualquier Wi-Fi y sin
+  nada que lo identifique. Solo en un **Wi-Fi de confianza** (*Confiar en el Wi-Fi actual*) una
+  copia puede empezar sin preguntar; en otros sitios el teléfono siempre pregunta primero.
 * **VPN en el teléfono:** una VPN que envía todo por el túnel impide que el equipo llegue a la app
-  por el Wi-Fi. La app muestra un aviso: excluye *My Mobile Media Backup* de la VPN, o usa el cable.
+  por el Wi-Fi. Entonces la app muestra arriba un aviso rojo con **Abrir ajustes de VPN**, y el
+  equipo también lo dice: excluye *My Mobile Media Backup* de la VPN, o usa el cable.
 * **Misma versión:** la app del teléfono tiene el mismo número de versión que el programa. Cuando es
   más antigua, la pantalla de inicio y *Gestionar copias → Resumen* muestran **Actualizar la app del
   teléfono**. Las copias antiguas de la app se quitan automáticamente.
@@ -273,15 +282,23 @@ Se pueden combinar, por ejemplo *Simple* en una unidad y *Abuelo-Padre-Hijo* en 
 
 **Copias** muestra todas tus copias. Elige una para ver sus pestañas:
 
-* **Resumen**: la última copia, qué unidades de copia están completas, las copias Abuelo-Padre-Hijo
-  y las copias que no terminaron. Después de cada copia, el programa pregunta si está completa.
-* **Carpetas del teléfono**: las carpetas que copia *Actualizar copia*.
-* **Unidades de copia**: las unidades de esta copia y sus planes.
-* **Carpetas de importación**: añade fotos antiguas a esta copia (ver más abajo).
+* **Resumen**: la última copia, si las unidades de copia están al día y si la copia está asegurada
+  (segunda copia).
+* **Unidades de destino**: las unidades de esta copia con su estado (al día, cuántas fotos y vídeos
+  faltan, no conectada, carpeta no encontrada). **Añadir unidad…** añade una; **Integrar carpeta…**
+  busca carpetas de copia existentes en tus unidades y las incorpora; **Preparar carpetas** (se
+  ilumina cuando las unidades no coinciden) lleva todas las unidades de la copia al mismo estado:
+  también fusiona una copia antigua que estaba anidada dentro, y los archivos idénticos van a una
+  carpeta de revisión (*Duplicados*) en lugar de borrarse. **Comprobación de integridad…** vuelve a
+  leer cada foto y cada vídeo y los compara con su huella. Cada copia lleva una marca en sus
+  unidades, así que una unidad que vuelve con otra ruta (por ejemplo, ranuras de VeraCrypt
+  intercambiadas) se encuentra de nuevo por sí sola.
+* **Carpetas del teléfono**: las carpetas que copia *Actualizar copia* (*Carpetas adicionales…*).
+* **Importar archivos multimedia**: añade fotos antiguas a esta copia (ver más abajo).
 * **Historial de copias**: cada copia con su resultado y su informe.
 
-**Teléfonos y discos antiguos.** *Nueva copia de un teléfono o disco antiguo…* crea una copia
-propia (por ejemplo "Galaxy S7 – Kevin" o "Disco antiguo – Kevin"); *Carpetas de importación* añade
+**Teléfonos y discos antiguos.** *Nueva copia…* crea una copia
+propia (por ejemplo "Galaxy S7 – Kevin" o "Disco antiguo – Kevin"); *Importar archivos multimedia* añade
 a una copia existente. Añade las carpetas (por ejemplo, la copia de un teléfono antiguo y de su
 tarjeta SD) y haz clic en *Elegir carpetas que importar…*: cada carpeta con archivos aparece con sus
 fotos, vídeos y otros archivos; los datos de apps, cachés, miniaturas, papelera y carpetas ocultas se
@@ -295,8 +312,8 @@ omiten. Para cada carpeta elige:
 Cada archivo se comprueba como en una copia del teléfono, los archivos idénticos se guardan solo una
 vez y las carpetas antiguas solo se leen.
 
-**Copias seguras (segunda copia).** Copia una copia en una segunda unidad o en **Google
-Drive**. Cada copia tiene su propia carpeta con fecha.
+**Copias seguras (segunda copia)**: su propia página en la barra lateral. Copia una copia en una
+segunda unidad o en **Google Drive**. Cada copia tiene su propia carpeta con fecha.
 
 | Tipo | Copia |
 |---|---|
@@ -308,7 +325,7 @@ Drive**. Cada copia tiene su propia carpeta con fecha.
 diferencial cada mes (padre), incremental entre medias (hijo). Conserva las 4 copias completas, 3
 diferenciales y 6 incrementales más recientes y todo lo que necesitan para una restauración. Las más
 antiguas se proponen para quitarlas y se borran **solo después de que lo confirmes** (*Limpiar
-exportaciones antiguas…*). Cada archivo copiado se compara con la huella de la copia: un archivo que
+copias de resguardo antiguas…*). Cada archivo copiado se compara con la huella de la copia: un archivo que
 se dañó en la primera unidad se indica como advertencia.
 
 **Google Drive.** *Añadir al almacenamiento en la nube → Google Drive* inicia sesión a través del

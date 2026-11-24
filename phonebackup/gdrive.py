@@ -750,14 +750,14 @@ def _perform_drive_export(source_parent, cfg, cancel, drive, report_dir):
     ok = status == "COMPLETED" and not warnings
     n = sum(v[0] for v in by_cat.values())
     b = sum(v[1] for v in by_cat.values())
-    everything = ("EVERYTHING EXPORTED CORRECTLY - %d files (%s) uploaded to Google Drive and "
+    everything = ("EVERYTHING SECURED CORRECTLY - %d files (%s) uploaded to Google Drive and "
                   "verified with SHA-256.")         # English says "1 files" here (tests check it)
     from .report import both
-    verdict = (both.trp(everything, "EVERYTHING EXPORTED CORRECTLY - %d files (%s) uploaded to Google "
+    verdict = (both.trp(everything, "EVERYTHING SECURED CORRECTLY - %d files (%s) uploaded to Google "
                    "Drive and verified with SHA-256.", n, n, ui.human_size(b)) if ok else
                attention(status, errors, warnings))
     sections = [
-        (tr("General"), [(tr("Export type"), tr("Google Drive (mirror – only new files)")),
+        (tr("General"), [(tr("Safety copy type"), tr("Google Drive (mirror – only new files)")),
                          (tr("Status"), tr(status)),
                          (tr("Google account"), acct["email"]),
                          (tr("Source (backup folder)"), str(source_parent)),
@@ -766,7 +766,7 @@ def _perform_drive_export(source_parent, cfg, cancel, drive, report_dir):
                          (tr("Duration"), ui.human_duration(duration)),
                          (tr("Average upload speed"),
                           tr("%s/s", ui.human_size(b / duration if duration > 0 else 0)))]),
-        (tr("Data exported"), [(tr("Total"), files_size(n, b))] +
+        (tr("Data copied"), [(tr("Total"), files_size(n, b))] +
          [(category_label(c), files_size(v[0], v[1])) for c, v in sorted(by_cat.items())] +
          [(tr("Files in backup"), str(len(current))),
           (tr("Already on Google Drive"), str(len(current) - len(todo) - len(conflicts))),
@@ -776,7 +776,7 @@ def _perform_drive_export(source_parent, cfg, cancel, drive, report_dir):
                tr("Status"), tr("SHA-256")]
     rdir = Path(report_dir) if report_dir else reports_dir(setfolders.rel(phone, owner))
     base = unique_basename(rdir, f"Google Drive export {name}", started)
-    paths = write_reports(rdir, base, tr("Google Drive export %s - %s", name,
+    paths = write_reports(rdir, base, tr("Google Drive safety copy %s - %s", name,
                                          f"{started:%Y-%m-%d %H:%M}"),
                           ok, verdict, sections, columns, rows)
     # the report also goes to Google Drive (next to the mirrored backup)

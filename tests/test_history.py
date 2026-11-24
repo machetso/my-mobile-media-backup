@@ -140,3 +140,27 @@ class Generations(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeleteHistory(unittest.TestCase):
+    """User 2026-11-23: delete the history up to and including a date (or all) – no single entries."""
+
+    def test_delete_up_to_a_date(self):
+        from phonebackup import history
+        cfg = {"backup_history": {"K": [
+            {"kind": "backup", "when": "2026-11-01T10:00:00", "files": 1, "bytes": 1, "status": "COMPLETED"},
+            {"kind": "backup", "when": "2026-11-20T23:30:00", "files": 1, "bytes": 1, "status": "COMPLETED"},
+            {"kind": "backup", "when": "2026-11-21T08:00:00", "files": 1, "bytes": 1, "status": "COMPLETED"}]}}
+        reports = [{"kind": "import", "when": "2026-11-02T12:00:00", "files": 5, "bytes": 5, "status": "COMPLETED"},
+                   {"kind": "import", "when": "2026-11-22T12:00:00", "files": 5, "bytes": 5, "status": "COMPLETED"}]
+        history.delete_up_to(cfg, "K", "2026-11-20")
+        whens = [e["when"] for e in history.entries(cfg, "K", reports=reports, newest_first=False)]
+        self.assertEqual(whens, ["2026-11-21T08:00:00", "2026-11-22T12:00:00"])   # reports too, by date
+        self.assertEqual(len(cfg["backup_history"]["K"]), 1)                       # really deleted
+        history.delete_up_to(cfg, "K", "2026-11-05")                               # earlier: no effect
+        self.assertEqual(history.cut_of(cfg, "K"), "2026-11-20T23:59:59")
+        step = history.delete_up_to(cfg, "K", None)                                # all
+        self.assertEqual(history.entries(cfg, "K", reports=reports), [])
+        history.undo_delete(cfg, "K", step)                                         # undo: back
+        self.assertEqual(len(history.entries(cfg, "K", reports=reports)), 2)
+        self.assertEqual(history.cut_of(cfg, "K"), "2026-11-20T23:59:59")

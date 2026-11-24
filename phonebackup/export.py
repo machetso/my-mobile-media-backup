@@ -215,7 +215,7 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
     baseline = cat.baseline(mode)
     if baseline is None:
         cat.close()
-        raise ValueError(tr("A differential or incremental export needs a full export first."))
+        raise ValueError(tr("A differential or incremental safety copy needs a full safety copy first."))
     full = cat.last_full()
     started = datetime.now()
     t0 = time.monotonic()
@@ -235,7 +235,7 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
     todo = [(rel, sz, mt) for rel, (sz, mt) in sorted(current.items())
             if rel not in baseline or baseline[rel][0] != sz or baseline[rel][1] != mt]
     total = sum(sz for _, sz, _ in todo)
-    ui.info("  " + trp("%d file in the backup, %d to export (%s).", "%d files in the backup, %d to export (%s).",
+    ui.info("  " + trp("%d file in the backup, %d to copy (%s).", "%d files in the backup, %d to copy (%s).",
                        len(current), len(current), len(todo), ui.human_size(total)))
     if todo:
         free = shutil.disk_usage(target_parent).free
@@ -274,7 +274,7 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
         status = "CANCELLED by user"
     except Exception as e:  # noqa: BLE001 - the run must never stay RUNNING without a report
         status = f"STOPPED - {type(e).__name__}: {e}"
-        ui.error(tr("Export stopped: %s", e))
+        ui.error(tr("Safety copy stopped: %s", e))
     finally:
         prog.finish()
         shutil.rmtree(tmp, ignore_errors=True)
@@ -288,22 +288,22 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
     ok = status == "COMPLETED" and not warnings
     n = sum(v[0] for v in by_cat.values())
     b = sum(v[1] for v in by_cat.values())
-    verdict = (both.trp("EVERYTHING EXPORTED CORRECTLY - %d file (%s) verified with SHA-256.",
-                        "EVERYTHING EXPORTED CORRECTLY - %d files (%s) verified with SHA-256.",
+    verdict = (both.trp("EVERYTHING SECURED CORRECTLY - %d file (%s) verified with SHA-256.",
+                        "EVERYTHING SECURED CORRECTLY - %d files (%s) verified with SHA-256.",
                         n, n, ui.human_size(b))
                if ok else _attention(status, errors, warnings))
     if mode == "full":
-        basis = tr("none (full export of everything)")
+        basis = tr("none (full safety copy of everything)")
     elif mode == "differential":
-        basis = tr("last full export: %s", full.folder)
+        basis = tr("last full safety copy: %s", full.folder)
     else:
-        basis = tr("the current state since the last full export (%s)", full.folder)
+        basis = tr("the current state since the last full safety copy (%s)", full.folder)
 
     def files_size(k, size):
         return trp("%d file, %s", "%d files, %s", k, k, ui.human_size(size))
 
     sections = [
-        (tr("General"), [(tr("Export type"), tr("%s – %s", gfs.mode_name(mode), tr(gfs.ROLE[mode]))),
+        (tr("General"), [(tr("Safety copy type"), tr("%s – %s", gfs.mode_name(mode), tr(gfs.ROLE[mode]))),
                          (tr("Chosen by"), chosen_by or tr("manual choice")), (tr("Status"), status),
                          (tr("Source (backup folder)"), str(source_parent)),
                          (tr("Target folder of this run"), str(run_dir)),
@@ -311,10 +311,10 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
                          (tr("Started"), f"{started:%Y-%m-%d %H:%M:%S}"),
                          (tr("Duration"), ui.human_duration(duration)),
                          (tr("Average speed"), tr("%s/s", ui.human_size(b / duration if duration > 0 else 0)))]),
-        (tr("Data exported"), [(tr("Total"), files_size(n, b))] +
+        (tr("Data copied"), [(tr("Total"), files_size(n, b))] +
          [(tr(c.capitalize()), files_size(v[0], v[1])) for c, v in sorted(by_cat.items())] +
          [(tr("Files in backup"), str(len(current))),
-          (tr("Unchanged (not exported)"), str(len(current) - len(todo))),
+          (tr("Unchanged (not copied)"), str(len(current) - len(todo))),
           (tr("Errors"), str(errors)), (tr("Warnings"), str(warnings))]),
     ]
     columns = [tr("Nr"), tr("File"), tr("Type"), tr("Size"), tr("Bytes"), tr("Path in backup"), tr("Status"),
@@ -322,7 +322,7 @@ def perform_export(source_parent, target_base, mode, cfg, cancel=None, now=None)
     # file name English, title inside translated
     set_key = setfolders.key_of(source_parent)
     base = unique_basename(logs_dir(run_dir), f"Export {set_key} {mode}", started)
-    paths = write_reports(logs_dir(run_dir), base, tr("Export (%s) %s - %s", gfs.mode_name(mode), set_key,
+    paths = write_reports(logs_dir(run_dir), base, tr("Safety copy (%s) %s - %s", gfs.mode_name(mode), set_key,
                                             f"{started:%Y-%m-%d %H:%M}"),
                           ok, verdict, sections, columns, rows)
     (ui.ok if ok else ui.error)(verdict)
@@ -362,7 +362,7 @@ def remove_runs(target_parent, run_ids, keep=None):
         for rid in run_ids:
             r = allowed.get(rid)
             if r is None:
-                problems.append(tr("export %s is still needed - not removed", rid))
+                problems.append(tr("safety copy %s is still needed - not removed", rid))
                 continue
             folder = (target_parent / str(r.folder)).resolve()
             # only a real run folder, directly in this export folder (the catalog may be tampered)
@@ -399,7 +399,7 @@ def perform_restore(target_parent, upto_id, restore_dir, cfg, cancel=None):
     chain = restore_chain(cat, upto_id)
     if not chain:
         cat.close()
-        raise ValueError(tr("No completed full export found - nothing to restore from."))
+        raise ValueError(tr("No completed full safety copy found - nothing to restore from."))
     from .setfolders import key_of
     keep = decision(cfg, key_of(target_parent)) or NO_KEEP     # restored in the new layout
     plan, refused = {}, []
@@ -426,7 +426,7 @@ def perform_restore(target_parent, upto_id, restore_dir, cfg, cancel=None):
             # an export from before 2026-11-09 is restored in the new layout (2026/26.02)
             src, dst = inside(target_parent / run.folder, rel), inside(restore_dir, convert_rel(rel, keep) or rel)
             if src is None or dst is None:
-                st, got = both.tr("ERROR: path outside the export or restore folder - refused"), None
+                st, got = both.tr("ERROR: path outside the safety copy or restore folder - refused"), None
             else:
                 st, got = _verified_copy(src, tmp, dst, sha, cfg, prog, cancel, overwrite=True)
             if not st.startswith("OK"):
@@ -445,7 +445,7 @@ def perform_restore(target_parent, upto_id, restore_dir, cfg, cancel=None):
                else both.tr("ATTENTION - %s", both.trp("%s, %d file with problems", "%s, %d files with problems",
                                                        errors, status, errors)))
     sections = [(tr("General"), [(tr("Restored from"), str(target_parent)),
-                                 (tr("Used exports"), "\n".join(f"{gfs.mode_name(r.type)}: {r.folder}"
+                                 (tr("Used safety copies"), "\n".join(f"{gfs.mode_name(r.type)}: {r.folder}"
                                                                 for r in chain)),
                                  (tr("Restored to"), str(restore_dir)),
                                  (tr("Duration"), ui.human_duration(time.monotonic() - t0)),
@@ -455,7 +455,7 @@ def perform_restore(target_parent, upto_id, restore_dir, cfg, cancel=None):
     paths = write_reports(logs_dir(restore_dir), base, tr("Restore %s - %s", target_parent.name,
                                                 f"{started:%Y-%m-%d %H:%M}"),
                           ok, verdict, sections,
-                          [tr("Nr"), tr("File"), tr("Size"), tr("Path"), tr("Taken from export"), tr("Status"),
+                          [tr("Nr"), tr("File"), tr("Size"), tr("Path"), tr("Taken from safety copy"), tr("Status"),
                            tr("SHA-256")], rows)
     (ui.ok if ok else ui.error)(verdict)
     return status, paths, verdict

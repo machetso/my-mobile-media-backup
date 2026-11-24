@@ -361,9 +361,9 @@ def ensure_converted(set_dir, label="", keep=None):
     try:
         if keep is None:
             if old_folders(set_dir):         # (a note only – never true for kept import folders)
-                ui.warn(tr("%s: the month folders still have the old names. They are changed after "
-                           "you chose which ones keep their structure (asked before the next backup "
-                           "or export).", label or set_dir))
+                ui.warn(tr("%s: the month folders still have the old names. They "
+                           "are changed after you chose which ones keep their "
+                           "structure (asked before the next backup or safety copy).", label or set_dir))
             return 0, []
         if not needs_conversion(set_dir, keep):
             return 0, []

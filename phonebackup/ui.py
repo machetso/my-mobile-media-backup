@@ -157,6 +157,13 @@ def parse_numbers(text, maximum):
     return [n for n in dict.fromkeys(out) if 1 <= n <= maximum]
 
 
+def status(msg):
+    """What a long job is doing right now, shown at the bottom of the window (user request
+    2026-11-23: not only "Working …"). Not logged."""
+    if _handler is not None and hasattr(_handler, "status"):
+        _handler.status(str(msg))
+
+
 def human_size(n):
     n = float(n or 0)
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -198,7 +205,8 @@ class Progress:
 
     SPEED_WINDOW = 5.0
 
-    def __init__(self, total_files, total_bytes):
+    def __init__(self, total_files, total_bytes, channel=""):
+        self.channel = channel                       # "background": its own line (user 2026-11-23)
         self.total_files = total_files
         self.total_bytes = total_bytes
         self.files = 0
@@ -245,18 +253,25 @@ class Progress:
             speed = self._speed(now)
             avg = self.bytes / max(now - self.start, 0.001)
             remaining = (self.total_bytes - self.bytes) / speed if speed > 0 else 0
-            pct = 100.0 * self.bytes / self.total_bytes if self.total_bytes else 100.0
+            if not self.total_bytes and self.files:          # a step that only counts files
+                rate = self.files / max(now - self.start, 0.001)
+                remaining = (self.total_files - self.files) / rate
+            # by bytes; a step that only counts files (no sizes) by files – it showed "100 %" at
+            # the start (user 2026-11-23)
+            pct = (100.0 * self.bytes / self.total_bytes if self.total_bytes else
+                   100.0 * self.files / self.total_files if self.total_files else 100.0)
             active = list(self._active.values()) or ([current] if current else [])
             files = self.files
         line = "  " + tr("%5.1f%%  %d/%d files  %s/%s  %s/s  ETA %s  %s", pct, files,
                          self.total_files, human_size(self.bytes), human_size(self.total_bytes),
                          human_size(speed), human_duration(remaining), ", ".join(active))
+        lines = getattr(self, "lines", None)
         if _handler:
-            _handler.progress({"files": files, "total_files": self.total_files,
+            _handler.progress({"files": files, "total_files": self.total_files, "lines": lines() if lines else None,
                                "to_go": max(self.total_files - files, 0), "percent": pct,
                                "bytes": self.bytes, "total_bytes": self.total_bytes,
                                "speed": speed, "speed_avg": avg, "eta": remaining,
-                               "current": ", ".join(active), "active": active})
+                               "current": ", ".join(active), "active": active, "channel": self.channel})
             return
         width = shutil.get_terminal_size((100, 20)).columns - 1
         line = line[:width]

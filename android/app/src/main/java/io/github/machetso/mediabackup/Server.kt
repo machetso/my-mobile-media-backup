@@ -198,8 +198,17 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                 val c = if (news != null) BackupStatus.update(ctx, pc.id, news.first, news.second, news.third)
                         else MediaIndex.NewMedia(-1, -1, 0)
                 Response.json(out, 200, JSONObject().put("photos", c.photos).put("videos", c.videos)
-                    .put("bytes", c.bytes)
+                    .put("bytes", c.bytes).put("k", KnownList.versionFor(ctx, pc.id))
                     .put("want", if (BackupStatus.wanted()) BackupStatus.wantAt else 0L).toString(), keep)
+                return keep
+            }
+            // the backup's file list (user request 2026-11-23), sent when "k" above differs
+            "POST /known" -> {
+                val o = runCatching { jsonBody(req) }.getOrNull()
+                val c = o?.let { BackupStatus.known(ctx, pc.id, it) }
+                if (c == null) Response.json(out, 400, """{"error":"bad list"}""", keep)
+                else Response.json(out, 200, JSONObject().put("photos", c.photos).put("videos", c.videos)
+                    .put("bytes", c.bytes).put("k", KnownList.versionFor(ctx, pc.id)).toString(), keep)
                 return keep
             }
             "POST /guard/start" -> {
@@ -216,6 +225,10 @@ class Server(private val ctx: Context, private val onEvent: (String) -> Unit) {
                     .put("protocol", PROTOCOL)
                     .put("app_version", BuildConfigInfo.versionName(ctx))
                     .put("auto_backup", AskService.autoEnabled(ctx))     // the computer learns it over the cable too
+                    // Auto backup requirements on the computer (2026-11-23): known at once, not only
+                    // after the next check-in
+                    .put("unrestricted", HomeCheck.batteryUnrestricted(ctx))
+                    .put("home_wifi", HomeWifi.list(ctx).size)
                     .put("phone_id", Identity.phoneId(ctx))
                     .put("manufacturer", Build.MANUFACTURER)
                     .put("model", Build.MODEL)

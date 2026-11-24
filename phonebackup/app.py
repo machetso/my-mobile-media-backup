@@ -196,18 +196,18 @@ def import_menu(cfg):
 
 
 def export_menu(cfg):
-    ui.title(tr("Export a backup to a second storage"))
+    ui.title(tr("Make a safety copy of a backup"))
     backups = find_backups(cfg)
     opts = backups + [tr("Type the path of a backup folder")]
-    idx = ui.choose(tr("Which backup do you want to export"), opts)
-    src = backups[idx] if idx < len(backups) else ui.ask(tr("Path of the backup folder (Phone - Owner)"))
+    idx = ui.choose(tr("Which backup do you want to secure"), opts)
+    src = backups[idx] if idx < len(backups) else ui.ask(tr("Path of the backup folder (the folder named like the phone, e.g. “Pixel 10 Pro”)"))
     if not os.path.isdir(src):
         ui.error(tr("Folder not found."))
         return
-    target = choose_locations(cfg, "export_targets", tr("Second storage"), False, "PhoneBackups-Export")[0]
+    target = choose_locations(cfg, "export_targets", tr("Safety copy drive"), False, "PhoneBackups-Export")[0]
     if same_volume(src, target):
-        ui.warn(tr("WARNING: the second storage is on the SAME drive as the backup - "
-                   "this does not protect against a drive failure."))
+        ui.warn(tr("WARNING: the safety copy drive is the SAME drive as the "
+                   "backup - this does not protect against a drive failure."))
         if not ui.ask_yes_no(tr("Continue anyway?"), False):
             return
     tparent = Path(target) / setfolders.rel_of(src)
@@ -217,18 +217,18 @@ def export_menu(cfg):
         runs = cat.runs()
         full = cat.last_full()
         cat.close()
-        ui.info("\n" + tr("Previous exports:"))
+        ui.info("\n" + tr("Previous safety copies:"))
         for r in runs[-8:]:
             ui.info(f"  {r.folder}  [{shown(r.status)}]")
     modes = [tr("full         - copy everything"),
-             tr("differential - everything new since the last FULL export"),
-             tr("incremental  - everything new since the LAST export (any type)")]
+             tr("differential - everything new since the last FULL safety copy"),
+             tr("incremental  - everything new since the LAST safety copy (any type)")]
     if full is None:
-        ui.info("\n" + tr("No full export exists yet on this storage - the first export must be 'full'."))
+        ui.info("\n" + tr("No full safety copy exists yet on this drive - the first safety copy must be 'full'."))
         mode = "full"
     else:
-        mode = MODES[ui.choose(tr("Export type"), modes, default=3)]
-    if not ui.ask_yes_no(tr("Start the %s export of %s to %s?", gfs.mode_name(mode), src, tparent),
+        mode = MODES[ui.choose(tr("Safety copy type"), modes, default=3)]
+    if not ui.ask_yes_no(tr("Start the %s safety copy of %s to %s?", gfs.mode_name(mode), src, tparent),
                          True) or not migrate.ask_cli(cfg, [src, tparent]):
         return
     try:
@@ -241,18 +241,18 @@ def export_menu(cfg):
 
 
 def restore_menu(cfg):
-    ui.title(tr("Restore a complete copy from the second storage"))
-    target = choose_locations(cfg, "export_targets", tr("Second storage"), False, "PhoneBackups-Export")[0]
+    ui.title(tr("Restore a complete copy from a safety copy"))
+    target = choose_locations(cfg, "export_targets", tr("Safety copy drive"), False, "PhoneBackups-Export")[0]
     sets = [e.path for e in sorted(os.scandir(target), key=lambda e: e.name)
             if e.is_dir() and has_catalog(e.path)]
     if not sets:
-        ui.error(tr("No exports found there."))
+        ui.error(tr("No safety copies found there."))
         return
-    tparent = sets[ui.choose(tr("Which export set"), sets)]
+    tparent = sets[ui.choose(tr("Which safety copy"), sets)]
     cat = Catalog(tparent)
     runs = cat.runs()
     cat.close()
-    idx = ui.choose(tr("Restore the state of which export"),
+    idx = ui.choose(tr("Restore the state of which safety copy"),
                     [f"{r.folder}  [{shown(r.status)}]" for r in runs], default=len(runs))
     dest = ui.ask(tr("Restore into which (new or empty) folder"))
     if os.path.isdir(dest) and any(os.scandir(dest)):
@@ -277,7 +277,7 @@ def settings_menu(cfg):
             tr("Owner name ............ %s", cfg.get("owner") or "-"),
             tr("Folders on the phone .. %s", ", ".join(cfg.get("source_folders", []))),
             tr("Backup destinations ... %d saved (remove)", len(cfg.get("destinations", []))),
-            tr("Export targets ........ %d saved (remove)", len(cfg.get("export_targets", []))),
+            tr("Safety copy drives .... %d saved (remove)", len(cfg.get("export_targets", []))),
             tr("ADB program ........... %s", cfg.get("adb_path") or tr("automatic")),
             tr("Wait for ADB phone .... %s s", cfg.get("adb_wait_seconds")),
             tr("Keep computer awake ... %s (during jobs)",
@@ -326,8 +326,8 @@ def main(argv=None):
         ui.title(f"{APP_NAME} {__version__}")
         idx = ui.choose(tr("Choose"), [tr("Backup phone -> external drive(s)"),
                                        tr("Import an old backup / any folder into a backup"),
-                                       tr("Export a backup to a second storage (full / differential / incremental)"),
-                                       tr("Restore from the second storage"),
+                                       tr("Make a safety copy of a backup (full / differential / incremental)"),
+                                       tr("Restore from a safety copy"),
                                        tr("Settings"),
                                        tr("Exit")], default=1)
         if idx == 5:

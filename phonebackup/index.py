@@ -45,13 +45,17 @@ class BackupIndex:
         return (self.parent / row[0]).is_file()
 
     def find_by_sha(self, sha):
-        for (rel,) in self.db.execute("SELECT rel_path FROM files WHERE sha256=?", (sha,)):
-            if (self.parent / rel).is_file():
+        """A place whose NEWEST entry has this content and whose file is there. An older entry of a
+        place that was written again later with other content does not count (user 2026-11-23)."""
+        for rel, rowid in self.db.execute("SELECT rel_path, rowid FROM files WHERE sha256=?", (sha,)):
+            newest = self.db.execute("SELECT MAX(rowid) FROM files WHERE rel_path=?", (rel,)).fetchone()[0]
+            if rowid == newest and (self.parent / rel).is_file():
                 return rel
         return None
 
     def sha_for_rel(self, rel_path, size):
-        row = self.db.execute("SELECT sha256 FROM files WHERE rel_path=? AND size=? LIMIT 1",
+        """The SHA-256 of the NEWEST entry of this place and size."""
+        row = self.db.execute("SELECT sha256 FROM files WHERE rel_path=? AND size=? ORDER BY rowid DESC LIMIT 1",
                               (rel_path, size)).fetchone()
         return row[0] if row else None
 

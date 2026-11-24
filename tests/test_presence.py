@@ -31,6 +31,44 @@ class Presence(unittest.TestCase):
         self.assertEqual(cfg["presence_wifi"], [{"name": "Pixel 10 Pro", "ip": "192.0.2.9",
                                                  "mac": "aa:bb:cc:dd:ee:ff"}])
 
+    def test_remember_wifi_per_network(self):
+        # Android uses another hardware address in every Wi-Fi (user test 2026-11-24): home + office kept
+        cfg = {}
+        macs = {"192.0.2.9": "aa:bb:cc:dd:ee:01", "198.51.100.75": "aa:bb:cc:dd:ee:02"}
+        with mock.patch.object(presence, "mac_of", lambda ip: macs.get(ip, "aa:bb:cc:dd:ee:%02x" % (int(ip.split(".")[-1]) % 256))), \
+                mock.patch.object(presence.config, "save", lambda c: None):
+            presence.remember_wifi(cfg, "Pixel 10 Pro", "192.0.2.9:47823")          # home
+            presence.remember_wifi(cfg, "Pixel 10 Pro", "198.51.100.75")            # office
+            self.assertEqual([e["mac"] for e in cfg["presence_wifi"]], ["aa:bb:cc:dd:ee:02", "aa:bb:cc:dd:ee:01"])
+            presence.remember_wifi(cfg, "Pixel 10 Pro", "192.0.2.9")                # home again: first
+            self.assertEqual([e["ip"] for e in cfg["presence_wifi"]], ["192.0.2.9", "198.51.100.75"])
+            for i in range(10):                                                     # at most 6 per phone
+                presence.remember_wifi(cfg, "Pixel 10 Pro", "203.0.113.%d" % (100 + i))
+        self.assertEqual(len(cfg["presence_wifi"]), presence.WIFI_PER_PHONE)
+
+    def test_check_wifi_finds_moved_phone(self):
+        # same network, new address from DHCP: found by its hardware address in the neighbour table
+        cfg = {"presence_wifi": [{"name": "Pixel 10 Pro", "ip": "192.0.2.9", "mac": "aa:bb:cc:dd:ee:01"},
+                                 {"name": "Pixel 10 Pro", "ip": "198.51.100.5", "mac": "aa:bb:cc:dd:ee:02"}]}
+        poked = []
+        with mock.patch.object(presence, "_neighbours", lambda: {"aa:bb:cc:dd:ee:02": ("198.51.100.75", False)}), \
+                mock.patch.object(presence, "_poke", poked.append), \
+                mock.patch.object(presence.time, "sleep", lambda s: None), \
+                mock.patch.object(presence, "_reachable", lambda ip, mac: (ip, mac) == ("198.51.100.75", "aa:bb:cc:dd:ee:02")):
+            self.assertEqual(presence.check_wifi(cfg), ["Pixel 10 Pro"])
+        self.assertIn("198.51.100.75", poked)
+        self.assertEqual(cfg["presence_wifi"][1]["ip"], "198.51.100.5")                # cfg not changed here
+
+    def test_reachable_on_any_interface(self):
+        # laptop on cable AND Wi-Fi (user test 2026-11-24): one neighbour line per interface
+        out = (b"10.20.31.75 dev eth1 lladdr 02:00:5e:10:20:30 STALE \n"
+               b"10.20.31.75 dev wlan0 lladdr 02:00:5e:10:20:30 REACHABLE \n")
+        with mock.patch.object(presence.sys, "platform", "linux"), \
+                mock.patch.object(presence, "_run", lambda a, timeout=10: mock.Mock(stdout=out)):
+            self.assertTrue(presence._reachable("10.20.31.75", "02:00:5e:10:20:30"))
+            self.assertFalse(presence._reachable("10.20.31.75", "aa:bb:cc:dd:ee:ff"))
+            self.assertEqual(presence.mac_of("10.20.31.75"), "02:00:5e:10:20:30")
+
     def test_scan_combines_ways(self):
         cfg = {"presence_wifi": [{"name": "Pixel 10 Pro", "ip": "192.0.2.9", "mac": "aa:bb:cc:dd:ee:ff"}]}
         entry = {"name": "Pixel 10 Pro", "secret": "ab" * 32, "phone_id": "x"}

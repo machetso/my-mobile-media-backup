@@ -48,6 +48,59 @@ class PhoneIdTest(unittest.TestCase):
         P.learn(self.parent, PIXEL_APP, P.NEW)
         self.assertEqual(P.load(self.parent).app_ids, ["app-pixel"])
 
+    def test_phone_app_paired_again_same_phone(self):
+        """2026-11-22: the phone app was paired anew (new app id) – the backup of the SAME phone
+        must not be refused. Over Wi-Fi the app gives the serial confirmed over the cable."""
+        old = P.PhoneId("Pixel 10 Pro", "Google", "PX10TEST000001", "app-old", "usb-adb")
+        P.learn(self.parent, old, P.NEW)
+        new_app_wifi = P.PhoneId("Pixel 10 Pro", "Google", "PX10TEST000001", "app-new", "app-wifi")
+        self.assertEqual(P.compare(P.load(self.parent), new_app_wifi), P.MATCH)
+        P.learn(self.parent, new_app_wifi, P.MATCH)
+        self.assertEqual(P.load(self.parent).app_ids, ["app-old", "app-new"])
+        no_serial = P.PhoneId("Pixel 10 Pro", "Google", "", "app-other", "app-wifi")
+        self.assertEqual(P.compare(P.load(self.parent), no_serial), P.PROBABLE)   # asked, not refused
+        other = P.PhoneId("Pixel 10 Pro", "Google", "OTHER0000001", "app-new", "usb-adb")
+        self.assertEqual(P.compare(P.load(self.parent), other), P.MISMATCH)      # other serial: refused
+
+    def test_phone_app_gives_the_paired_serial(self):
+        from phonebackup.companion import CompanionSource
+
+        class Client:
+            def request(self, method, path):
+                return {"model": "Pixel 10 Pro", "manufacturer": "Google", "phone_id": "app-new"}
+        src = CompanionSource.__new__(CompanionSource)
+        src.client, src.device_name = Client(), "Pixel 10 Pro"
+        src.entry = {"phone_id": "app-new", "serial": "PX10TEST000001"}
+        pid = P.identify(src)
+        self.assertEqual((pid.serial, pid.app_id, pid.connection), ("PX10TEST000001", "app-new", "app-wifi"))
+
+    def test_files_in_common_are_evidence(self):
+        """2026-11-22: no serial – the photos the phone and the backup have in common decide how
+        likely it is the right backup (a sample checked with the phone's SHA-256)."""
+        import shutil
+        from phonebackup.backup import perform_backup
+        from phonebackup.sources import FolderSource
+        from tests.test_all import jpeg_with_exif
+        tmp = Path(self.tmp.name)
+        for n in range(5):
+            p = tmp / "phone" / "DCIM/Camera" / f"IMG_{n}.jpg"
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_bytes(jpeg_with_exif(f"2025:03:1{n} 10:00:00"))
+        perform_backup(FolderSource(tmp / "phone", device_name="Pixel 10 Pro"), "Pixel 10 Pro", "Sam",
+                       ["DCIM/Camera"], [tmp / "hdd"], {"fsync": False}, interactive=False)
+        parent = tmp / "hdd" / "Sam" / "Pixel 10 Pro"
+        src = FolderSource(tmp / "phone", device_name="Pixel 10 Pro", verify_source=True)
+        o = P.overlap(src, src.list_files(["DCIM/Camera"])[0], parent)
+        self.assertEqual((o.phone_files, o.same, o.hashed, o.hash_same, o.strong), (5, 5, 5, 5, True))
+        self.assertIn("5 of the 5 photos and videos on the phone are already in this backup", P.overlap_text(o))
+        shutil.rmtree(tmp / "phone")
+        (tmp / "phone" / "DCIM/Camera").mkdir(parents=True)
+        (tmp / "phone" / "DCIM/Camera" / "IMG_X.jpg").write_bytes(jpeg_with_exif("2025:06:01 10:00:00"))
+        o = P.overlap(src, src.list_files(["DCIM/Camera"])[0], parent)
+        self.assertTrue(o.none)
+        self.assertFalse(o.strong)
+        self.assertIn("probably a different phone", P.overlap_text(o))
+
     def test_double_check(self):
         self.assertTrue(P.same_phone(SAMSUNG_LINKED, SAMSUNG_USB))
         self.assertFalse(P.same_phone(SAMSUNG_USB, OTHER_S20))
@@ -61,10 +114,6 @@ class PhoneIdTest(unittest.TestCase):
         fast, text = P.speed_advice(PIXEL_APP)
         self.assertFalse(fast)
         self.assertIn("“Allow backup”", text)            # the phone app's switch (renamed 2026-11-20)
-
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class OldReportTest(unittest.TestCase):
@@ -141,3 +190,16 @@ class CableAdviceTest(unittest.TestCase):
             dev(d, "3-1", "18d1", "Google", "Pixel 10 Pro", "00", [("06", "01")])          # MTP
             dev(d, "3-2", "17ef", "Lenovo", "Tab P12", "00", [("ff", "42")])               # ADB
             self.assertEqual(adbsetup._linux_usb_phones(d), ["Google Pixel 10 Pro", "Lenovo Tab P12"])
+
+
+class LooseModelName(unittest.TestCase):
+    def test_maker_in_front_is_probable_not_certain(self):
+        from phonebackup import phoneid as P
+        rec = P.Record(model="Pixel 10 Pro", serials=["TESTSERIAL0001"])
+        self.assertEqual(P.compare(rec, P.PhoneId(model="Google Pixel 10 Pro")), P.PROBABLE)
+        self.assertEqual(P.compare(rec, P.PhoneId(model="Pixel 10")), P.MISMATCH)        # another model
+        self.assertEqual(P.compare(rec, P.PhoneId(model="Galaxy S25")), P.MISMATCH)
+
+
+if __name__ == "__main__":
+    unittest.main()

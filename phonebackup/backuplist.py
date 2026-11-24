@@ -49,7 +49,7 @@ def save_profile(cfg, key, **fields):
 def known(cfg, found_sets, show_hidden=False):
     """[{key, phone, owner, entry, copies, drives, hidden}] – the phone list plus the backups found
     on the drives. found_sets: {key: [set folders]} (gui._backup_sets / locations.find_backups)."""
-    hidden = set(cfg.get("phones_hidden", []))
+    hidden = set(cfg.get("phones_hidden", [])) | set(cfg.get("phones_removing", []))
     phones = cfg.get("phones") or {}
     keys = list(phones) + [k for k in found_sets if k not in phones]
     out = []

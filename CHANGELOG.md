@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.9.9.1] - 2026-11-24
+
+- **Auto backup per phone.** A switch next to each phone on the start page; small blocks show what
+  is still missing and the next step in plain words. The backup then runs by itself when the phone
+  is near.
+- **Battery-saving phone app.** Nothing listens all the time any more: the phone checks in with the
+  computer when it joins a Wi-Fi, when it is charging and every 30 minutes – in any Wi-Fi. Only in a
+  *trusted Wi-Fi* a backup may start without asking; elsewhere the phone asks first. The question
+  “Allow backup?” also appears right in the open app.
+- **Backup drives that keep track of themselves.** Every backup gets a mark on its drives.
+  **Integrate folders…** finds existing backup folders on your drives, **Prepare folders** brings
+  all drives of a backup to the same state (also merges an old backup that was nested inside), and
+  drives that come back under another path (e.g. VeraCrypt slots swapped) are followed
+  automatically.
+- **Duplicates** page: identical files are collected in a review folder instead of being deleted;
+  a full **integrity check** reads every photo and video once more.
+- **Secure backups** has its own page in the menu; *Manage backups* is tidier (Overview,
+  Destination drives, Phone folders, Import media, Backup history).
+- **Better connections:** a backup continues when you switch between USB cable and Wi-Fi, the status
+  says exactly how the phone is connected, a known phone is recognised as *nearby* in every network
+  (home, office, …), a computer on cable and Wi-Fi uses the cable for the phone, and a VPN on the
+  phone that blocks the connection is clearly pointed out on both sides.
+
 ## [0.9.9.0] - 2026-11-20
 
 - **New name: My Mobile Media Backup** – the program, the phone app and the GitHub project

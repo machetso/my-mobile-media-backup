@@ -7,7 +7,9 @@ are copied (the backup skips files that are already there).
 No Qt here - the GUI asks `check()` whether the button may be enabled.
 """
 
+import json
 import os
+from pathlib import Path
 import re
 from datetime import datetime
 
@@ -54,6 +56,72 @@ def forget(cfg, keys):
     config.save(cfg)
 
 
+# ---- "Remove from list" (user request 2026-11-23): gone from the list at once, Undo until the
+# program is started again – then everything the program knows about the backup is deleted (the
+# backup on the drives stays untouched). Only its name is kept in "phones_hidden" so that the
+# folder on the drive is not found and listed again; a new backup of that phone brings it back.
+
+PER_BACKUP = ("phones", "backup_profiles", "backup_history", "history_cut", "drive_state", "complete_state",
+              "complete_ref", "gfs_summary")
+
+
+def mark_removed(cfg, keys):
+    pending = list(cfg.get("phones_removing", []))
+    pending += [k for k in keys if k not in pending]
+    cfg["phones_removing"] = pending
+    config.save(cfg)
+
+
+def undo_removed(cfg, keys=None):
+    keep = set(keys) if keys is not None else set(cfg.get("phones_removing", []))
+    cfg["phones_removing"] = [k for k in cfg.get("phones_removing", []) if k not in keep]
+    config.save(cfg)
+
+
+def _drop(cfg, key):
+    for section in PER_BACKUP:
+        d = cfg.get(section)
+        if isinstance(d, dict):
+            d.pop(key, None)
+    lb = cfg.get("last_backup")
+    if lb and _key(lb) == key:
+        cfg.pop("last_backup", None)
+
+
+def purge_removed(cfg):
+    """At the start: the backups removed last time are deleted from the settings – and from the
+    daily copies of the settings. Returns the keys."""
+    keys = list(cfg.get("phones_removing", []))
+    # backups removed before 2026-11-23 were only hidden – their data is forgotten now, too
+    old = [k for k in cfg.get("phones_hidden", [])
+           if any(isinstance(cfg.get(sec), dict) and k in cfg[sec] for sec in PER_BACKUP)]
+    keys += [k for k in old if k not in keys]
+    if not keys:
+        return []
+    for k in keys:
+        _drop(cfg, k)
+    cfg["phones_hidden"] = sorted(set(cfg.get("phones_hidden", [])) | set(keys))
+    cfg["phones_removing"] = []
+    config.save(cfg)
+    copies = config.config_path().parent / "backups"
+    for f in sorted(copies.glob("config-*.json")) if copies.is_dir() else []:
+        try:
+            old = json.loads(f.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue
+        before = json.dumps(old, sort_keys=True)
+        for k in keys:
+            _drop(old, k)
+            old.setdefault("phones_hidden", [])
+            if k not in old["phones_hidden"]:
+                old["phones_hidden"].append(k)
+            if k in old.get("phones_removing", []):
+                old["phones_removing"].remove(k)
+        if json.dumps(old, sort_keys=True) != before:
+            config.write_private(f, json.dumps(old, indent=2, ensure_ascii=False))
+    return keys
+
+
 def _key(e):
     from .backup import backup_parent_name
     return backup_parent_name(e["phone"], e.get("owner", ""))
@@ -61,7 +129,8 @@ def _key(e):
 
 def phones(cfg):
     """All phones with a backup, newest backup first."""
-    found = [e for e in (cfg.get("phones") or {}).values() if get({"last_backup": e})]
+    removing = set(cfg.get("phones_removing", []))         # removed, Undo still possible
+    found = [e for k, e in (cfg.get("phones") or {}).items() if get({"last_backup": e}) and k not in removing]
     return sorted(found, key=lambda e: e.get("when", ""), reverse=True)
 
 
@@ -109,7 +178,7 @@ def discover(cfg):
             continue
         known[key] = {"phone": fields["Smartphone"], "model": fields["Smartphone"],
                       "owner": fields.get("Owner", ""), "folders": [],
-                      "destinations": [os.path.dirname(parent)],
+                      "destinations": [str(Path(parent).parent.parent)],   # <drive>/<Owner>/<Phone>
                       "when": fields.get("Started", "").replace(" ", "T")[:16],
                       "files": 0, "bytes": 0, "status": english(fields.get("Status", "")),
                       "keep_structure": False}

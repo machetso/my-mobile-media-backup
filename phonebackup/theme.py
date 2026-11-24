@@ -11,9 +11,9 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QPainter, QPainterPath, QPalette, QPen, QPixmap
-from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QGroupBox, QStyle, QStyleOptionGroupBox, QHeaderView, QLabel, QPushButton, QSizePolicy, QTabBar, QToolButton,
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QFont, QFontDatabase, QFontMetrics, QFontMetricsF, QPainter, QPainterPath, QPalette, QPen, QPixmap
+from PySide6.QtWidgets import (QApplication, QFrame, QGridLayout, QGroupBox, QStyle, QStyleOptionGroupBox, QHeaderView, QFileDialog, QLabel, QMessageBox, QPushButton, QSizePolicy, QTabBar, QToolButton,
                                QVBoxLayout, QWidget)
 
 STARSHIP, CLASSIC = "starship", "classic"
@@ -102,16 +102,39 @@ class _Capitals(QObject):
         if event.type() == QEvent.Paint and isinstance(obj, QGroupBox):
             paint_elbow(obj)
             return False                 # the group box then draws its title over it
+        # windows (message boxes!) fix their size while being shown, before their buttons are
+        # polished: give the buttons the capitals first, else they are measured too narrow and the
+        # text is cut off on both sides (user report 2026-11-23)
+        if event.type() in (QEvent.Polish, QEvent.Show) and isinstance(obj, QWidget) and obj.isWindow():
+            for kind in self.KINDS:
+                for w in obj.findChildren(kind):
+                    self._caps(w)
+            if event.type() == QEvent.Show and isinstance(obj, QFileDialog):
+                # its columns are sized for small letters: wide enough for the capitals (2026-11-23)
+                def widen(dlg=obj):
+                    for h in dlg.findChildren(QHeaderView):
+                        for i in range(h.count()):
+                            h.resizeSection(i, max(h.sectionSize(i), h.sectionSizeFromContents(i).width()))
+                QTimer.singleShot(150, widen)
+            if event.type() == QEvent.Show and isinstance(obj, QMessageBox):
+                # the style's min-width makes a fixed minimum, and a message box squeezes its buttons
+                # down to it: the minimum must be the whole capitals text
+                for b in obj.buttons():
+                    b.setMinimumWidth(b.sizeHint().width())
         # tab bars: their tab widget hands its own font down after polishing, so again when shown
         if (event.type() == QEvent.Polish or (event.type() == QEvent.Show and isinstance(obj, QTabBar))) \
                 and isinstance(obj, self.KINDS):
-            f = obj.font()
-            if f.capitalization() != QFont.AllUppercase:
-                f = QFont(f)
-                f.setCapitalization(QFont.AllUppercase)
-                f.setLetterSpacing(QFont.PercentageSpacing, 100)
-                obj.setFont(f)
+            self._caps(obj)
         return False
+
+    @staticmethod
+    def _caps(obj):
+        f = obj.font()
+        if f.capitalization() != QFont.AllUppercase:
+            f = QFont(f)
+            f.setCapitalization(QFont.AllUppercase)
+            f.setLetterSpacing(QFont.PercentageSpacing, 100)
+            obj.setFont(f)
 
 
 def paint_elbow(box, color=LILAC):
@@ -158,6 +181,12 @@ def _arrow_dir():
     for name, pts in (("down", "1,3 11,3 6,9"), ("up", "1,9 11,9 6,3")):
         (d / f"{name}.svg").write_text(f"<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12'>"
                                        f"<polygon points='{pts}' fill='{BLACK}'/></svg>", encoding="utf-8")
+    # ticks for check boxes in lists (user 2026-11-22: they were invisible on the black list)
+    for name, col in (("check", BLACK), ("check-orange", ORANGE)):
+        (d / f"{name}.svg").write_text(f"<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14'>"
+                                       f"<polyline points='2,7.5 5.5,11 12,3' fill='none' stroke='{col}' "
+                                       f"stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/></svg>",
+                                       encoding="utf-8")
     return d.as_posix()
 
 
@@ -296,6 +325,21 @@ QListWidget, QTreeWidget, QTableWidget, QListView, QTreeView {{
 QListWidget::item, QTreeWidget::item {{ padding: 3px 4px; border-radius: 6px; }}
 QListWidget::item:selected, QTreeWidget::item:selected {{ background: {ORANGE}; color: {BLACK}; }}
 QListWidget::item:hover:!selected, QTreeWidget::item:hover:!selected {{ background: #1e1e2c; }}
+/* check boxes inside lists (folder lists …): visible on the black list and on a selected (orange) line */
+QListView::indicator, QTreeView::indicator, QTableView::indicator {{ width: 16px; height: 16px;
+    border-radius: 5px; border: 2px solid {LAVENDER}; background: {BLACK}; }}
+QListView::indicator:checked, QTreeView::indicator:checked, QTableView::indicator:checked {{
+    background: {ORANGE}; border-color: {ORANGE}; image: url(@ARROWS@/check.svg); }}
+QListView::indicator:selected, QTreeView::indicator:selected, QTableView::indicator:selected {{
+    border-color: {BLACK}; background: {BLACK}; }}
+QListView::indicator:checked:selected, QTreeView::indicator:checked:selected,
+QTableView::indicator:checked:selected {{ border-color: {BLACK}; background: {BLACK};
+    image: url(@ARROWS@/check-orange.svg); }}
+/* the edit field INSIDE a list or table (renaming a folder in the folder window …): flat, so the
+   text fits into the row and stays readable (user 2026-11-23: text cut off, hard to read) */
+QAbstractItemView QLineEdit {{ background: #0b0b10; color: {TEXT}; border: 1px solid {ORANGE};
+    border-radius: 3px; padding: 0px 3px; margin: 0px; min-height: 0px;
+    selection-background-color: {ORANGE}; selection-color: {BLACK}; }}
 QHeaderView {{ background: transparent; border: none; }}
 QHeaderView::section {{ background: {LAVENDER}; color: {BLACK}; border: none; padding: 4px 8px;
     margin-right: 3px; font-weight: 600; }}
@@ -305,7 +349,7 @@ QHeaderView::section:first {{ border-top-left-radius: 9px; border-bottom-left-ra
 QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; }}
 QCheckBox::indicator {{ width: 18px; height: 18px; border-radius: 5px; border: 2px solid {LAVENDER};
     background: {BLACK}; }}
-QCheckBox::indicator:checked {{ background: {ORANGE}; border-color: {ORANGE}; }}
+QCheckBox::indicator:checked {{ background: {ORANGE}; border-color: {ORANGE}; image: url(@ARROWS@/check.svg); }}
 QCheckBox::indicator:disabled {{ border-color: #34344a; }}
 QRadioButton::indicator {{ width: 16px; height: 16px; border-radius: 10px; border: 2px solid {LAVENDER};
     background: {BLACK}; }}
@@ -562,9 +606,12 @@ class LcarsFrame(QWidget):
             text_start, text_end = w - text_end, w - text_start
         p.setPen(QColor(ORANGE))
         p.setFont(title_font)
-        p.drawText(QRectF(text_start, -6, tw + 4, 40), Qt.AlignLeft | Qt.AlignTop, self.title)
+        # the capitals start 1 px below the edge, measured on the letters themselves: the space a
+        # font keeps above its capitals differs (Windows' Bahnschrift has less than Linux' fonts –
+        # the name was cut off at the top on Windows, user 2026-11-22)
+        base = 1 - QFontMetricsF(title_font).tightBoundingRect(self.title).top()
+        p.drawText(QPointF(text_start, base), self.title)
         # the version on the same base line as the name (user request 2026-11-19)
-        base = -6 + p.fontMetrics().ascent()
         p.setPen(QColor(LILAC))
         p.setFont(sub_font)
         p.drawText(QPointF(text_start + tw + 14, base), self.subtitle)

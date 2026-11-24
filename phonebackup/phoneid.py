@@ -4,7 +4,10 @@ Every backup folder ("Galaxy A55 - Kim") remembers its phone in .phonebackup/pho
 model, the phone's serial numbers (ADB: ro.serialno) and the phone app's ids (its key, paired).
 Before a backup the connected phone must match:
 
-* an id that both sides know (serial number or phone-app id) decides - a different id = refused;
+* the serial number decides when both sides know it (a different serial = refused); the phone app
+  over Wi-Fi gives the serial that was confirmed over the USB cable for its pairing;
+* else the same phone-app id = the phone; a different phone-app id alone is NOT refused (the id
+  changes when the app is reinstalled / paired again): same model = the user confirms;
 * if no id can be compared (e.g. a new connection type), only the same model is accepted, and
   the user has to confirm it; the folder then does not learn new ids from that backup;
 * a folder without phone.json (first backup, or made by an older version) is accepted when the
@@ -66,8 +69,10 @@ def identify(src):
                        "wifi-adb" if src.wireless else "usb-adb")
     if isinstance(src, CompanionSource):
         info = src.client.request("GET", "/info") or {}
+        # serial: confirmed over the USB cable for this (key-checked) pairing – companion.remember_serial
+        serial = (src.entry or {}).get("serial", "") if getattr(src, "entry", None) else ""
         return PhoneId(info.get("model", "") or src.device_name, info.get("manufacturer", ""),
-                       "", info.get("phone_id", "") or src.entry.get("phone_id", ""), "app-wifi")
+                       serial, info.get("phone_id", "") or src.entry.get("phone_id", ""), "app-wifi")
     kind = (getattr(src, "kind", "") or "").lower()
     return PhoneId(getattr(src, "device_name", "") or "", "", getattr(src, "serial", "") or "", "",
                    "mtp" if "mtp" in kind else "folder")
@@ -152,18 +157,26 @@ def compare(rec, pid):
     """MATCH / PROBABLE (only the model agrees) / NEW (folder knows no phone) / MISMATCH."""
     if rec is None or not (rec.model or rec.serials or rec.app_ids):
         return NEW
-    decided = False
+    # the serial number is the phone itself and decides (user 2026-11-22: the phone app had been
+    # paired anew – new app id – and the backup of the SAME phone was refused)
     if pid.serial and rec.serials:
-        if pid.serial not in rec.serials:
-            return MISMATCH
-        decided = True
-    if pid.app_id and rec.app_ids:
-        if pid.app_id not in rec.app_ids:
-            return MISMATCH
-        decided = True
-    if decided:
+        return MATCH if pid.serial in rec.serials else MISMATCH
+    if pid.app_id and rec.app_ids and pid.app_id in rec.app_ids:
         return MATCH
-    return PROBABLE if _same(rec.model, pid.model) else MISMATCH
+    # a different phone-app id alone is no proof of another phone: the id changes when the phone
+    # app is reinstalled or paired again → same model = ask the user, else refused
+    return PROBABLE if (_same(rec.model, pid.model) or _same_model_loose(rec.model, pid.model)) else MISMATCH
+
+
+def _same_model_loose(a, b):
+    """"Google Pixel 10 Pro" (file transfer) and "Pixel 10 Pro" (USB debugging / phone app): the same
+    model with the maker's name in front – only "probably" (user test 2026-11-23: the backup over
+    file transfer was refused as "another phone")."""
+    a, b = (a or "").strip().casefold(), (b or "").strip().casefold()
+    if not a or not b or a == b:
+        return False
+    short, long_ = sorted((a, b), key=len)
+    return long_.endswith(" " + short)
 
 
 def learn(parent, pid, result):
@@ -234,3 +247,83 @@ def speed_advice(pid, usb_mbit=None, on_cable=""):
         return False, (tr("USB file transfer (MTP) – slower (about 10–20 MB/s) and without a check on "
                           "the phone.") + " " + fix)
     return True, ""
+
+
+# --------------------------------------------------------------------------- files in common
+
+@dataclass
+class Overlap:
+    """Photos/videos of the connected phone that are already in a backup folder (user request
+    2026-11-22: "usually there are overlapping files – it is quite likely the right backup")."""
+    phone_files: int = 0          # photos/videos in the chosen folders on the phone
+    same: int = 0                 # … in the backup with the same phone path and size
+    hashed: int = 0               # … of those checked with the SHA-256 calculated on the phone
+    hash_same: int = 0            # … identical
+
+    @property
+    def strong(self):
+        """Clear evidence: several files with identical SHA-256 on the phone and in the backup, or
+        (connection without phone hashes) many files with the same path and size."""
+        return self.hash_same >= 3 or (self.hashed == 0 and self.same >= 10)
+
+    @property
+    def none(self):
+        return self.phone_files > 0 and self.same == 0
+
+
+def _index_rows(parent):
+    import sqlite3
+    p = Path(parent) / INTERNAL_DIR / "index.sqlite"
+    if not p.is_file():
+        return {}
+    try:
+        db = sqlite3.connect(f"file:{p}?mode=ro", uri=True)
+        try:
+            return {(sp, size): sha for sp, size, sha in
+                    db.execute("SELECT source_path, size, sha256 FROM files")}
+        finally:
+            db.close()
+    except sqlite3.Error:
+        return {}
+
+
+def overlap(src, files, parent, sample=12):
+    """Overlap of the phone's file list `files` (SourceFile) with the backup folder `parent`
+    (read-only). A sample of the common files is checked with the phone's own SHA-256."""
+    from .media import category_for
+    classify = getattr(src, "category_of", None) or (lambda f: category_for(f.name))
+    media = [sf for sf in files if classify(sf)]
+    rows = _index_rows(parent)
+    res = Overlap(phone_files=len(media))
+    common = [(sf, rows[(sf.source_key, sf.size)]) for sf in media if (sf.source_key, sf.size) in rows]
+    res.same = len(common)
+    if common and getattr(src, "supports_phone_hash", False):
+        step = max(1, len(common) // sample)
+        pick = common[::step][:sample]
+        try:
+            got = src.phone_hashes([sf.rel for sf, _ in pick]) or {}
+        except Exception:  # noqa: BLE001 - without hashes: path + size
+            got = {}
+        for sf, sha in pick:
+            if sf.rel in got:
+                res.hashed += 1
+                res.hash_same += got[sf.rel] == sha
+    return res
+
+
+def overlap_text(o):
+    """One paragraph for the "Is this the right phone?" question."""
+    if o.none:
+        return tr("None of the %d photos and videos on the phone is in this backup – it is probably a "
+                  "different phone.", o.phone_files)
+    if not o.same:
+        return ""
+    t = tr("%d of the %d photos and videos on the phone are already in this backup (same place on the "
+           "phone, same size).", o.same, o.phone_files)
+    if o.hashed:
+        t += " " + tr("%d of them were checked with the SHA-256 calculated on the phone: %d identical.",
+                      o.hashed, o.hash_same)
+    if o.strong:
+        t += " " + tr("It is very likely the right phone (a new phone set up from this one's photos could "
+                      "also have them).")
+    return t

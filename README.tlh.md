@@ -1,6 +1,6 @@
 # My Mobile Media Backup
 
-**Version 0.9.9.0**
+**Version 0.9.9.1**
 
 Android HablI'lIj mIlloghmey HaStamey je pa' De' jengva' wa' pagh law'Daq pol – Hoch ghItlh
 nIDlu', DIS jar je lanlu', Hoch polghach rInDI' QIn. Windows Linux je vaD.
@@ -57,7 +57,7 @@ polbe'lu' wej*, 'ej wa' Hot yap. pagh HablI'Daq **DaH yIpol** yIHot.
 
 * **nom law':** HablI'Daq wa'logh *USB debugging* yIchu' (HablI' SeghlIjvaD Hoch mIw 'agh ghun).
   vaj polghach cha'logh loSlogh je nom law'.
-* **tlhegh Hutlh:** HablI' ghun *My Mobile Media Backup* yIjom (tagh 'echletDaq *HablI' yIrar…*
+* **tlhegh Hutlh:** HablI' ghun *My Mobile Media Backup* yIjom (tagh 'echletDaq *rarmeH QaH…*
   QR ngoq 'agh). vaj Wi-Fi Dung Qap polghach, 'ej HablI' De'wI' je SoH ja'chuq tu'.
 * **De' jengva' cha'** wa' QaD law': cha' yIwIv, rapDaq poH ghItlhlu'.
 
@@ -66,12 +66,16 @@ polbe'lu' wej*, 'ej wa' Hot yap. pagh HablI'Daq **DaH yIpol** yIHot.
 ### Qorwagh
 
 * **tagh 'echlet:** rarghach Dotlh (Doq = HablI' rarlu'be', SuD = HablI'Daq vay' ta'nIS,
-  SuDqu' = rarlu'), **HablI' yIrar…** **rarghachmey DuHbogh** je. Wi-Fi rapDaq HablI' Sovlu'bogh
-  *Sum* 'oH 'aghlu', **DaH yIpol** je. **polghach chu'…** latlh HablI' polghach tagh, pagh latlh
+  SuDqu' = rarlu' – chay' 'e' ja' je: USB tlhegh pagh Wi-Fi, 'ej De' ngeHlu'bogh nIDlu''a'),
+  **rarmeH QaH…** **rarghachmey DuHbogh** je. De' mIr rapDaq HablI' Sovlu'bogh *Sum* 'oH 'aghlu',
+  **DaH yIpol** je – juHDaq, yaHDaq, rarlu'pu'bogh Hoch Daq. **polghach chu'…** latlh HablI'
+  polghach tagh, pagh latlh
   'aplo'mey pagh De' jengva'mey lo'. bIngDaq **HablI'mey** – polghach Hoch wa' Doch, polghach Qav
   jaj, mIlloghmey HaStamey je polbe'lu'bogh mI' (HablI' Sum pagh rarlu'chugh) 'ej **polghach
-  yIchu'qa'** Hot Daj je. wa' Hot polghach taghlaHbe'taHvIS Hot qIj; yIHotchugh nuq tu'lu'be' ja'.
-* **retlh ngoS:** polghach, polghachmey yIlo', mIr (ghunmeH mIw), ghojmeH paq, De' je. nIH Dung
+  yIchu'qa'** Hot Daj je. wa' Hot polghach taghlaHbe'taHvIS Hot qIj; yIHotchugh nuq tu'lu'be' ja'. Hoch HablI' **ghaH ta' polghach** leQ chu'lu'chugh,
+  HablI' Sum DI' polghach ta' ghaH; ngoghmey mach nuq tu'lu'be' wej, mIw veb je 'agh.
+* **retlh ngoS:** Smartphone polghachmey, polghachmey yIlo', polghachmey QaD, mIr (ghunmeH mIw),
+  ghojmeH paq, De' je. nIH Dung
   yuQ Hol choH.
 * **bIng:** ghIH, Do, poH ratlhbogh je, **yImev** (ghItlh DaH rInDI' mev), **QIn yIpoSmoH**
   **polghach 'aplo' yIpoSmoH** je. Hoch Qu' ghItlh tetlh ghItlh je.
@@ -113,7 +117,7 @@ QIn ja'.
 **HablI' ghun *My Mobile Media Backup*.** ghun lo'lu'chugh, USB debugging Hutlh Wi-Fi Dung Qap
 polghachmey, rarghach nomqu' chu' Qempa' je ghun, 'ej polbe'lu'bogh 'agh HablI' De'wI' je.
 
-* **jom:** *HablI' yIrar…* QR ngoq cha' 'agh: wa' ghun rar, latlh Releases ghItlh vo' Suq. USB
+* **jom:** *rarmeH QaH…* QR ngoq cha' 'agh: wa' ghun rar, latlh Releases ghItlh vo' Suq. USB
   tlhegh Dung ghun jomlaH ghun Daj; reH **wa'DIch tlhob** 'ej nuq HablI', nuq mI', qatlh je ja'.
 * **polghach:** mIlloghmey HaStamey je polbe'lu'bogh mI' tIn je 'agh, rur *23 mIllogh 4 HaSta
   je (1.5 GB) polbe'lu' wej*. **DaH yIpol** polghach tagh: HablI' rar, De'wI' SoH polghach
@@ -127,11 +131,16 @@ polghachmey, rarghach nomqu' chu' Qempa' je ghun, 'ej polbe'lu'bogh 'agh HablI' 
 * **De'wI'lIj polghach neHDI':**
   * **HIghel** (motlh) – *polghach Dachaw''a'?* tlhob HablI'; DaHotbe'chugh pagh tagh.
   * **tlhoblu'be' yIchaw'** – De'wI'Daq wa' Hot polghach tagh, HablI'Daq Hot pagh.
-    **ghaH ta' yItagh je** lo'lu'chugh, Wi-FiDaq HablI' tu'DI' De'wI' pagh tlhegh DararDI',
-    mIlloghmey HaStamey je chu'qu' pollu' (rep Hoch wa'logh law' puS).
+    De'wI'Daq HablI' vamvaD **ghaH ta' polghach** chu'lu'chugh, mIlloghmey HaStamey je chu'qu'
+    pollu' ghaH ta' (rep Hoch wa'logh law' puS).
   * **not** – tlhoblaHbe' De'wI' 'ej HablI' Sum tu'be'.
-* **HablI'Daq VPN:** VPN Hoch tunnel Dung ngeHbogh Wi-Fi Dung ghun ghoS 'e' bot. ghun qeS 'agh:
-  VPN vo' *My Mobile Media Backup* yIteq, pagh tlhegh yIlo'.
+  ghun poSlu'bogh Daq je *polghach Dachaw''a'?* tlhoblu'.
+* **HoS ngaSwI' yIpol:** reH 'Ijlu'be'. Wi-Fi rarDI', HoS SuqtaHvIS, Hoch 30 tup je HablI' De'wI'
+  ja' – Wi-Fi Hoch, HablI' ngu'bogh pagh. **Wi-Fi voqlu'bogh**Daq neH (*DaH Wi-Fi yIvoq*)
+  tlhoblu'be' polghach taghlaH; latlh DaqDaq reH wa'DIch tlhob HablI'.
+* **HablI'Daq VPN:** VPN Hoch tunnel Dung ngeHbogh Wi-Fi Dung ghun ghoS 'e' bot. vaj Dung qeS Doq 'agh
+  ghun, **VPN ghuHmey yIpoSmoH** je, 'ej De'wI' ja' je: VPN vo' *My Mobile Media Backup* yIteq,
+  pagh tlhegh yIlo'.
 * **mI' rap:** HablI' ghun mI' ghun mI' rap. ngo'chugh, tagh 'echletDaq *polghachmey yIlo' → Hoch
   legh* je **HablI' ghun yIchu'moH** 'agh. HablI' ghun ghItlhqa' ngo' ghaH ta' teqlu'.
 * mIlloghmey HaStamey je laDlaH neH ghun. Hoch ghItlh tlhob De'wI'; De'wI' rapmoHlu'bogh neH jang
@@ -238,15 +247,22 @@ cha' lIngchoHlaH, rur wa' De' jengva'Daq *Simple* 'ej latlhDaq *vav'a'-vav-puqlo
 
 **polghachmey** polghachmeylIj Hoch tetlh 'agh. wa' yIwIv tabmey Daj leghmeH:
 
-* **Hoch legh** – polghach Qav, polghach De' jengva'mey naQ, vav'a'-vav-puqloD polghachmey, polghachmey
-  rInbe'bogh je. Hoch polghach rInDI' polghach naQ'a' tlhob ghun.
-* **HablI' 'aplo'mey** – *polghach yIchu'qa'* ghItlhqa'bogh 'aplo'mey.
-* **polghach De' jengva'mey** – polghach vam De' jengva'mey mIwmeychaj je.
-* **lIHmeH 'aplo'mey** – mIlloghmey ngo' polghach vamDaq chel (bIngDaq yIlegh).
+* **Hoch legh** – polghach Qav, polghach De' jengva'mey chu'qu''a', polghach Hurgh'a' je
+  (cha'DIch ghItlhqa').
+* **Daq De' jengva'mey** – polghach vam De' jengva'mey Dotlhchaj je (chu'qu', mIlloghmey HaStamey je
+  'ar tu'lu'be', rarlu'be', 'aplo' tu'lu'be'). **De' jengva' yIchel…** wa' chel; **'aplo' yImuv…**
+  De' jengva'meylIjDaq polghach 'aplo'mey tu'lu'bogh tu' 'ej tlhap; **'aplo'mey yIghuHmoH**
+  (De' jengva'mey rapbe'chugh wov) polghach De' jengva'mey Hoch Dotlh rap chenmoH – polghach ngo'
+  qoDDaq So'lu'pu'bogh muv je, 'ej ghItlh rap teqlu'be' 'ach nuDmeH 'aplo'Daq (*rap ghItlhmey*)
+  vIHlu'. **naQ nIDghach…** Hoch mIllogh HaSta je laDqa' 'ej ngoq Daj rap nID. Hoch polghach
+  De' jengva'mey Daj Dung Degh ghaj, vaj He latlh Dung cheghbogh De' jengva' (rur VeraCrypt slot
+  tamlu'pu') SoH tu'qa'lu'.
+* **HablI' 'aplo'mey** – *polghach yIchu'qa'* ghItlhqa'bogh 'aplo'mey (*latlh 'aplo'mey…*).
+* **mIllogh/HaSta yIlIH** – mIlloghmey ngo' polghach vamDaq chel (bIngDaq yIlegh).
 * **polghach qun** – Hoch polghach ghIgh Daj QIn Daj je.
 
-**HablI'mey ngo' De' jengva'mey ngo' je.** *HablI' ngo' pagh De' jengva' ngo' polghach chu'…*
-polghach Daj chenmoH (rur "Galaxy S7 – Kevin" pagh "Old drive – Kevin"); *lIHmeH 'aplo'mey*
+**HablI'mey ngo' De' jengva'mey ngo' je.** *polghach chu'…*
+polghach Daj chenmoH (rur "Galaxy S7 – Kevin" pagh "Old drive – Kevin"); *mIllogh/HaSta yIlIH*
 polghach ghajbogh chel. 'aplo'mey yIchel (rur HablI' ngo' ghItlhqa' SD card Daj ghItlhqa' je) 'ej
 *lIHmeH 'aplo'mey yIwIv…* yIHot: ghItlh ghajbogh Hoch 'aplo' tetlhlu', mIlloghmey HaStamey latlh
 ghItlhmey je; ghun De', cache, mIllogh mach, veQ, 'aplo'mey So'lu'bogh je Qoylu'. Hoch 'aplo' vaD
@@ -259,7 +275,7 @@ yIwIv:
 HablI' polghach rur Hoch ghItlh nIDlu', ghItlh rap wa'logh neH pollu', 'ej 'aplo'mey ngo' laDlu'
 neH.
 
-**polghachmey QaD (cha'DIch ghItlhqa').** cha'DIch De' jengva'Daq pagh **Google Drive**Daq
+**polghachmey QaD (cha'DIch ghItlhqa')** – retlh ngoSDaq 'echlet Daj. cha'DIch De' jengva'Daq pagh **Google Drive**Daq
 polghach ghItlhqa'. Hoch ghItlhqa' jaj 'aplo' Daj Suq.
 
 | Segh | ghItlhqa' |
@@ -271,7 +287,7 @@ polghach ghItlhqa'. Hoch ghItlhqa' jaj 'aplo' Daj Suq.
 **Automatic – vav'a'-vav-puqloD** (motlh) Segh wIv: Hoch wej jar full (vav'a'), Hoch jar
 differential (vav), joj incremental (puqloD). full ghItlhqa' chu'qu' 4, differential 3,
 incremental 6 je pol, cheghmoHmeH poQbogh Hoch je. ngo'mey teqmeH ghellu' 'ej **DaHarqangDI'
-neH** teqlu' (*lel ngo' yIteq…*). Hoch ghItlh ghItlhqa'lu'bogh polghach ngoq rap nIDlu' – wa'DIch
+neH** teqlu' (*QaD chIlmey ngo' yIteq…*). Hoch ghItlh ghItlhqa'lu'bogh polghach ngoq rap nIDlu' – wa'DIch
 De' jengva'Daq ghItlh QIHlu'pu'bogh yIqIm ja'.
 
 **Google Drive.** *cloud Daq yIchel → Google Drive* browser Dung rar. ghItlhmey Daj ngeHbogh neH

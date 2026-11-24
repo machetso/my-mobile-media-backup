@@ -11,6 +11,31 @@ from .i18n import tr
 from .index import INTERNAL_DIR
 
 
+def mount_roots():
+    """The attached drives' paths – like detect_drives() but without asking them for their free
+    space, so no drive is woken up (polled every few seconds, user 2026-11-23)."""
+    found = []
+    if sys.platform.startswith("win"):
+        import ctypes
+        sysdrive = os.environ.get("SystemDrive", "C:").upper()
+        mask = ctypes.windll.kernel32.GetLogicalDrives()
+        for i, letter in enumerate(string.ascii_uppercase):
+            root = f"{letter}:\\"
+            if mask >> i & 1 and f"{letter}:" != sysdrive and \
+                    ctypes.windll.kernel32.GetDriveTypeW(root) in (2, 3):
+                found.append(root)
+        return found
+    user = os.environ.get("USER", "")
+    for base in (f"/media/{user}", f"/run/media/{user}", "/media", "/mnt"):
+        try:
+            for e in os.scandir(base):
+                if e.is_dir() and os.path.ismount(e.path) and e.path not in found:
+                    found.append(e.path)
+        except OSError:
+            continue
+    return found
+
+
 def detect_drives():
     """Mounted external/extra drives: [(path, free_bytes)]."""
     found = []

@@ -143,12 +143,21 @@ class EndToEnd(unittest.TestCase):
         st, loc = by_name["DCIM/Camera/VID_A_copy.mp4"].per_dest["Destination 1"]
         self.assertTrue(st.startswith("DUPLICATE"), st)
 
-        # ---- new second drive gets everything, first drive nothing
+        # ---- new second drive gets everything – drive to drive, not from the phone (2026-11-22)
         d3 = self.tmp / "hdd3"
         d3.mkdir()
         status, paths, results, _ = self.run_backup(folders=("DCIM/Camera", "DCIM/Other"), dests=[self.d1, d3])
-        self.assertTrue(all("Destination 1" not in r.per_dest for r in results))
-        self.assertEqual(len(results), 9)
+        self.assertEqual(status, "COMPLETED")
+        self.assertEqual(results, [])                       # nothing read from the phone
+        parent3 = d3 / "Sam Test" / "Pixel 10 Pro"
+        for p in parent1.rglob("*"):
+            if p.is_file() and not {".phonebackup", "Logs"} & set(p.relative_to(parent1).parts):
+                self.assertEqual((parent3 / p.relative_to(parent1)).read_bytes(), p.read_bytes())
+        txt = next(p for p in paths if str(p).endswith(".txt") and str(p).startswith(str(parent3))).read_text(
+            encoding="utf-8")
+        self.assertIn("copied from Destination 1", txt)
+        status, paths, results, _ = self.run_backup(folders=("DCIM/Camera", "DCIM/Other"), dests=[self.d1, d3])
+        self.assertEqual(results, [])                       # the new drive's list knows every file now
 
         # ---- export chain + restore
         exp_base = self.tmp / "second"

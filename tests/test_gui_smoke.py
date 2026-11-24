@@ -31,6 +31,14 @@ class GuiSmokeTest(unittest.TestCase):
         missing = sorted(u for u in set(re.findall(r"self\.(_\w+)\b", s)) if u not in defs)
         self.assertEqual(missing, [])
 
+    def test_no_dialog_code_on_the_instance(self):
+        """dlg.exec() == dlg.Accepted crashes in PySide6 (UI test 2026-11-23): QDialog.Accepted only."""
+        pkg = Path(__file__).resolve().parent.parent / "phonebackup"
+        bad = [f"{f.name}:{n}" for f in sorted(pkg.glob("*.py"))
+               for n, line in enumerate(f.read_text(encoding="utf-8").splitlines(), 1)
+               if re.search(r"==\s*(?!QDialog\b|QMessageBox\b)\w+\.(Accepted|Rejected)\b", line)]
+        self.assertEqual(bad, [])
+
     @unittest.skipUnless(HAVE_QT, "PySide6 not installed")
     def test_window_opens(self):
         os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
@@ -81,8 +89,10 @@ class GuiSmokeTest(unittest.TestCase):
                     w._open_manage_backups()
                     w._open_program_settings()
                     self.assertIs(w.pages.currentWidget(), w.settings_page)
-                    self.assertEqual([w.tabs.tabText(i) for i in range(w.tabs.count())],
-                                     ["Backups", "Secure backups", "Restore"])
+                    # "Secure backups" is a menu point of its own (user request 2026-11-23)
+                    self.assertEqual([w.tabs.tabText(i) for i in range(w.tabs.count())], ["Backups", "Restore"])
+                    w._open_secure_backups()
+                    self.assertIs(w.pages.currentWidget(), w.secure_page)
                 finally:
                     i18n.use("en")
                     w._stop.set()

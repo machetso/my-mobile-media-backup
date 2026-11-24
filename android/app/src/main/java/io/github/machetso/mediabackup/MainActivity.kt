@@ -1,6 +1,7 @@
 package io.github.machetso.mediabackup
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
@@ -20,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Checkbox
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.ui.semantics.Role
 import androidx.compose.material3.ButtonDefaults
@@ -66,7 +66,10 @@ class MainActivity : ComponentActivity() {
     private var askOn by mutableStateOf(false)
     private var askFrom by mutableStateOf("")        // "Allow backup?" tapped: the computer that asks
     private var autoOn by mutableStateOf(false)
-    private var selfOn by mutableStateOf(false)
+    private var homeNets by mutableStateOf(listOf<HomeWifi.Net>())     // home Wi-Fi list (2026-11-23)
+    private var homeMsg by mutableStateOf("")
+    private var wifiNow by mutableStateOf("")
+    private var lastCheck by mutableStateOf("")     // "Last check 23:41 (Wi-Fi joined): …" (2026-11-23)       // name of the Wi-Fi the phone is in ("" = unknown)
 
     /** Automatic backup must start backup mode from the background: Android allows that only for
      *  apps the user lets run unrestricted (battery). Asks once; without it the phone shows
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
                 "“Connect phone…” and scan the QR code.")
             !fresh && !cable -> tr("Your computer was not found. Open “My Mobile Media Backup” on the computer – " +
                 "this phone must be in the same Wi-Fi, or plug in the USB cable.") +
-                (if (vpnOn) " " + tr("A VPN is on: exclude this app from the VPN.") else "")
+                (if (vpnOn) " " + tr("A VPN blocks the computer: exclude this app from the VPN.") else "")
             fresh && info!!.ready == "no_backup" -> tr("Your computer has no backup of this phone yet: in the " +
                 "computer program click “New backup…” and back up this phone once.")
             fresh && info!!.ready == "no_drive" -> tr("The backup drive is not connected to the computer: plug it " +
@@ -140,19 +143,29 @@ class MainActivity : ComponentActivity() {
     }
 
     /** Is a VPN on (any network with the VPN transport)? */
+    /** A VPN carries THIS app's traffic (user test 2026-11-24, office: WireGuard "all traffic" to the
+     *  home router – the computer's connection reached the app, the answer went into the tunnel).
+     *  The app's own default network is the VPN; when the app is excluded (split tunnelling) it is
+     *  the Wi-Fi, and nothing is shown. */
     private fun vpnActive(): Boolean = runCatching {
         val cm = getSystemService(android.net.ConnectivityManager::class.java)
-        cm.allNetworks.any {
-            cm.getNetworkCapabilities(it)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
-        }
+        cm.getNetworkCapabilities(cm.activeNetwork)?.hasTransport(android.net.NetworkCapabilities.TRANSPORT_VPN) == true
     }.getOrDefault(false)
+
+    private fun openVpnSettings() {
+        runCatching { startActivity(Intent(android.provider.Settings.ACTION_VPN_SETTINGS)) }
+    }
 
     private fun askUnrestricted() {
         val pm = getSystemService(android.os.PowerManager::class.java)
         if (pm.isIgnoringBatteryOptimizations(packageName)) return
-        runCatching {
-            startActivity(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                android.net.Uri.parse("package:$packageName")))
+        val pkg = android.net.Uri.parse("package:$packageName")
+        // the system's question; when a phone does not offer it: the battery list, else the app's page
+        // (user 2026-11-23: "I can't get the phone app to ask me for battery rights")
+        listOf(Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, pkg),
+            Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS),
+            Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, pkg)).firstOrNull { i ->
+            runCatching { startActivity(i) }.isSuccess
         }
     }
 
@@ -167,10 +180,55 @@ class MainActivity : ComponentActivity() {
         canSwitchUsb = UsbDebug.canSwitch(this)
         askOn = AskService.enabled(this)
         autoOn = AskService.autoEnabled(this)
-        selfOn = AskService.selfEnabled(this)
+        homeNets = HomeWifi.list(this)
+        lastCheck = HomeCheck.last(this)?.let { (t, text) ->
+            val why = getSharedPreferences("home_check", MODE_PRIVATE).getString("last_why", "").orEmpty()
+            tr("Last check %s (%s): %s", java.text.SimpleDateFormat("HH:mm", I18n.locale).format(java.util.Date(t)), why, text)
+        }.orEmpty()
+        readWifiName()
         AskService.startIfEnabled(this)          // e.g. after the app was updated or stopped
+
         UsbDebug.Guard.tick(this)?.let { AppState.status = it }   // saved countdown (after update/kill)
         if (hasNetwork) waitingPair?.let { startPairing(it) }
+    }
+
+    /** First opening after an install or update (user request 2026-11-23: "ask for all the rights at
+     *  the installation – what differs between the old and the new version"): every permission this
+     *  version needs and does not have yet, in ONE question, then the battery setting for "Allow
+     *  without asking". Android allows no questions during the installation itself. Once per install
+     *  (the install time); returns false when nothing was asked this time. */
+    private fun askAfterInstall(): Boolean {
+        val stamp = runCatching { packageManager.getPackageInfo(packageName, 0).lastUpdateTime.toString() }.getOrDefault("")
+        val prefs = getSharedPreferences("settings", MODE_PRIVATE)
+        if (stamp.isEmpty() || prefs.getString("perms_asked", "") == stamp) return false
+        prefs.edit().putString("perms_asked", stamp).apply()
+        val want = MediaIndex.PERMISSIONS.toMutableList()
+        if (MediaIndex.needsLocalNetwork()) want += MediaIndex.LOCAL_NETWORK
+        if (Build.VERSION.SDK_INT >= 31) want += Manifest.permission.BLUETOOTH_ADVERTISE      // only to be found
+        if (Build.VERSION.SDK_INT >= 33) want += Manifest.permission.POST_NOTIFICATIONS      // "Allow backup?"
+        if (AskService.enabled(this))                                                        // "Trust the current Wi-Fi"
+            want += listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        val missing = want.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) {
+            if (AskService.autoEnabled(this)) askUnrestricted()
+            return true
+        }
+        askInstall.launch(missing.toTypedArray())
+        return true
+    }
+
+    private val askInstall = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        refresh()
+        if (AskService.autoEnabled(this)) askUnrestricted()        // then the battery setting
+    }
+
+    /** The current Wi-Fi's name (button "Trust the current Wi-Fi (…)") and names for stored Wi-Fis
+     *  that had none – read in the background (it can take a moment). */
+    private fun readWifiName() {
+        kotlin.concurrent.thread(isDaemon = true) {
+            val name = runCatching { HomeWifi.fixNames(this); HomeWifi.seen(this)?.name.orEmpty() }.getOrDefault("")
+            runOnUiThread { wifiNow = name; homeNets = HomeWifi.list(this) }
+        }
     }
 
     private fun askAll() {
@@ -181,13 +239,30 @@ class MainActivity : ComponentActivity() {
     }
     private val askNotify = registerForActivityResult(ActivityResultContracts.RequestPermission()) {}
 
+    // "Trust the current Wi-Fi": the location permission – only now, only while the app is open – lets the
+    // app read the Wi-Fi's name and access point; without it router + network range are stored
+    private val askLocation = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
+        addHomeWifi()
+    }
+
+    private fun addHomeWifi() {
+        val n = HomeWifi.addCurrent(this)
+        homeMsg = if (n == null) tr("Connect the phone to the Wi-Fi first, then tap “Trust the current Wi-Fi” again.")
+                  else tr("Trusted: %s", n.name.ifEmpty { tr("Wi-Fi without a name") })
+        readWifiName()
+        homeNets = HomeWifi.list(this)
+        HomeCheck.schedule(this)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         I18n.load(this)
         Look.load(this)
         refresh()
-        if (!hasAccess || !hasNetwork) askAll()
-        else if (Build.VERSION.SDK_INT >= 33) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+        if (!askAfterInstall()) {
+            if (!hasAccess || !hasNetwork) askAll()
+            else if (Build.VERSION.SDK_INT >= 33) askNotify.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
         handle(intent)
         // no taps through an overlay of another app (tapjacking): "Allow fast connection (ADB)",
         // "Pair" … only count when this window is fully visible
@@ -205,7 +280,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        open = this                 // AskService shows the computer's question right here (2026-11-23)
         refresh()
+    }
+
+    override fun onPause() {
+        if (open === this) open = null
+        super.onPause()
+    }
+
+    /** The computer asks while the app is on the screen: the question at once in the app – no
+     *  notification to find first (user request 2026-11-23). Called on the main thread. */
+    fun showAsk(computer: String) {
+        askFrom = computer
+    }
+
+    companion object {
+        /** The activity on the screen right now, or null. */
+        @Volatile var open: MainActivity? = null
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -307,6 +399,21 @@ class MainActivity : ComponentActivity() {
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Header("My Mobile Media Backup") { LanguageGlobe() }
+            // a VPN app (e.g. WireGuard with "all traffic") carries this app's traffic: the computer's
+            // connection reaches the app, but the answer goes into the tunnel – the computer only
+            // waits. Found 2026-11-20 and again 2026-11-24 (the old hint in the middle was missed):
+            // now first, red, certain, with a way to the VPN settings
+            if (vpnOn && computers.isNotEmpty()) {
+                Panel(tr("A VPN blocks the connection"), Lcars.RED) {
+                    run {
+                        Text(tr("Your computer cannot reach this app over the Wi-Fi while the VPN sends this " +
+                            "app's data away."), fontWeight = FontWeight.SemiBold)
+                        Text(tr("In your VPN app, exclude “My Mobile Media Backup” from the VPN (split " +
+                            "tunnelling, “Excluded apps”). Or switch the VPN off for the backup, or use the USB cable."))
+                        Button(onClick = { openVpnSettings() }) { Text(label(tr("Open VPN settings"))) }
+                    }
+                }
+            }
             if (askFrom.isNotEmpty() && running) askFrom = ""
             if (askFrom.isNotEmpty()) {
                 // the computer's backup request, answered right here (user 2026-11-19)
@@ -342,17 +449,6 @@ class MainActivity : ComponentActivity() {
                     run {
                         Text(tr("Choose “Allow all” – with “Select photos” only the chosen ones could be backed up."))
                         Button(onClick = { askAll() }) { Text(label(tr("Allow access"))) }
-                    }
-                }
-            }
-            // a VPN app (e.g. WireGuard with "all traffic") on: Android lets this app receive
-            // connections only through the VPN – the computer in the Wi-Fi gets no answer
-            // (found 2026-11-20 with a tunnel to the home router while in another Wi-Fi)
-            if (vpnOn && computers.isNotEmpty()) {
-                Panel(tr("A VPN is on"), Lcars.GOLD) {
-                    run {
-                        Text(tr("Your computer may not reach this app. In your VPN app, exclude " +
-                            "“My Mobile Media Backup” from the VPN (split tunnelling) – or use the USB cable."))
                     }
                 }
             }
@@ -495,28 +591,46 @@ class MainActivity : ComponentActivity() {
                                     AskService.setAuto(this@MainActivity, key == "auto")
                                     askOn = AskService.enabled(this@MainActivity)
                                     autoOn = AskService.autoEnabled(this@MainActivity)
-                                    selfOn = AskService.selfEnabled(this@MainActivity)
                                     if (key == "auto") askUnrestricted()
                                 }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 RadioButton(selected = mode == key, onClick = null)
                                 Text(label, Modifier.padding(start = 8.dp))
                             }
-                            // the old "Start automatically" = "Allow without asking" + this box
-                            if (key == "auto" && mode == "auto")
-                                Row(Modifier.fillMaxWidth().padding(start = 40.dp).selectable(selected = selfOn,
-                                    role = Role.Checkbox, onClick = {
-                                        AskService.setSelf(this@MainActivity, !selfOn)
-                                        selfOn = AskService.selfEnabled(this@MainActivity)
-                                    }).padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                                    Checkbox(checked = selfOn, onCheckedChange = null)
-                                    Text(tr("Also start by itself"), Modifier.padding(start = 8.dp))
-                                }
                         }
-                        // with "Never" the phone does not announce itself in the Wi-Fi (user 2026-11-20:
-                        // "the computer does not recognize my nearby phone" – the cause was "Never")
+                        // "Also start by itself" removed (user 2026-11-23): the computer's Auto backup
+                        // switch decides; with "Never" the phone does not check in at all
                         if (mode == "never") Text(tr("Your computer cannot find this phone nearby."),
                             fontWeight = FontWeight.SemiBold)
                     }
+                }
+                // trusted Wi-Fi list (user request 2026-11-23): the phone checks in with the computer in
+                // every Wi-Fi (2026-11-24); only in a trusted one backup mode starts without asking
+                if (mode != "never") Panel(tr("Trusted Wi-Fi"), Lcars.LILAC, spacing = 2) {
+                    Text(tr("In a trusted Wi-Fi a backup can start without asking. In other Wi-Fis the phone asks you first."),
+                        style = MaterialTheme.typography.bodySmall)
+                    if (homeNets.isEmpty()) Text(tr("No trusted Wi-Fi yet."), fontWeight = FontWeight.SemiBold)
+                    homeNets.forEach { n ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            Text(n.name.ifEmpty { tr("Wi-Fi without a name") }, Modifier.weight(1f))
+                            TextButton(onClick = {
+                                HomeWifi.remove(this@MainActivity, n)
+                                homeNets = HomeWifi.list(this@MainActivity)
+                                HomeCheck.schedule(this@MainActivity)
+                            }) { Text(label(tr("Remove"))) }
+                        }
+                    }
+                    TextButton(onClick = {
+                        val perms = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+                        if (perms.all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) addHomeWifi()
+                        else askLocation.launch(perms)
+                    }) { Text(label(if (wifiNow.isNotEmpty()) tr("Trust the current Wi-Fi (%s)", wifiNow)
+                                    else tr("Trust the current Wi-Fi"))) }
+                    if (homeMsg.isNotEmpty()) Text(homeMsg, style = MaterialTheme.typography.bodySmall)
+                    if (lastCheck.isNotEmpty()) Text(lastCheck, style = MaterialTheme.typography.bodySmall)
+                    // the name needs Location switched on (Android) – never the router's address instead
+                    if (wifiNow.isEmpty() && (homeNets.any { it.name.isEmpty() } || homeNets.isEmpty()))
+                        Text(tr("To see the Wi-Fi's name, switch on Location on the phone once."),
+                            style = MaterialTheme.typography.bodySmall)
                 }
                 Panel(tr("Paired computers"), Lcars.MAUVE, card = false, spacing = 0) {
                 computers.forEach { pc ->

@@ -232,10 +232,16 @@ class SourceSwitch:
     change is written in the log and the report. Every phone connection names a file by its path on
     the phone (SourceFile.rel), so the file list and the "already backed up" index stay valid."""
 
-    def __init__(self):
+    def __init__(self, patience=None):
         self._lock = threading.Lock()
         self._offer = None
+        self._arrived = threading.Event()
         self.taken = 0
+        # the connection was lost: the backup waits for another one (user request 2026-11-23: cable
+        # pulled → continue over Wi-Fi). patience() -> seconds to wait (the window: longer when a
+        # Wi-Fi way to this phone is known)
+        self.lost = threading.Event()
+        self.patience = patience or (lambda: 60)
 
     def offer(self, source, on_switch=None):
         """on_switch(old, new) runs in the backup thread right before the new source is used."""
@@ -243,14 +249,31 @@ class SourceSwitch:
             if self._offer is not None:
                 return False
             self._offer = (source, on_switch)
+            self._arrived.set()
             return True
 
     def take(self):
         with self._lock:
             got, self._offer = self._offer, None
+            self._arrived.clear()
         if got:
             self.taken += 1
         return got
+
+    def wait_for_new(self, cancel=None):
+        """Backup thread: the connection is gone – wait for another one (offered by the window's
+        watcher). Returns the offer or None (nothing came in time / cancelled)."""
+        self.lost.set()
+        try:
+            end = time.monotonic() + max(0, float(self.patience()))
+            while time.monotonic() < end:
+                if cancel is not None and cancel.is_set():
+                    return None
+                if self._arrived.wait(1.0):
+                    return self.take()
+            return None
+        finally:
+            self.lost.clear()
 
 
 def _connection_text(source):
@@ -258,7 +281,8 @@ def _connection_text(source):
 
 
 def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interactive=True, cancel=None,
-                   parent_name=None, mode="backup", source_label="", keep_structure=False, switch=None):
+                   parent_name=None, mode="backup", source_label="", keep_structure=False, switch=None,
+                   listing=None):
     """Run one backup (or, with mode="import", an import of a folder into an existing backup).
 
     Returns (status, report paths, file results, verdict text). status and verdict are English
@@ -272,10 +296,24 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
     from . import migrate, plans, setfolders  # backup plan per drive: simple or Grandfather-Father-Son
     parent_name = parent_name or setfolders.rel(phone_name, owner)       # 'Sam/Pixel 10 Pro'
     _start_history(cfg, source, phone_name, mode, parent_name, started, dest_bases)
+    # the backup's mark (backupid, user request 2026-11-23): a folder with the same names but the mark
+    # of ANOTHER backup is never written to; a folder of this backup without a mark gets it
+    from . import backupid
+    m_phone, m_owner = setfolders.split_rel(parent_name)
+    bid, conflict = backupid.resolve(cfg, setfolders.key_of_rel(parent_name),
+                                     [str(Path(b) / parent_name) for b in dest_bases], create=True)
+    if conflict:
+        ui.warn(tr("The backup drives carry different marks – check them in Manage backups → Destination drives "
+                   "(“Add drive…”)."))
     dests = []
     for i, base in enumerate(dest_bases, 1):
         setfolders.relocate(base, cfg)                # old 'Phone - Owner' folders -> Owner/Phone
         set_dir = Path(base) / parent_name            # old month folders -> 2026/26.02 (user's choice)
+        mark = backupid.id_of(set_dir)
+        if bid and mark and mark != bid:
+            ui.warn("  " + tr("Destination %d: %s is another backup (its mark differs) – this drive is "
+                              "skipped.", i, set_dir))
+            continue
         migrate.ensure_converted(set_dir, tr("Destination %d", i), migrate.effective_keep(cfg, set_dir))
         want = plans.plan_of(cfg, base)
         have = plans.folder_plan(Path(base) / parent_name)
@@ -289,15 +327,25 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
             parent = Path(base) / parent_name
             parent.mkdir(parents=True, exist_ok=True)
             d = Dest(both.tr("Destination %d", i), Path(base), parent, BackupIndex(parent))
+            if bid and not mark:
+                try:
+                    backupid.write(parent, bid, m_owner, m_phone)
+                except OSError as e:
+                    ui.warn("  " + tr("Destination %d: could not mark the backup folder: %s", i, e))
         shutil.rmtree(d.tmp, ignore_errors=True)          # leftovers of an interrupted run
         d.tmp.mkdir(parents=True, exist_ok=True)
         dests.append(d)
+    if not dests:
+        raise RuntimeError(tr("No backup drive of this backup can be used (each one is another backup)."))
     if hasattr(source, "staging"):
         source.staging = dests[0].home / INTERNAL_DIR / "staging"
 
-    ui.info(tr("Reading the file list of the source folder ...") if mode == "import"
-            else tr("Reading the file list from the phone ..."))
-    files, missing = source.list_files(folders)
+    if listing is not None:                  # read just before by the check (precheck.run)
+        files, missing = listing
+    else:
+        ui.info(tr("Reading the file list of the source folder ...") if mode == "import"
+                else tr("Reading the file list from the phone ..."))
+        files, missing = source.list_files(folders)
     for m in missing:
         ui.warn("  " + (tr("Folder not found in the source folder: %s", m or source.root)
                         if mode == "import" else tr("Folder not found on the phone: %s", m or source.root)))
@@ -307,13 +355,34 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
         cat = classify(sf)
         (supported if cat else unsupported).append((sf, cat))
 
-    todo, already = [], 0
+    from . import reconcile
+    status = "COMPLETED"
+    # a backup folder that is not completely known (copied by hand, index lost …): phone files that
+    # are already in it are recognised and not copied again (user request 2026-11-22)
+    adopted = {}
+    try:
+        for d in dests:
+            if d.alive and reconcile.simple(d):
+                pend = [(sf, cat) for sf, cat in supported if not d.index.has(sf.source_key, sf.size)]
+                adopted[d] = reconcile.adopt(d, pend, source, cancel)[0]
+    except (KeyboardInterrupt, Cancelled):
+        status = "CANCELLED by user"
+
+    # a drive added later: what another drive of this backup already has comes drive to drive
+    # after the phone part (reconcile.fill_all), only the new files come from the phone
+    todo, already, later = [], 0, {}
     for sf, cat in supported:
         need = [d for d in dests if not d.index.has(sf.source_key, sf.size)]
-        if need:
-            todo.append((sf, cat, need))
+        own = [d for d in need if not reconcile.held_by_other(dests, d, sf)]
+        for d in need:
+            if d not in own:
+                later[d] = later.get(d, 0) + 1
+        if own:
+            todo.append((sf, cat, own))
         else:
             already += 1
+    if status != "COMPLETED":
+        todo = []
     total_bytes = sum(sf.size for sf, _, _ in todo)
 
     if mode == "import":
@@ -329,6 +398,12 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
     if unsupported:
         ui.info("  " + trp("%d other file is skipped (%s).", "%d other files are skipped (%s).",
                            len(unsupported), len(unsupported), _skip_text(source)))
+    for d, n in later.items():
+        ui.info("  " + trp("%s: %d file is already on another drive of this backup – it is copied from "
+                           "there after the new files (faster than from the phone).",
+                           "%s: %d files are already on another drive of this backup – they are copied "
+                           "from there after the new files (faster than from the phone).",
+                           n, shown(d.label), n))
 
     for d in dests:
         needed = sum(sf.size for sf, _, need in todo if d in need) + plans.carry_bytes(d)
@@ -340,13 +415,12 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
                                                  False):
                 d.alive, d.problem = False, both.tr("skipped: not enough free space")
 
-    status = "COMPLETED"
     results = []
     hasher = None
     switches = []                 # connection changes during the run (SourceSwitch)
     first_connection = _connection_text(source)
     prog = ui.Progress(len(todo), total_bytes)
-    if not any(d.alive for d in dests):
+    if not any(d.alive for d in dests) and status == "COMPLETED":
         status = "ABORTED (no usable destination)"
         todo = []
     try:
@@ -355,32 +429,40 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
             hasher.start()
         if todo and hasattr(source, "prefetch"):     # Wi-Fi phone app: fetch ahead
             source.prefetch([sf for sf, _, _ in todo])
+        def use(got, i):
+            """Continue over another connection from file i on (same run, same report)."""
+            nonlocal source, hasher
+            new, on_switch = got
+            if hasher:
+                hasher.stop()
+                hasher = None
+            old = source
+            try:
+                if on_switch:
+                    on_switch(old, new)
+            finally:
+                try:
+                    old.close()
+                except Exception:  # noqa: BLE001 - the old connection may be gone already
+                    pass
+            source = new
+            rest = todo[i - 1:]
+            if source.supports_phone_hash:
+                hasher = PhoneHasher(source, [s.rel for s, _, _ in rest])
+                hasher.start()
+            if hasattr(source, "prefetch"):
+                source.prefetch([s for s, _, _ in rest])
+            switches.append(both.tr("%s: %s → %s (after %d of %d files)", f"{datetime.now():%H:%M:%S}",
+                                    old.kind, new.kind, i - 1, len(todo)))
+            ui.ok(tr("Connection switched to %s – the backup continues (%d of %d files were already done).",
+                     tr(new.kind), i - 1, len(todo)))
+
         for i, (sf, cat, need) in enumerate(todo, 1):
             if cancel is not None and cancel.is_set():
                 raise Cancelled()
             got = switch.take() if switch is not None else None
             if got:                                   # faster connection: continue over it
-                new, on_switch = got
-                if hasher:
-                    hasher.stop()
-                    hasher = None
-                old = source
-                try:
-                    if on_switch:
-                        on_switch(old, new)
-                finally:
-                    old.close()
-                source = new
-                rest = todo[i - 1:]
-                if source.supports_phone_hash:
-                    hasher = PhoneHasher(source, [s.rel for s, _, _ in rest])
-                    hasher.start()
-                if hasattr(source, "prefetch"):
-                    source.prefetch([s for s, _, _ in rest])
-                switches.append(both.tr("%s: %s → %s (after %d of %d files)", f"{datetime.now():%H:%M:%S}",
-                                        old.kind, new.kind, i - 1, len(todo)))
-                ui.ok(tr("Connection switched to %s – the backup continues (%d of %d files were already done).",
-                         tr(new.kind), i - 1, len(todo)))
+                use(got, i)
             targets = [d for d in need if d.alive]
             if not targets:
                 r = FileResult(sf=sf, category=cat)
@@ -389,6 +471,16 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
                 results.append(r)
                 continue
             r = _copy_one(source, sf, cat, targets, hasher, cfg, prog, cancel, placement)
+            # the connection was lost during this file: wait for another one (e.g. cable pulled →
+            # Wi-Fi) and copy the file again over it – the backup is not incomplete (2026-11-23)
+            while (not r.ok and r.transfer_check.startswith("ERROR") and switch is not None
+                   and mode != "import" and not source.is_connected()):
+                ui.warn(tr("The connection to the phone was lost – looking for another way (e.g. Wi-Fi) …"))
+                got = switch.wait_for_new(cancel)
+                if not got:
+                    break
+                use(got, i)
+                r = _copy_one(source, sf, cat, targets, hasher, cfg, prog, cancel, placement)
             for d in need:
                 if d not in targets:
                     r.per_dest[d.label] = (both.tr("ERROR: destination unavailable (%s)", d.problem), "")
@@ -412,6 +504,15 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
             shutil.rmtree(d.tmp, ignore_errors=True)
             if hasattr(source, "staging"):
                 shutil.rmtree(d.home / INTERNAL_DIR / "staging", ignore_errors=True)
+    filled = {}
+    if not status.startswith("CANCELLED"):    # drives of this backup completed from each other
+        try:
+            filled = reconcile.fill_all(dests, cfg, cancel)
+        except (KeyboardInterrupt, Cancelled):
+            status = "CANCELLED by user"
+        finally:
+            for d in dests:
+                shutil.rmtree(d.tmp, ignore_errors=True)
     for d in dests:                           # everything in the index file before others read it
         d.index.commit()
     for d in dests:                           # GFS: full/differential also get the earlier files
@@ -423,7 +524,7 @@ def perform_backup(source, phone_name, owner, folders, dest_bases, cfg, interact
     paths, verdict = _write_backup_reports(source, phone_name, owner, folders, missing, dests, results,
                                            unsupported, len(supported), already, status, started,
                                            finished, duration, mode, source_label, parent_name,
-                                           first_connection, switches)
+                                           first_connection, switches, adopted, filled)
     for d in dests:
         d.index.close()
         plans.close(d)
@@ -464,7 +565,8 @@ def _record_history(cfg, source, phone_name, mode, parent_name, started, status,
 
 def _write_backup_reports(source, phone_name, owner, folders, missing, dests, results,
                           unsupported, n_supported, already, status, started, finished, duration,
-                          mode="backup", source_label="", parent_name="", first_connection=None, switches=()):
+                          mode="backup", source_label="", parent_name="", first_connection=None, switches=(),
+                          adopted=None, filled=None):
     """Reports in the chosen language; the report FILE name, the status and the verdict's English
     value stay English (the verdict is a report.Shown)."""
     importing = mode == "import"
@@ -481,13 +583,29 @@ def _write_backup_reports(source, phone_name, owner, folders, missing, dests, re
     def files_size(n, b):
         return trp("%d file, %s", "%d files, %s", n, n, ui.human_size(b))
 
-    all_ok = status == "COMPLETED" and not failed and all(d.alive for d in dests)
+    adopted, filled = adopted or {}, filled or {}
+    fill_errors = [(d, r.source_label, rel, why) for d, lst in filled.items() for r in lst
+                   for rel, why in r.errors]
+    all_ok = status == "COMPLETED" and not failed and not fill_errors and all(d.alive for d in dests)
     if all_ok:
-        verdict = both.trp("EVERYTHING COPIED CORRECTLY - %d new file (%s) secured and verified "
-                           "with SHA-256 on %d destination(s).",
-                           "EVERYTHING COPIED CORRECTLY - %d new files (%s) secured and verified "
-                           "with SHA-256 on %d destination(s).",
-                           total_n, total_n, ui.human_size(total_b), len(dests))
+        filled_n = sum(r.copied for lst in filled.values() for r in lst)
+        if total_n == 0 and not filled_n:      # plain words, no "0 new files" (UI test 2026-11-23)
+            verdict = both.trp("EVERYTHING ALREADY BACKED UP - no new photos or videos on the phone "
+                               "(checked on %d drive).",
+                               "EVERYTHING ALREADY BACKED UP - no new photos or videos on the phone "
+                               "(checked on %d drives).", len(dests), len(dests))
+        elif len(dests) == 1:
+            verdict = both.trp("EVERYTHING COPIED CORRECTLY - %d new file (%s) secured and verified "
+                               "with SHA-256 on 1 drive.",
+                               "EVERYTHING COPIED CORRECTLY - %d new files (%s) secured and verified "
+                               "with SHA-256 on 1 drive.",
+                               total_n, total_n, ui.human_size(total_b))
+        else:
+            verdict = both.trp("EVERYTHING COPIED CORRECTLY - %d new file (%s) secured and verified "
+                               "with SHA-256 on %d drives.",
+                               "EVERYTHING COPIED CORRECTLY - %d new files (%s) secured and verified "
+                               "with SHA-256 on %d drives.",
+                               total_n, total_n, ui.human_size(total_b), len(dests))
         if duplicates:
             verdict = verdict + " " + both.trp(
                 "%d identical duplicate was recognised and not stored twice.",
@@ -500,6 +618,10 @@ def _write_backup_reports(source, phone_name, owner, folders, missing, dests, re
         if failed:
             problems.append(both.trp("%d file with errors (see list)", "%d files with errors (see list)",
                                      len(failed), len(failed)))
+        if fill_errors:
+            problems.append(both.trp("%d file could not be copied from the other backup drive",
+                                     "%d files could not be copied from the other backup drive",
+                                     len(fill_errors), len(fill_errors)))
         for d in dests:
             if not d.alive:
                 problems.append(both.tr("%s: %s", d.label, d.problem))
@@ -566,6 +688,20 @@ def _write_backup_reports(source, phone_name, owner, folders, missing, dests, re
                         tr("%d files written, %s, %d errors", d.written, ui.human_size(d.written_bytes),
                            d.errors)),
                        (tr("%s whole backup", label), content or tr("empty"))]
+        a = adopted.get(d)
+        if a is not None and a.found:
+            dest_items.append((tr("%s already in the folder", label),
+                               tr("%d photos/videos recognised in the backup folder (not in its list before) – "
+                                  "%d by the phone path in the backup's reports, %d checked with the SHA-256 "
+                                  "on the phone, %d by name, size and SHA-256 of the backup file",
+                                  a.found, a.by_log, a.by_phone_hash, a.found - a.by_log - a.by_phone_hash)))
+        if a is not None and a.rejected:
+            dest_items.append((tr("%s same name, different content", label),
+                               tr("%d files (the phone's files were copied, the old ones stay)", a.rejected)))
+        for fr in filled.get(d, []):
+            dest_items.append((tr("%s copied from %s", label, fr.source_label),
+                               tr("%d files, %s – read back and SHA-256 compared; %d were already there; "
+                                  "%d errors", fr.copied, ui.human_size(fr.bytes), fr.already, len(fr.errors))))
         if getattr(d, "carried", 0):
             from .gfs import mode_name
             dest_items.append((tr("%s earlier files in this %s backup", label, mode_name(d.mode)),
@@ -581,8 +717,16 @@ def _write_backup_reports(source, phone_name, owner, folders, missing, dests, re
               (tr("Computer -> drive"), tr("every copy is flushed to disk, read back and its SHA-256 compared")),
               (tr("Interrupted copies"), tr("files are written as temporary files and only renamed after a "
                                             "successful check - there are no half-copied files"))]
+    if filled:
+        method.append((tr("Drive -> drive"), tr("files another backup drive already has are copied from it: "
+                                                "the source file's SHA-256 must match that drive's list, the "
+                                                "copy is flushed, read back and compared")))
     sections = [(tr("General"), general), (tr("Data secured"), data), (tr("Destinations"), dest_items),
                 (tr("Verification method"), method)]
+    if fill_errors:
+        sections.append((tr("Not copied from the other backup drive"),
+                         [(f"{shown(d.label)}: {rel}", tr("from %s: %s", src, why))
+                          for d, src, rel, why in fill_errors[:500]]))
 
     columns = [tr("Nr"), tr("File"), tr("Type"), tr("Size"), tr("Bytes"), tr("Date taken"), tr("Date from"),
                tr("Path in source") if importing else tr("Phone path"),
